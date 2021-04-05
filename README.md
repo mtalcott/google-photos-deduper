@@ -11,7 +11,7 @@ More recently, Google has improved duplicate detection upon upload, but that was
 I could solve this clearing out my Photos data and re-uploading everything. However, I don't want to lose all of my album organization and photo descriptions. So, I aim to fix my data in-place using the [Google Photos API](https://developers.google.com/photos) to detect duplicates using basic metadata (filename, height, width, etc.), add duplicates to an album, then remove them.
 
 ---
-<!--
+
 ## Prerequisites
 
 Install [Docker](https://www.docker.com/) on your system.
@@ -22,19 +22,13 @@ Install [Docker](https://www.docker.com/) on your system.
 
 Install [Docker Compose](http://docs.docker.com/compose/) on your system.
 
-* Python/pip: `sudo pip install -U docker-compose`
-* Other: ``curl -L https://github.com/docker/compose/releases/download/1.1.0/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose; chmod +x /usr/local/bin/docker-compose``
-
 ## Setup
 
-Run `docker-compose build`. It will
-
-* install [nodemon](https://github.com/remy/nodemon) globally in your container
-* install all dependencies from the package.json locally
-* expose port 8080 to the web host
-* instruct the container to execute `npm start` on start up.
+Run `docker-compose build`.
 
 ## Start
 
-Run `docker-compose up` to create and start the container. The app should then be running on port 8080.
--->
+<!-- Run `docker-compose up` to create and start the container. The app should then be running on port 8080. -->
+
+- Run `docker-compose run python python -m google_photos_deduper`.
+- Follow instructions in the interactive shell session.
