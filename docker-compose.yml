@@ -1,0 +1,11 @@
+version: '3.7'
+services:
+  mongo:
+    image: mongo:4.4
+  python:
+    build: .
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/test
+    depends_on:
+      - mongo
+    # command: [ "python", "-m", "google_photos_deduper" ]
