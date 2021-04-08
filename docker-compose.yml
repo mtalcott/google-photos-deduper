@@ -5,7 +5,11 @@ services:
   python:
     build: .
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/test
+      - MONGODB_URI=mongodb://mongo:27017/
+      - DATABASE=test
+      - ACCESS_TOKEN=$ACCESS_TOKEN
     depends_on:
       - mongo
+    volumes:
+      - ./:/usr/src/app
     # command: [ "python", "-m", "google_photos_deduper" ]
