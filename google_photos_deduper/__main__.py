@@ -38,13 +38,11 @@ def run():
         token = flow.fetch_token(code=auth_code)
         access_token = token['access_token']
 
-        print(f'Auth token (export to AUTH_TOKEN to bypass auth flow for debugging): {access_token}')
+        print(f'Auth token (export to ACCESS_TOKEN to bypass auth flow for debugging): {access_token}')
 
         # You can use flow.credentials, or you can just get a requests session
         # using flow.authorized_session.
         session = flow.authorized_session()
-
-    pprint.pp(session.get('https://www.googleapis.com/userinfo/v2/me').json())
 
     client = google_photos_deduper.google_photos.client.Client(session)
     client.run()
