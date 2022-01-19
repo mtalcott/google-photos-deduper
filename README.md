@@ -28,7 +28,9 @@ Run `docker-compose build`.
 
 ## Start
 
-<!-- Run `docker-compose up` to create and start the container. The app should then be running on port 8080. -->
-
 - Run `docker-compose run python python -m google_photos_deduper`.
 - Follow instructions in the interactive shell session.
+
+## Development
+
+-  Debugging with `debugpy`: `docker-compose run python python -m debugpy --listen 0.0.0.0:5678 -m google_photos_deduper`

@@ -10,6 +10,7 @@ google-auth-oauthlib = "*"
 pymongo = "*"
 
 [dev-packages]
+debugpy = "*"
 
 [requires]
 python_version = "3.9"

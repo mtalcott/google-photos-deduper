@@ -5,13 +5,16 @@ services:
     ports:
       - "27017:27017"
   python:
-    build: .
+    build:
+      context: .
+      target: debug
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
       - DATABASE=test
       - ACCESS_TOKEN=$ACCESS_TOKEN
+    ports:
+      - "5678:5678" # debugpy
     depends_on:
       - mongo
     volumes:
       - ./:/usr/src/app
-    # command: [ "python", "-m", "google_photos_deduper" ]
