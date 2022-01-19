@@ -2,16 +2,19 @@ import google_photos_deduper.google_photos.client
 from google_auth_oauthlib.flow import Flow
 import google.oauth2.credentials
 from google.auth.transport.requests import AuthorizedSession
-import os
+import os, logging
 import pprint
-
 
 def run():
     session = None
-
-    # Try to get the auth token from ENV
-    access_token = os.environ.get('ACCESS_TOKEN')
-
+    access_token = os.environ.get('ACCESS_TOKEN') # Try to get the auth token from ENV
+    logging.basicConfig(
+        encoding='utf-8',
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+    
+    # breakpoint()
     if access_token:
         credentials = google.oauth2.credentials.Credentials(access_token)
         session = AuthorizedSession(credentials)
@@ -38,7 +41,7 @@ def run():
         token = flow.fetch_token(code=auth_code)
         access_token = token['access_token']
 
-        print(f'Auth token (export to ACCESS_TOKEN to bypass auth flow for debugging): {access_token}')
+        logging.info(f'Auth token (export to ACCESS_TOKEN to bypass auth flow for debugging): {access_token}')
 
         # You can use flow.credentials, or you can just get a requests session
         # using flow.authorized_session.

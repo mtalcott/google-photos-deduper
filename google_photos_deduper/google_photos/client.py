@@ -6,7 +6,8 @@ from google.auth.transport.requests import AuthorizedSession
 from google_photos_deduper.media_items.repository import MediaItemsRepository
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-
+import logging
+import pprint
 
 class Client:
     """A simple class"""
@@ -19,7 +20,7 @@ class Client:
         self.repo = MediaItemsRepository(user_id=user_info['id'])
 
     def run(self):
-        max_items = 10_000
+        max_items = 100_000
         next_page_token = None
         item_count = 0
         params = {
@@ -36,8 +37,8 @@ class Client:
             )
             resp_json = resp.json()
 
-            # pprint.pp(resp_json)
-            # print(json.dumps(resp_json, indent=4, sort_keys=True))
+            # logging.info(pprint.pformat(resp_json))
+            # logging.info(json.dumps(resp_json, indent=4, sort_keys=True))
         
             if 'mediaItems' in resp_json:
                 for media_item_json in resp_json['mediaItems']:
@@ -46,13 +47,15 @@ class Client:
                 item_count += len(resp_json['mediaItems'])
             
             next_page_token = resp_json['nextPageToken']
+            if not next_page_token:
+                break
 
-            print(f'Retrieved {item_count} mediaItems so far')
+            logging.info(f'Retrieved {item_count} mediaItems so far')
 
-        print('Done')
+        logging.info('Done retrieving mediaItems')
 
         # for media_item in self.repo.all():
-        #     pprint.pp(media_item)
+        #     logging.info(pprint.pformat(media_item))
     
     def __configure_requests_session(self, session):
         # Automaticaly raise errors 
