@@ -39,7 +39,9 @@ class MediaItemsRepository:
 
     def all(self):
         return self.db.media_items.find()
-
+    
+    def count(self):
+        return self.db.media_items.count_documents({})
 
 class Error(Exception):
     """Base class for exceptions in this module."""

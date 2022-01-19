@@ -19,7 +19,10 @@ class Client:
         user_info = self.__get_user_info()
         self.repo = MediaItemsRepository(user_id=user_info['id'])
 
-    def run(self):
+    def local_media_items_count(self):
+        return self.repo.count()
+
+    def gather_media_items(self):
         max_items = 100_000
         next_page_token = None
         item_count = 0
@@ -58,7 +61,7 @@ class Client:
         #     logging.info(pprint.pformat(media_item))
     
     def __configure_requests_session(self, session):
-        # Automaticaly raise errors 
+        # Automatically raise errors 
         session.hooks = {
             'response': lambda r, *args, **kwargs: r.raise_for_status()
         }

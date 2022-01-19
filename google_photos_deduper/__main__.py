@@ -48,7 +48,16 @@ def run():
         session = flow.authorized_session()
 
     client = google_photos_deduper.google_photos.client.Client(session)
-    client.run()
+
+    local_media_items_count = client.local_media_items_count()
+    refresh = False
+    if local_media_items_count > 0:
+        refresh = input(f"{local_media_items_count:,} local mediaItems found. Do you want to refresh? (Enter \"y\" to refresh) ").startswith('y')
+    
+    if refresh:
+        client.gather_media_items()
+
+    # ...
 
 
 if __name__ == '__main__':
