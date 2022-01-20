@@ -7,6 +7,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google_photos_deduper.media_items.repository import MediaItemsRepository
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from requests.exceptions import HTTPError
 import logging
 import pprint
 import debugpy
@@ -66,15 +67,16 @@ class Client:
         # for media_item in self.repo.all():
         #     logging.info(pprint.pformat(media_item))
 
+    # TODO: The maximum number of mediaItems per album is 20,000. Add logic to split across multiple albums.
     def process_duplicates(self):
         logging.info("Processing duplicates (getting grouped mediaItems)...")
 
-        grouped_media_items = list(self.repo.get_grouped_media_items())
-        num_groups = len(grouped_media_items)
-        num_duplicates = sum([len(group['ids']) for group in grouped_media_items])
+        media_item_groups = list(self.repo.get_media_item_groups())
+        num_groups = len(media_item_groups)
+        num_duplicates = sum([len(group['ids']) for group in media_item_groups])
 
         logging.info(f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups")
-        # for group in grouped_media_items:
+        # for group in media_item_groups:
         #     for line in pprint.pformat(group).splitlines():
         #         logging.info(line)
 
@@ -82,7 +84,29 @@ class Client:
 
         # logging.info(pprint.pformat(album))
 
-        # TODO: Add duplicate mediaItems to album, with a reference to the "original" mediaItem (and maybe some attributes about both)
+        duplicate_media_items = []
+
+        for group in media_item_groups:
+            group_attributes = group['_id'] # filename, mimeType, height, width
+            mongo_ids = group['_ids']
+            media_item_ids = group['ids']
+            group_count = group['count']
+
+            # These are already sorted by creationDate asc, so the original mediaItem is the first one
+            original_media_item_id = media_item_ids[0]
+
+            for media_item_id in media_item_ids:
+                if media_item_id == original_media_item_id:
+                    continue
+
+                duplicate_media_items.append({
+                    "id": media_item_id,
+                    "duplicate_of": original_media_item_id
+                })
+
+        # debugpy.breakpoint()
+        print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
+        self.__add_media_items_to_album(duplicate_media_items, album['id'])
 
     def __find_or_create_album(self):
         album_title = f"google-photos-deduper-python userid-{self.user_id}"
@@ -102,13 +126,13 @@ class Client:
     def __find_existing_album_with_name(self, album_title):
         next_page_token = None
         request_data = {
-            # "pageSize": 100 # Appears to be unsupported on albums.list, results in a 400 response
+            "pageSize": 50 # Max 50 for albums.list
         }
 
         while True:
             if (next_page_token):
                 request_data['pageToken'] = next_page_token
-
+            
             resp = self.session.get(
                 'https://photoslibrary.googleapis.com/v1/albums',
                 params=request_data # When specified as json, results in a 400 response. Using params instead.
@@ -137,11 +161,35 @@ class Client:
 
         resp = self.session.post(
                 'https://photoslibrary.googleapis.com/v1/albums',
-                json=request_data # When specified as json, results in a 400 response. Using params instead.
+                json=request_data
             )
         resp_json = resp.json()
 
         return resp_json
+    
+    def __add_media_items_to_album(self, media_items, album_id):
+        media_item_ids = [i['id'] for i in media_items]
+
+        # Chunk into groups of 50, otherwise 400 errors occur
+        media_item_id_chunks = (media_item_ids[i:i + 50] for i in range(0, len(media_item_ids), 50))
+        for chunk in media_item_id_chunks:
+
+            request_data = {
+                "mediaItemIds": chunk
+            }
+
+            try:
+                resp = self.session.post(
+                        f'https://photoslibrary.googleapis.com/v1/albums/{album_id}:batchAddMediaItems',
+                        json=request_data   
+                    )
+                resp_json = resp.json()
+
+                return resp_json
+            except HTTPError as error:
+                # TODO: See if there's a way around these "Request contains an invalid media item id." 400 errors
+                debugpy.breakpoint()
+                pass
     
     def __configure_requests_session(self, session):
         # Automatically raise errors 

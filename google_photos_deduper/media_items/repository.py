@@ -41,13 +41,13 @@ class MediaItemsRepository:
         return self.db.media_items.insert_one(attributes)
 
     def all(self):
-        return self.db.media_items.find()
+        return list(self.db.media_items.find())
     
     def count(self):
         return self.db.media_items.count_documents({})
 
-    def get_grouped_media_items(self):
-        return self.db.media_items.aggregate([
+    def get_media_item_groups(self):
+        results = self.db.media_items.aggregate([
             # TODO: Re-add logic to filter down to the current userId
             # {
             #     # Filter down to this user's media items
@@ -56,6 +56,10 @@ class MediaItemsRepository:
             #     }
             # },
             {
+                # Order by creationTime ascending, so we can easily identify
+                #   the earliest created mediaItem as the original
+                "$sort": {"mediaMetadata.creationTime": 1}
+            }, {
                 # Group by attributes that indicate duplicate media items
                 "$group": {
                     "_id": {
@@ -75,6 +79,8 @@ class MediaItemsRepository:
                 }
             }
         ])
+
+        return list(results)
 
 class Error(Exception):
     """Base class for exceptions in this module."""
