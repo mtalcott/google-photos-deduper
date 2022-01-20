@@ -1,5 +1,6 @@
 # import google.auth
 # import requests
+from textwrap import indent
 from google.auth.transport.requests import AuthorizedSession
 # import pprint
 # import json
@@ -8,6 +9,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import logging
 import pprint
+import debugpy
 
 class Client:
     """A simple class"""
@@ -22,13 +24,15 @@ class Client:
     def local_media_items_count(self):
         return self.repo.count()
 
-    def gather_media_items(self):
+    def retrieve_media_items(self):
         max_items = 100_000
         next_page_token = None
         item_count = 0
         params = {
             "pageSize": 100
         }
+
+        logging.info('Retrieving mediaItems...')
         
         while item_count < max_items:
             if (next_page_token):
@@ -59,6 +63,17 @@ class Client:
 
         # for media_item in self.repo.all():
         #     logging.info(pprint.pformat(media_item))
+
+    def process_duplicates(self):
+        logging.info("Processing duplicates (getting grouped mediaItems)...")
+
+        grouped_media_items = list(self.repo.get_grouped_media_items())
+
+        for group in grouped_media_items:
+            for line in pprint.pformat(group).splitlines():
+                logging.info(line)
+        
+        logging.info("Done processing duplicates")
     
     def __configure_requests_session(self, session):
         # Automatically raise errors 

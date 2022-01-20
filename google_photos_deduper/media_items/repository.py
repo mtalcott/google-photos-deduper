@@ -29,19 +29,52 @@ class MediaItemsRepository:
         pass
     
     def create_if_not_exists(self, attributes: dict):
-        existing = self.db.media_items.find_one({'id': attributes['id']})
+        existing = self.db.media_items.find_one({
+            'id':     attributes['id'],
+            'userId': self.user_id})
+        
         if existing:
             return existing
         
-        return self.db.media_items.insert_one(
-            {k:v for (k,v) in attributes.items() if k in MediaItemsRepository.attribute_names}
-        )
+        attributes = {k:v for (k,v) in attributes.items() if k in MediaItemsRepository.attribute_names}
+        attributes['userId'] = self.user_id
+        return self.db.media_items.insert_one(attributes)
 
     def all(self):
         return self.db.media_items.find()
     
     def count(self):
         return self.db.media_items.count_documents({})
+
+    def get_grouped_media_items(self):
+        return self.db.media_items.aggregate([
+            # TODO: Re-add logic to filter down to the current userId
+            # {
+            #     # Filter down to this user's media items
+            #     "$match": {
+            #         "userId": self.user_id
+            #     }
+            # },
+            {
+                # Group by attributes that indicate duplicate media items
+                "$group": {
+                    "_id": {
+                        "filename": "$filename",
+                        "mimeType": "$mimeType",
+                        "height":   "$mediaMetadata.height",
+                        "width":    "$mediaMetadata.width"
+                    },
+                    "count": {"$sum": 1},
+                    "_ids":  {"$push": "$_id"}, # Mongo ids
+                    "ids":   {"$push": "$id"}   # mediaItem ids
+                }
+            }, {
+                # Filter down to only groups that contain duplicates
+                "$match": {
+                    "count": {"$gt": 1}
+                }
+            }
+        ])
 
 class Error(Exception):
     """Base class for exceptions in this module."""

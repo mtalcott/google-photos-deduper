@@ -55,9 +55,9 @@ def run():
         refresh = input(f"{local_media_items_count:,} local mediaItems found. Do you want to refresh? (Enter \"y\" to refresh) ").startswith('y')
     
     if refresh:
-        client.gather_media_items()
+        client.retrieve_media_items()
 
-    # ...
+    client.process_duplicates()
 
 
 if __name__ == '__main__':
