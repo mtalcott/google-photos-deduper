@@ -18,6 +18,7 @@ class Client:
         self.__configure_requests_session(session)
         self.session = session
 
+        # TODO: Handle requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://www.googleapis.com/userinfo/v2/me
         user_info = self.__get_user_info()
         self.user_id = user_info['id']
         self.repo = MediaItemsRepository(user_id=self.user_id)
@@ -41,7 +42,7 @@ class Client:
 
             resp = self.session.get(
                 'https://photoslibrary.googleapis.com/v1/mediaItems',
-                json=request_data
+                params=request_data
             )
             resp_json = resp.json()
 
@@ -58,9 +59,9 @@ class Client:
             if not next_page_token:
                 break
 
-            logging.info(f'Retrieved {item_count} mediaItems so far')
+            logging.info(f'Retrieved {item_count:,} mediaItems so far')
 
-        logging.info('Done retrieving mediaItems')
+        logging.info(f"Done retrieving mediaItems, {item_count:,} total")
 
         # for media_item in self.repo.all():
         #     logging.info(pprint.pformat(media_item))
@@ -69,12 +70,13 @@ class Client:
         logging.info("Processing duplicates (getting grouped mediaItems)...")
 
         grouped_media_items = list(self.repo.get_grouped_media_items())
+        num_groups = len(grouped_media_items)
+        num_duplicates = sum([len(group['ids']) for group in grouped_media_items])
 
+        logging.info(f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups")
         # for group in grouped_media_items:
         #     for line in pprint.pformat(group).splitlines():
         #         logging.info(line)
-        
-        logging.info("Done processing duplicates")
 
         album = self.__find_or_create_album()
 
