@@ -19,7 +19,8 @@ class Client:
         self.session = session
 
         user_info = self.__get_user_info()
-        self.repo = MediaItemsRepository(user_id=user_info['id'])
+        self.user_id = user_info['id']
+        self.repo = MediaItemsRepository(user_id=self.user_id)
 
     def local_media_items_count(self):
         return self.repo.count()
@@ -28,7 +29,7 @@ class Client:
         max_items = 100_000
         next_page_token = None
         item_count = 0
-        params = {
+        request_data = {
             "pageSize": 100
         }
 
@@ -36,11 +37,11 @@ class Client:
         
         while item_count < max_items:
             if (next_page_token):
-                params['pageToken'] = next_page_token
+                request_data['pageToken'] = next_page_token
 
             resp = self.session.get(
                 'https://photoslibrary.googleapis.com/v1/mediaItems',
-                params=params
+                json=request_data
             )
             resp_json = resp.json()
 
@@ -53,7 +54,7 @@ class Client:
                 
                 item_count += len(resp_json['mediaItems'])
             
-            next_page_token = resp_json['nextPageToken']
+            next_page_token = resp_json.get('nextPageToken', None)
             if not next_page_token:
                 break
 
@@ -69,11 +70,76 @@ class Client:
 
         grouped_media_items = list(self.repo.get_grouped_media_items())
 
-        for group in grouped_media_items:
-            for line in pprint.pformat(group).splitlines():
-                logging.info(line)
+        # for group in grouped_media_items:
+        #     for line in pprint.pformat(group).splitlines():
+        #         logging.info(line)
         
         logging.info("Done processing duplicates")
+
+        album = self.__find_or_create_album()
+
+        # logging.info(pprint.pformat(album))
+
+        # TODO: Add duplicate mediaItems to album, with a reference to the "original" mediaItem (and maybe some attributes about both)
+
+    def __find_or_create_album(self):
+        album_title = f"google-photos-deduper-python userid-{self.user_id}"
+
+        logging.info("Looking for an existing album...")
+        existing_album = self.__find_existing_album_with_name(album_title)
+
+        if existing_album:
+            logging.info(f"Existing album \"{album_title}\" found")
+            return existing_album
+
+        new_album = self.__create_album_with_name(album_title)
+        logging.info(f"No existing album found, created new album \"{album_title}\"")
+
+        return new_album 
+
+    def __find_existing_album_with_name(self, album_title):
+        next_page_token = None
+        request_data = {
+            # "pageSize": 100 # Appears to be unsupported on albums.list, results in a 400 response
+        }
+
+        while True:
+            if (next_page_token):
+                request_data['pageToken'] = next_page_token
+
+            resp = self.session.get(
+                'https://photoslibrary.googleapis.com/v1/albums',
+                params=request_data # When specified as json, results in a 400 response. Using params instead.
+            )
+            resp_json = resp.json()
+
+            # logging.info(pprint.pformat(resp_json))
+        
+            if 'albums' in resp_json:
+                for album_json in resp_json['albums']:
+                    if album_json.get('title', None) == album_title:
+                        return album_json
+
+            next_page_token = resp_json.get('nextPageToken', None)
+            if not next_page_token:
+                break
+
+        return None
+
+    def __create_album_with_name(self, album_title):
+        request_data = {
+            "album": {
+                "title": album_title
+            }
+        }
+
+        resp = self.session.post(
+                'https://photoslibrary.googleapis.com/v1/albums',
+                json=request_data # When specified as json, results in a 400 response. Using params instead.
+            )
+        resp_json = resp.json()
+
+        return resp_json
     
     def __configure_requests_session(self, session):
         # Automatically raise errors 

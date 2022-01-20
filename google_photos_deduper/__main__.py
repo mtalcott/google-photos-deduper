@@ -27,7 +27,7 @@ def run():
                 'openid',
                 'https://www.googleapis.com/auth/userinfo.profile',
                 'https://www.googleapis.com/auth/userinfo.email',
-                'https://www.googleapis.com/auth/photoslibrary'
+                'https://www.googleapis.com/auth/photoslibrary' # Access to both the photoslibrary.appendonly and photoslibrary.readonly scopes. Doesn't include photoslibrary.sharing or photoslibrary.edit access.
             ],
             redirect_uri='urn:ietf:wg:oauth:2.0:oob')
 
