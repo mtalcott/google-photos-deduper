@@ -50,7 +50,7 @@ def run():
     client = google_photos_deduper.google_photos.client.Client(session)
 
     local_media_items_count = client.local_media_items_count()
-    refresh = False
+    refresh = True
     if local_media_items_count > 0:
         refresh = input(f"{local_media_items_count:,} local mediaItems found. Do you want to refresh? (Enter \"y\" to refresh) ").startswith('y')
     
