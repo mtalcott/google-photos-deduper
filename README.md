@@ -33,4 +33,5 @@ Run `docker-compose build`.
 
 ## Development
 
--  Debugging with `debugpy`: `docker-compose run python python -m debugpy --listen 0.0.0.0:5678 -m google_photos_deduper`
+-  Debugging with `debugpy`: `docker-compose run --service-ports python python -m debugpy --listen 0.0.0.0:5678 -m google_photos_deduper`
+    - Add a `debugpy.wait_for_client()` and `debugpy.breakpoint()` to the code
