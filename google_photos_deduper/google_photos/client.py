@@ -188,6 +188,9 @@ class Client:
                 return resp_json
             except HTTPError as error:
                 # TODO: See if there's a way around these "Request contains an invalid media item id." 400 errors
+                # 
+                # Unfortunately, according to https://developers.google.com/photos/library/guides/manage-albums#creating-new-album:
+                # > You can only add media items that have been uploaded by your application to albums that your application has created
                 debugpy.breakpoint()
                 pass
     
