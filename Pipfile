@@ -5,9 +5,14 @@ name = "pypi"
 
 [packages]
 requests = "*"
+pymongo = "*"
+google-api-python-client = "*"
+flask = "*"
 google-auth = "*"
 google-auth-oauthlib = "*"
-pymongo = "*"
+google-auth-httplib2 = "*"
+python-dotenv = "*"
+gunicorn = "*"
 
 [dev-packages]
 debugpy = "*"

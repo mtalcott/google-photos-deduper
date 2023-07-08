@@ -4,15 +4,22 @@ services:
     image: mongo:4.4
     ports:
       - "27017:27017"
-  python:
+  backend:
     build:
       context: .
       target: debug
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
       - DATABASE=test
-      - ACCESS_TOKEN=$ACCESS_TOKEN
+      - FLASK_DEBUG=1
+      - FLASK_APP=./app.py
+      # - FLASK_SECRET_KEY=XYZ
+      - FLASK_SERVER_NAME=localhost:3000
+      # - GOOGLE_CLIENT_ID=ABC
+      # - GOOGLE_CLIENT_SECRET=XYZ
+      - OAUTHLIB_INSECURE_TRANSPORT=1
     ports:
+      - "3000:5000" # flask
       - "5678:5678" # debugpy
     depends_on:
       - mongo

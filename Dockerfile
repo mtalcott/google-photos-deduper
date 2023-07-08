@@ -12,10 +12,10 @@ COPY . .
 FROM base as debug
 RUN pip install --no-cache-dir -r requirements-dev.txt
 
-CMD python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m google_photos_deduper
+CMD python -m debugpy --listen 0.0.0.0:5678 -m flask run --host 0.0.0.0
 
 ########### START NEW IMAGE : PROD ####################
 
 FROM base as prod
 
-CMD python -m google_photos_deduper
+CMD gunicorn -b 0.0.0.0:5000 app:app
