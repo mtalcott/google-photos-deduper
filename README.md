@@ -47,9 +47,11 @@ Install [Docker Compose](http://docs.docker.com/compose/) on your system.
 
 Generate an app client secret file.
 
-- Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID using Google Developer Console.
-- Download your client secret file and place in this project's main directory.
-- Update the reference [here](main/google_photos_deduper/__main__.py#L25).
+- Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID for a web application using Google Developer Console.
+- Download your client secret file.
+- `cp .example.env .env`
+- Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
+- Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file you downloaded.
 
 ## Setup
 
@@ -57,10 +59,10 @@ Run `docker-compose build`.
 
 ## Start
 
-- Run `docker-compose run python python -m google_photos_deduper`.
-- Follow instructions in the interactive shell session.
+- Run `docker-compose up`.
+- Load [http://localhost:3000](http://localhost:3000).
 
 ## Development
 
--  Debugging with `debugpy`: `docker-compose run --service-ports python python -m debugpy --listen 0.0.0.0:5678 -m google_photos_deduper`
-    - Add a `debugpy.wait_for_client()` and `debugpy.breakpoint()` to the code
+- Flask is set to debug mode, so live reloading is enabled.
+- Debugging with `debugpy` is supported. See `launch.json`.
