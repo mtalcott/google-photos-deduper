@@ -27,7 +27,10 @@ def index():
 
 @app.route("/start")
 def start():
-    flow = __get_flow()
+    if 'active_job_id' in flask.session:
+        return flask.redirect(flask.url_for('active_job_status'))
+
+    flow = __get_oauth_flow()
 
     # Generate URL for request to Google's OAuth 2.0 server.
     # Use kwargs to set optional request parameters.
@@ -47,7 +50,7 @@ def start():
 @app.route("/auth/google/callback")
 def callback():
     state = flask.session['state']
-    flow = __get_flow(state=state)
+    flow = __get_oauth_flow(state=state)
     flow.fetch_token(authorization_response=flask.request.url)
 
     # Store the credentials in the session.
@@ -60,10 +63,30 @@ def callback():
         'client_id': credentials.client_id,
         'client_secret': credentials.client_secret,
         'scopes': credentials.scopes}
+    
+    app.logger.info(flask.session['credentials'])
 
-    return f"<p>Alrighty then.</p>"
+    # TODO: Kick off a job to start processing
+    flask.session['active_job_id'] = 1
 
-def __get_flow(state=None):
+    return flask.redirect(flask.url_for('active_job_status'))
+
+@app.route("/status")
+def active_job_status():
+    active_job_id = flask.session['active_job_id']
+    app.logger.info(f"active_job_id: {active_job_id}")
+    
+    # TODO: Get status for the active job and display info about it
+    # TODO: Get some websockets going to live update the page
+    # TODO: React?
+    return 'Status: not started'
+
+@app.route("/logout")
+def logout():
+    flask.session.clear()
+    return flask.redirect(flask.url_for('index'))
+
+def __get_oauth_flow(state=None):
     flow = google_auth_oauthlib.flow.Flow.from_client_config(
         {
             "web": {

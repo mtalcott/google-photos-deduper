@@ -20,8 +20,8 @@ Here's what this tool currently does, and what still needs to be added for it to
 
 - Authorization
   - [x] Obtain user authorization to access the [Google Photos API](https://developers.google.com/photos/library/guides/overview) via the OAuth 2.0 [Out-Of-Band (OOB) flow](https://developers.google.com/identity/protocols/oauth2/native-app#manual-copypaste) using an [app client secret file](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) (not provided).
-  - [ ] TODO: Now that the OOB flow has been deprecated as of October 2022, [migrate to a more secure, web-based flow](https://developers.google.com/identity/protocols/oauth2/resources/oob-migration).
-  - [ ] TODO: Import the client secret file via an environment variable.
+  - [x] Now that the OOB flow has been deprecated as of October 2022, [migrate to a more secure, web-based flow](https://developers.google.com/identity/protocols/oauth2/resources/oob-migration).
+  - [x] Import the client secret file via an environment variable.
 - Duplicate detection
   - [x] Populate a MongoDB database with media item metadata.
     - [ ] TODO: Segment data by userId.
