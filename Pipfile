@@ -16,6 +16,7 @@ gunicorn = "*"
 
 [dev-packages]
 debugpy = "*"
+watchdog = "*"
 
 [requires]
 python_version = "3.9"

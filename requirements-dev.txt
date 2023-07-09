@@ -1,1 +1,2 @@
 debugpy==1.6.7
+watchdog==3.0.0
