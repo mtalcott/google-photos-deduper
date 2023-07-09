@@ -1,5 +1,7 @@
 import flask
+import celery
 from . import utils
+from . import tasks
 
 # Flask app setup
 app = flask.Flask(__name__)
@@ -11,11 +13,10 @@ def index():
 
 @app.route("/start")
 def start():
-    if 'active_job_id' in flask.session:
-        return flask.redirect(flask.url_for('active_job_status'))
+    if 'active_task_id' in flask.session:
+        return flask.redirect(flask.url_for('active_task_status'))
 
-    authorization_url, state = utils.get_authorization_url(
-        redirect_url=__get_oauth_redirect_url())
+    authorization_url, state = utils.get_authorization_url()
 
     flask.session['state'] = state
 
@@ -26,9 +27,8 @@ def start():
 def callback():
     state = flask.session['state']
     credentials = utils.get_credentials(
-        redirect_url=__get_oauth_redirect_url(),
-        state=state,
-        authorization_response=flask.request.url)
+        state,
+        flask.request.url)
 
     # Store the credentials in the session.
     # TODO: Store in database
@@ -39,31 +39,33 @@ def callback():
         'client_id': credentials.client_id,
         'client_secret': credentials.client_secret,
         'scopes': credentials.scopes}
-    
+
     app.logger.info(flask.session['credentials'])
 
     # TODO: Kick off a job to start processing
-    flask.session['active_job_id'] = 1
+    result = tasks.process_duplicates.delay()
+    flask.session['active_task_id'] = result.id
 
-    return flask.redirect(flask.url_for('active_job_status'))
+    return flask.redirect(flask.url_for('active_task_status'))
 
 @app.route("/status")
-def active_job_status():
-    active_job_id = flask.session['active_job_id']
-    app.logger.info(f"active_job_id: {active_job_id}")
+def active_task_status():
+    if 'active_task_id' not in flask.session:
+        return 'No active task found'
+    
+    active_task_id = flask.session['active_task_id']
+    app.logger.info(f"active_task_id: {active_task_id}")
     
     # TODO: Get status for the active job and display info about it
+    result = tasks.process_duplicates.AsyncResult(active_task_id)
     # TODO: Get some websockets going to live update the page
     # TODO: React?
-    return 'Status: not started'
+    return f"Status is {result.status}"
 
 @app.route("/logout")
 def logout():
     flask.session.clear()
     return flask.redirect(flask.url_for('index'))
-
-def __get_oauth_redirect_url():
-    return flask.url_for('callback', _external=True)
 
 if __name__ == "__main__":
     app.run()

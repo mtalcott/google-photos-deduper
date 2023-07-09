@@ -19,3 +19,6 @@ debugpy = "*"
 
 [requires]
 python_version = "3.9"
+
+[packages.celery]
+extras = [ "redis",]

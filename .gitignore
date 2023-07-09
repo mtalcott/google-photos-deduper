@@ -2,3 +2,4 @@ __pycache__/
 .vscode/
 client_secret*
 .env*
+.venv/
