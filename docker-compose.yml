@@ -8,10 +8,10 @@ services:
     image: redis:7
     ports:
       - '6379:6379'
-  backend:
+  server:
     build:
       context: .
-      target: debug
+      target: dev-server
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
       - DATABASE=test
@@ -25,6 +25,27 @@ services:
     ports:
       - "3000:5000" # flask
       - "5678:5678" # debugpy
+    depends_on:
+      - mongo
+      - redis
+    volumes:
+      - ./:/usr/src/app
+  worker:
+    build:
+      context: .
+      target: dev-worker
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/
+      - DATABASE=test
+      - FLASK_DEBUG=1
+      - FLASK_APP=./app.py
+      # - FLASK_SECRET_KEY=XYZ
+      - FLASK_SERVER_NAME=localhost:3000
+      # - GOOGLE_CLIENT_ID=ABC
+      # - GOOGLE_CLIENT_SECRET=XYZ
+      - OAUTHLIB_INSECURE_TRANSPORT=1
+    ports:
+      - "5679:5678" # debugpy
     depends_on:
       - mongo
       - redis
