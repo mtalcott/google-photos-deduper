@@ -1,6 +1,9 @@
+import logging
+import pprint
 import google_auth_oauthlib.flow
 import flask
 from . import config
+from . import APP as app
 
 # Generate URL for request to Google's OAuth 2.0 server.
 # Use kwargs to set optional request parameters.
@@ -20,11 +23,6 @@ def get_credentials(state: str, authorization_response: dict) -> str:
     flow = __get_oauth_flow(state)
     flow.fetch_token(authorization_response=authorization_response)
     return flow.credentials
-
-def get_authorized_session(credentials):
-    flow = __get_oauth_flow()
-    flow.credentials = credentials
-    return flow.authorized_session()
 
 def __get_oauth_flow(state: str=None) -> google_auth_oauthlib.flow.Flow:
     flow = google_auth_oauthlib.flow.Flow.from_client_config(

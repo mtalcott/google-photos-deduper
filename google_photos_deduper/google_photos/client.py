@@ -1,10 +1,12 @@
 # import google.auth
 # import requests
 from textwrap import indent
+import googleapiclient.discovery
 from google.auth.transport.requests import AuthorizedSession
 # import pprint
 # import json
 from google_photos_deduper.media_items.repository import MediaItemsRepository
+import google.oauth2.credentials
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from requests.exceptions import HTTPError
@@ -15,8 +17,15 @@ import debugpy
 class Client:
     """A simple class"""
 
-    def __init__(self, session: AuthorizedSession):
-        self.__configure_requests_session(session)
+    def __init__(self, credentials: dict):
+        credentials_obj = google.oauth2.credentials.Credentials(**credentials)
+
+        self.api_client = googleapiclient.discovery.build(
+            'photoslibrary', 'v1', credentials=credentials_obj,
+            static_discovery=False)
+
+        # self.__configure_requests_session(session)
+        raise "TODO: implement with googleapiclient"
         self.session = session
 
         # TODO: Handle requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://www.googleapis.com/userinfo/v2/me

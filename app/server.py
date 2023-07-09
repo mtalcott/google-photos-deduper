@@ -1,21 +1,21 @@
 import flask
-import celery
+from . import APP as app
 from . import utils
 from . import tasks
 
-# Flask app setup
-app = flask.Flask(__name__)
-app.config.from_prefixed_env()
-
 @app.route("/")
 def index():
-    return "<a href=\"/start\">Get started!</a>"
-
-@app.route("/start")
-def start():
     if 'active_task_id' in flask.session:
-        return flask.redirect(flask.url_for('active_task_status'))
+        return f"<p>\
+            <a href=\"{flask.url_for('active_task_status')}\">View results</a>\
+        </p>"
+    else:
+        return f"<p>\
+             <a href=\"{flask.url_for('start')}\">Get started</a>\
+        </p>"
 
+@app.route("/auth/google")
+def auth():
     authorization_url, state = utils.get_authorization_url()
 
     flask.session['state'] = state
@@ -40,10 +40,20 @@ def callback():
         'client_secret': credentials.client_secret,
         'scopes': credentials.scopes}
 
-    app.logger.info(flask.session['credentials'])
+    return flask.redirect(flask.url_for('start'))
+
+@app.route("/start")
+def start():
+    if 'credentials' not in flask.session:
+        # TODO: Make sure credentials are VALID, too
+        return flask.redirect(flask.url_for('auth'))
+
+    # TODO: Save credentials in database rather than session
+    credentials = flask.session['credentials']
+    app.logger.info(f"Creating task with credentials: {credentials}")
 
     # TODO: Kick off a job to start processing
-    result = tasks.process_duplicates.delay()
+    result = tasks.process_duplicates.delay(credentials)
     flask.session['active_task_id'] = result.id
 
     return flask.redirect(flask.url_for('active_task_status'))
@@ -60,7 +70,11 @@ def active_task_status():
     result = tasks.process_duplicates.AsyncResult(active_task_id)
     # TODO: Get some websockets going to live update the page
     # TODO: React?
-    return f"Status is {result.status}"
+    return f"<p>\
+        Status: {result.status}\
+    </p><p>\
+        <a href=\"{flask.url_for('start')}\">Start over</a>\
+    </p>"
 
 @app.route("/logout")
 def logout():
