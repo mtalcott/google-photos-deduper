@@ -30,17 +30,11 @@ def auth():
 def callback():
     state = flask.session["state"]
     credentials = utils.get_credentials(state, flask.request.url)
+    credentials_dict = credentials_to_dict(credentials)
 
     # Store the credentials in the session.
     # TODO: Store in database
-    flask.session["credentials"] = {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": credentials.scopes,
-    }
+    flask.session["credentials"] = credentials_dict
 
     return flask.redirect(flask.url_for("start"))
 
@@ -85,6 +79,17 @@ def active_task_status():
 def logout():
     flask.session.clear()
     return flask.redirect(flask.url_for("index"))
+
+
+def credentials_to_dict(credentials):
+    return {
+        "token": credentials.token,
+        "refresh_token": credentials.refresh_token,
+        "token_uri": credentials.token_uri,
+        "client_id": credentials.client_id,
+        "client_secret": credentials.client_secret,
+        "scopes": credentials.scopes,
+    }
 
 
 if __name__ == "__main__":
