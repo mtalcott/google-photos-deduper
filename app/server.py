@@ -53,7 +53,8 @@ def start():
     app.logger.info(f"Creating task with credentials: {credentials}")
 
     # TODO: Kick off a job to start processing
-    result = tasks.process_duplicates.delay(credentials)
+    result = tasks.process_duplicates.delay(credentials,
+                                            refresh_media_items=True)
     flask.session['active_task_id'] = result.id
 
     return flask.redirect(flask.url_for('active_task_status'))

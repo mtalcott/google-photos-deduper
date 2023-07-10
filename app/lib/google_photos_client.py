@@ -35,7 +35,7 @@ class GooglePhotosClient:
         return self.repo.count()
 
     def retrieve_media_items(self):
-        max_items = 10_000
+        max_items = 1_000
         next_page_token = None
         item_count = 0
         request_data = {
