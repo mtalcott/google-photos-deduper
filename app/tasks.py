@@ -1,9 +1,9 @@
 import celery
 import celery.utils.log
 import app.lib.google_photos_client
-from . import utils
-from . import server # required for building URLs
-from . import CELERY_APP as celery_app
+from app import utils
+from app import server # required for building URLs
+from app import CELERY_APP as celery_app
 
 logger = celery.utils.log.get_logger(__name__)
 
