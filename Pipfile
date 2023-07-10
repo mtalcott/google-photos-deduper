@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 requests = "*"
 pymongo = "*"
-google-api-python-client = "*"
 flask = "*"
 google-auth = "*"
 google-auth-oauthlib = "*"
