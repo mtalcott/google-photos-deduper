@@ -1,12 +1,12 @@
 # import google.auth
 # import requests
 from textwrap import indent
-import googleapiclient.discovery
-from google.auth.transport.requests import AuthorizedSession
+import google.oauth2.credentials
+import google.auth.transport.requests
 # import pprint
 # import json
-from google_photos_deduper.media_items.repository import MediaItemsRepository
-import google.oauth2.credentials
+import app.models.media_items_repository 
+
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from requests.exceptions import HTTPError
@@ -14,30 +14,28 @@ import logging
 import pprint
 import debugpy
 
-class Client:
+class GooglePhotosClient:
     """A simple class"""
 
     def __init__(self, credentials: dict):
         credentials_obj = google.oauth2.credentials.Credentials(**credentials)
+        session = google.auth.transport.requests.AuthorizedSession(
+            credentials_obj)
 
-        self.api_client = googleapiclient.discovery.build(
-            'photoslibrary', 'v1', credentials=credentials_obj,
-            static_discovery=False)
-
-        # self.__configure_requests_session(session)
-        raise "TODO: implement with googleapiclient"
+        self.__configure_requests_session(session)
         self.session = session
 
         # TODO: Handle requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://www.googleapis.com/userinfo/v2/me
         user_info = self.__get_user_info()
         self.user_id = user_info['id']
-        self.repo = MediaItemsRepository(user_id=self.user_id)
+        self.repo = app.models.media_items_repository.MediaItemsRepository(
+            user_id=self.user_id)
 
     def local_media_items_count(self):
         return self.repo.count()
 
     def retrieve_media_items(self):
-        max_items = 100_000
+        max_items = 10_000
         next_page_token = None
         item_count = 0
         request_data = {
@@ -89,7 +87,7 @@ class Client:
         #     for line in pprint.pformat(group).splitlines():
         #         logging.info(line)
 
-        album = self.__find_or_create_album()
+        # album = self.__find_or_create_album()
 
         # logging.info(pprint.pformat(album))
 
@@ -113,95 +111,94 @@ class Client:
                     "duplicate_of": original_media_item_id
                 })
 
-        # debugpy.breakpoint()
-        print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
-        self.__add_media_items_to_album(duplicate_media_items, album['id'])
+        # print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
+        # self.__add_media_items_to_album(duplicate_media_items, album['id'])
 
-    def __find_or_create_album(self):
-        album_title = f"google-photos-deduper-python userid-{self.user_id}"
+    # def __find_or_create_album(self):
+    #     album_title = f"google-photos-deduper-python userid-{self.user_id}"
 
-        logging.info("Looking for an existing album...")
-        existing_album = self.__find_existing_album_with_name(album_title)
+    #     logging.info("Looking for an existing album...")
+    #     existing_album = self.__find_existing_album_with_name(album_title)
 
-        if existing_album:
-            logging.info(f"Existing album \"{album_title}\" found")
-            return existing_album
+    #     if existing_album:
+    #         logging.info(f"Existing album \"{album_title}\" found")
+    #         return existing_album
 
-        new_album = self.__create_album_with_name(album_title)
-        logging.info(f"No existing album found, created new album \"{album_title}\"")
+    #     new_album = self.__create_album_with_name(album_title)
+    #     logging.info(f"No existing album found, created new album \"{album_title}\"")
 
-        return new_album 
+    #     return new_album 
 
-    def __find_existing_album_with_name(self, album_title):
-        next_page_token = None
-        request_data = {
-            "pageSize": 50 # Max 50 for albums.list
-        }
+    # def __find_existing_album_with_name(self, album_title):
+    #     next_page_token = None
+    #     request_data = {
+    #         "pageSize": 50 # Max 50 for albums.list
+    #     }
 
-        while True:
-            if (next_page_token):
-                request_data['pageToken'] = next_page_token
+    #     while True:
+    #         if (next_page_token):
+    #             request_data['pageToken'] = next_page_token
             
-            resp = self.session.get(
-                'https://photoslibrary.googleapis.com/v1/albums',
-                params=request_data # When specified as json, results in a 400 response. Using params instead.
-            )
-            resp_json = resp.json()
+    #         resp = self.session.get(
+    #             'https://photoslibrary.googleapis.com/v1/albums',
+    #             params=request_data # When specified as json, results in a 400 response. Using params instead.
+    #         )
+    #         resp_json = resp.json()
 
-            # logging.info(pprint.pformat(resp_json))
+    #         # logging.info(pprint.pformat(resp_json))
         
-            if 'albums' in resp_json:
-                for album_json in resp_json['albums']:
-                    if album_json.get('title', None) == album_title:
-                        return album_json
+    #         if 'albums' in resp_json:
+    #             for album_json in resp_json['albums']:
+    #                 if album_json.get('title', None) == album_title:
+    #                     return album_json
 
-            next_page_token = resp_json.get('nextPageToken', None)
-            if not next_page_token:
-                break
+    #         next_page_token = resp_json.get('nextPageToken', None)
+    #         if not next_page_token:
+    #             break
 
-        return None
+    #     return None
 
-    def __create_album_with_name(self, album_title):
-        request_data = {
-            "album": {
-                "title": album_title
-            }
-        }
+    # def __create_album_with_name(self, album_title):
+    #     request_data = {
+    #         "album": {
+    #             "title": album_title
+    #         }
+    #     }
 
-        resp = self.session.post(
-                'https://photoslibrary.googleapis.com/v1/albums',
-                json=request_data
-            )
-        resp_json = resp.json()
+    #     resp = self.session.post(
+    #             'https://photoslibrary.googleapis.com/v1/albums',
+    #             json=request_data
+    #         )
+    #     resp_json = resp.json()
 
-        return resp_json
+    #     return resp_json
     
-    def __add_media_items_to_album(self, media_items, album_id):
-        media_item_ids = [i['id'] for i in media_items]
+    # def __add_media_items_to_album(self, media_items, album_id):
+    #     media_item_ids = [i['id'] for i in media_items]
 
-        # Chunk into groups of 50, otherwise 400 errors occur
-        media_item_id_chunks = (media_item_ids[i:i + 50] for i in range(0, len(media_item_ids), 50))
-        for chunk in media_item_id_chunks:
+    #     # Chunk into groups of 50, otherwise 400 errors occur
+    #     media_item_id_chunks = (media_item_ids[i:i + 50] for i in range(0, len(media_item_ids), 50))
+    #     for chunk in media_item_id_chunks:
 
-            request_data = {
-                "mediaItemIds": chunk
-            }
+    #         request_data = {
+    #             "mediaItemIds": chunk
+    #         }
 
-            try:
-                resp = self.session.post(
-                        f'https://photoslibrary.googleapis.com/v1/albums/{album_id}:batchAddMediaItems',
-                        json=request_data   
-                    )
-                resp_json = resp.json()
+    #         try:
+    #             resp = self.session.post(
+    #                     f'https://photoslibrary.googleapis.com/v1/albums/{album_id}:batchAddMediaItems',
+    #                     json=request_data   
+    #                 )
+    #             resp_json = resp.json()
 
-                return resp_json
-            except HTTPError as error:
-                # TODO: See if there's a way around these "Request contains an invalid media item id." 400 errors
-                # 
-                # Unfortunately, according to https://developers.google.com/photos/library/guides/manage-albums#creating-new-album:
-                # > You can only add media items that have been uploaded by your application to albums that your application has created
-                debugpy.breakpoint()
-                pass
+    #             return resp_json
+    #         except HTTPError as error:
+    #             # TODO: See if there's a way around these "Request contains an invalid media item id." 400 errors
+    #             # 
+    #             # Unfortunately, according to https://developers.google.com/photos/library/guides/manage-albums#creating-new-album:
+    #             # > You can only add media items that have been uploaded by your application to albums that your application has created
+    #             debugpy.breakpoint()
+    #             pass
     
     def __configure_requests_session(self, session):
         # Automatically raise errors 
