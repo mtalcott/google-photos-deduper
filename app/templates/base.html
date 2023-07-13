@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>{% block title %}{% endblock %} - Google Photos Deduper</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-  </head>
-  <body>
-    <nav>
-      <h1>Google Photos Deduper</h1>
-    </nav>
-    <section class="content">
-      <header>{% block header %}{% endblock %}</header>
-      {% block content %}{% endblock %}
-    </section>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}{% endblock %} - Google Photos Deduper</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+
+<body>
+  <nav>
+    <h1>Google Photos Deduper</h1>
+  </nav>
+  <section class="content">
+    <header>{% block header %}{% endblock %}</header>
+    {% block content %}{% endblock %}
+  </section>
+  {% block scripts %}{% endblock %}
+</body>
+
 </html>

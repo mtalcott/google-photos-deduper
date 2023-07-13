@@ -46,9 +46,41 @@
             {% endfor %}
         </tr>
         {% endfor %}
-        <div class="test"></div>
         {% endfor %}
     </tbody>
 </table>
+
+<p>
+    <i>
+        Click "Delete duplicates" to delete the selected duplicates. Assuming you have the Chrome extension
+        installed, this will open up a new tab and delete the selected duplicate photos through the Google Photos web
+        app. Deleted photos can be
+        <a target="_blank" rel="noopener noreferrer"
+            href="https://support.google.com/photos/answer/6128858#restore-items">restored</a> for up to 60 days after
+        they are deleted.
+    </i>
+</p>
+<button class="processDuplicates">Delete duplicates</button>
+
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const button = document.querySelector("button.processDuplicates");
+
+        button.addEventListener("click", (event) => {
+
+            window.postMessage({
+                action: "startDeletionTask",
+                duplicateMediaItems: [
+                    {
+                        productUrl: "https://photos.google.com/lr/photo/AE-vYs5HuL4Zq0oJTIcklVdIGa9ylN7wcW0p86fHMQSxlS8wOtkmvFM5bLiV8idUx5zcsM-ftX45Oiojo3Pms0sabovI3X6Exg"
+                    }
+                ]
+            });
+        });
+    });
+</script>
 {% endblock %}
