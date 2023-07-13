@@ -1,3 +1,5 @@
+// Runs on _this_ app's pages
+
 (async () => {
   // Listen to window messages and pass them on to the chrome runtime
   window.addEventListener("message", (event) => {

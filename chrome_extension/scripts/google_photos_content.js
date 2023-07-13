@@ -1,3 +1,5 @@
+// Runs on Google Photos web app pages
+
 (async () => {
   // console.info("google_photos_content.js loaded");
 

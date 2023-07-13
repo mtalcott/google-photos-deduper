@@ -1,3 +1,5 @@
+// Chrome extension background worker
+
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log("background.js onMessage", { message });
   if (message?.action === "startDeletionTask") {
