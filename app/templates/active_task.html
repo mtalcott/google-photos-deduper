@@ -9,6 +9,10 @@
 {{ media_item['mediaMetadata']['width'] }}
 {% elif field == "height" %}
 {{ media_item['mediaMetadata']['height'] }}
+{% elif field == "filename" %}
+<a target="_blank" rel="noopener noreferrer" href="{{ media_item['filenameSearchUrl'] }}">
+    {{ media_item['filename'] }}
+</a>
 {% else %}
 {{ media_item[field] }}
 {% endif %}
@@ -20,11 +24,8 @@
 
 {% block content %}
 <p>Status: {{ result.status }}</p>
-<p>
-    <a href="{{ start_url }}">Start over</a>
-</p>
 
-{% if show_table %}
+{% if show_results %}
 <table class="results">
     <thead>
         <th>Group</th>
@@ -33,16 +34,15 @@
         <th>Duplicates</th>
     </thead>
     <tbody>
-        {% for group in result.info['groups'] %}
+        {% for group in groups %}
         <tr>
             {% for field in fields %}
             <td rowspan="TODO"></td>
             <td>{{ field }}</td>
-            <td class="original">
-                {{ media_item_field(field, group['original_media_item']) }}
+            {% for mediaItem in group %}
+            <td class="{{ mediaItem['type'] }}">
+                {{ media_item_field(field, mediaItem) }}
             </td>
-            {% for mediaItem in group['duplicate_media_items'] %}
-            <td class="duplicate">{{ media_item_field(field, mediaItem) }}</td>
             {% endfor %}
         </tr>
         {% endfor %}

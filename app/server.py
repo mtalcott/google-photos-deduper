@@ -1,3 +1,5 @@
+import urllib.parse
+import re
 import flask
 from app import utils
 from app import tasks
@@ -68,16 +70,19 @@ def active_task_status():
     # TODO: Get some websockets going to live update the page
     # TODO: React?
 
-    show_table = False
+    show_results = False
     fields = []
+    groups = []
     if result.status == "SUCCESS":
-        show_table = True
+        show_results = True
         fields = ["preview_with_link", "filename", "width", "height"]
+        groups = result_groups_for_display(result.info["groups"])
 
     return flask.render_template(
         "active_task.html",
         result=result,
-        show_table=show_table,
+        groups=groups,
+        show_results=show_results,
         fields=fields,
         start_url=flask.url_for("start"),
         field_length=len(fields),
@@ -109,6 +114,26 @@ def credentials_to_dict(credentials):
         "client_secret": credentials.client_secret,
         "scopes": credentials.scopes,
     }
+
+
+def result_groups_for_display(groups):
+    result_groups = []
+    for group in groups:
+        g = []
+        for media_item in group:
+            m = media_item.copy()
+            # TODO: figure out a way for this to work with e.g. PXL_20210303_210331830.PORTRAIT.jpg
+            before_period = media_item["filename"].split(".")[0]
+            quoted_filename = urllib.parse.quote(before_period)
+            # Replace underscores with double underscores, for some reason
+            replaced_filename = re.sub("_", "__", quoted_filename)
+            m["filenameSearchUrl"] = "".join(
+                ["https://photos.google.com/search/intitle:", replaced_filename]
+            )
+            g.append(m)
+        result_groups.append(g)
+
+    return result_groups
 
 
 if __name__ == "__main__":

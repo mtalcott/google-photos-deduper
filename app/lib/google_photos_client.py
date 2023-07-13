@@ -32,7 +32,7 @@ class GooglePhotosClient:
         return self.repo.count()
 
     def retrieve_media_items(self):
-        max_items = 1_000
+        max_items = 2_000
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
@@ -96,15 +96,18 @@ class GooglePhotosClient:
             raw_media_items = group["all"]
             # Remove _id as it's an ObjectId and is not JSON-serializable
             media_items = [{k: m[k] for k in m if k != "_id"} for m in raw_media_items]
-            group = {
-                # These are already sorted by creationDate asc, so the original mediaItem is the first one
-                "original_media_item": media_items[0],
-                "duplicate_media_items": [],
-            }
+
+            # These are already sorted by creationDate asc, so the original mediaItem is the first one
+            original_media_item = media_items[0]
+
+            group = []
 
             for media_item in media_items:
-                if media_item["id"] != group["original_media_item"]["id"]:
-                    group["duplicate_media_items"].append(media_item)
+                if media_item["id"] == original_media_item["id"]:
+                    media_item["type"] = "original"
+                else:
+                    media_item["type"] = "duplicate"
+                group.append(media_item)
 
             result["groups"].append(group)
 
