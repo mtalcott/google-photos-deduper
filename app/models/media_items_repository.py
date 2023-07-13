@@ -85,6 +85,10 @@ class MediaItemsRepository:
                     # Filter down to only groups that contain duplicates
                     "$match": {"count": {"$gt": 1}}
                 },
+                {
+                    # Sort groups by number of duplicates, descending
+                    "$sort": {"count": -1}
+                },
             ]
         )
 
