@@ -19,4 +19,4 @@ def process_duplicates(
     if refresh_media_items or client.local_media_items_count() == 0:
         client.retrieve_media_items()
 
-    client.process_duplicates()
+    return client.process_duplicates()

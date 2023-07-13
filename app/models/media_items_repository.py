@@ -14,6 +14,7 @@ class MediaItemsRepository:
         "mediaMetadata",
         "mimeType",
         "productUrl",
+        "baseUrl",
     ]
 
     def __init__(self, user_id):
@@ -75,8 +76,9 @@ class MediaItemsRepository:
                             "width": "$mediaMetadata.width",
                         },
                         "count": {"$sum": 1},
-                        "_ids": {"$push": "$_id"},  # Mongo ids
-                        "ids": {"$push": "$id"},  # mediaItem ids
+                        # "_ids": {"$push": "$_id"},  # Mongo ids
+                        # "ids": {"$push": "$id"},  # mediaItem ids,
+                        "all": {"$push": "$$ROOT"},
                     }
                 },
                 {

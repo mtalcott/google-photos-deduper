@@ -62,17 +62,36 @@ def active_task_status():
         return "No active task found"
 
     active_task_id = flask.session["active_task_id"]
-    flask_app.logger.info(f"active_task_id: {active_task_id}")
 
     # TODO: Get status for the active job and display info about it
     result = tasks.process_duplicates.AsyncResult(active_task_id)
     # TODO: Get some websockets going to live update the page
     # TODO: React?
-    return f"<p>\
-        Status: {result.status}\
-    </p><p>\
-        <a href=\"{flask.url_for('start')}\">Start over</a>\
-    </p>"
+
+    show_table = False
+    fields = []
+    if result.status == "SUCCESS":
+        show_table = True
+        fields = ["preview_with_link", "filename", "width", "height"]
+
+    return flask.render_template(
+        "active_task.html",
+        result=result,
+        show_table=show_table,
+        fields=fields,
+        start_url=flask.url_for("start"),
+        field_length=len(fields),
+    )
+
+
+@flask_app.route("/active_task_results")
+def active_task_results():
+    if "active_task_id" not in flask.session:
+        raise "No active task found"
+
+    active_task_id = flask.session["active_task_id"]
+    result = tasks.process_duplicates.AsyncResult(active_task_id)
+    return flask.jsonify(result.info)
 
 
 @flask_app.route("/logout")

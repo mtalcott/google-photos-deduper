@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% macro media_item_field(field, media_item) %}
+{% if field == 'preview_with_link' %}
+<a target="_blank" rel="noopener noreferrer" href="{{ media_item['productUrl'] }}">
+    <img src="{{ media_item['baseUrl'] }}=w100-h100" />
+</a>
+{% elif field == "width" %}
+{{ media_item['mediaMetadata']['width'] }}
+{% elif field == "height" %}
+{{ media_item['mediaMetadata']['height'] }}
+{% else %}
+{{ media_item[field] }}
+{% endif %}
+{% endmacro %}
+
+{% block header %}
+<h2>{% block title %}Results{% endblock %}</h2>
+{% endblock %}
+
+{% block content %}
+<p>Status: {{ result.status }}</p>
+<p>
+    <a href="{{ start_url }}">Start over</a>
+</p>
+
+{% if show_table %}
+<table class="results">
+    <thead>
+        <th>Group</th>
+        <th>Attribute</th>
+        <th>Original</th>
+        <th>Duplicates</th>
+    </thead>
+    <tbody>
+        {% for group in result.info['groups'] %}
+        <tr>
+            {% for field in fields %}
+            <td rowspan="TODO"></td>
+            <td>{{ field }}</td>
+            <td class="original">
+                {{ media_item_field(field, group['original_media_item']) }}
+            </td>
+            {% for mediaItem in group['duplicate_media_items'] %}
+            <td class="duplicate">{{ media_item_field(field, mediaItem) }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        <div class="test"></div>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

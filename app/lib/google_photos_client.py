@@ -1,11 +1,7 @@
-# import google.auth
-# import requests
 from textwrap import indent
 import google.oauth2.credentials
 import google.auth.transport.requests
 
-# import pprint
-# import json
 import app.models.media_items_repository
 
 from requests.adapters import HTTPAdapter
@@ -13,7 +9,6 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.exceptions import HTTPError
 import logging
 import pprint
-import debugpy
 
 
 class GooglePhotosClient:
@@ -80,7 +75,7 @@ class GooglePhotosClient:
 
         media_item_groups = list(self.repo.get_media_item_groups())
         num_groups = len(media_item_groups)
-        num_duplicates = sum([len(group["ids"]) for group in media_item_groups])
+        num_duplicates = sum([len(group["all"]) for group in media_item_groups])
 
         logging.info(
             f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups"
@@ -93,27 +88,30 @@ class GooglePhotosClient:
 
         # logging.info(pprint.pformat(album))
 
-        duplicate_media_items = []
+        result = {
+            "groups": [],
+        }
 
         for group in media_item_groups:
-            group_attributes = group["_id"]  # filename, mimeType, height, width
-            mongo_ids = group["_ids"]
-            media_item_ids = group["ids"]
-            group_count = group["count"]
+            raw_media_items = group["all"]
+            # Remove _id as it's an ObjectId and is not JSON-serializable
+            media_items = [{k: m[k] for k in m if k != "_id"} for m in raw_media_items]
+            group = {
+                # These are already sorted by creationDate asc, so the original mediaItem is the first one
+                "original_media_item": media_items[0],
+                "duplicate_media_items": [],
+            }
 
-            # These are already sorted by creationDate asc, so the original mediaItem is the first one
-            original_media_item_id = media_item_ids[0]
+            for media_item in media_items:
+                if media_item["id"] != group["original_media_item"]["id"]:
+                    group["duplicate_media_items"].append(media_item)
 
-            for media_item_id in media_item_ids:
-                if media_item_id == original_media_item_id:
-                    continue
-
-                duplicate_media_items.append(
-                    {"id": media_item_id, "duplicate_of": original_media_item_id}
-                )
+            result["groups"].append(group)
 
         # print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
         # self.__add_media_items_to_album(duplicate_media_items, album['id'])
+
+        return result
 
     # def __find_or_create_album(self):
     #     album_title = f"google-photos-deduper-python userid-{self.user_id}"
