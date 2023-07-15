@@ -1,4 +1,4 @@
-version: '3.7'
+version: "3.7"
 services:
   mongo:
     image: mongo:4.4
@@ -7,10 +7,11 @@ services:
   redis:
     image: redis:7
     ports:
-      - '6379:6379'
+      - "6379:6379"
   server:
     build:
       context: .
+      dockerfile: app/Dockerfile
       target: dev-server
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
@@ -18,13 +19,13 @@ services:
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
-      - FLASK_SERVER_NAME=localhost:3000
+      - FLASK_SERVER_NAME=localhost:5000
       # - GOOGLE_CLIENT_ID=ABC
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
       - REDIS_HOST=redis:6379
     ports:
-      - "3000:5000" # flask
+      - "5000:5000" # flask
       - "5678:5678" # debugpy
     depends_on:
       - mongo
@@ -34,6 +35,7 @@ services:
   worker:
     build:
       context: .
+      dockerfile: app/Dockerfile
       target: dev-worker
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
@@ -41,7 +43,7 @@ services:
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
-      - FLASK_SERVER_NAME=localhost:3000
+      - FLASK_SERVER_NAME=localhost:5000
       # - GOOGLE_CLIENT_ID=ABC
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
@@ -53,3 +55,12 @@ services:
       - redis
     volumes:
       - ./:/usr/src/app
+  client:
+    build:
+      dockerfile: Dockerfile
+      context: ./client
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+    ports:
+      - "3000:3000"
