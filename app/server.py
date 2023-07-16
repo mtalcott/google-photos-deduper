@@ -18,6 +18,17 @@ def index():
         </p>"
 
 
+@flask_app.route("/auth/me")
+def me():
+    if "credentials" not in flask.session:
+        return flask.jsonify({"logged_in": False}), 401
+
+    # TODO: check if session credentials are valid
+
+    # TODO: add more info about current user
+    return flask.jsonify({"logged_in": True})
+
+
 @flask_app.route("/auth/google")
 def auth():
     authorization_url, state = utils.get_authorization_url()

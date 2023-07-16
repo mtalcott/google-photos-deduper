@@ -3,6 +3,7 @@
 import os
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from app import config
 
 
 class MediaItemsRepository:
@@ -23,8 +24,8 @@ class MediaItemsRepository:
 
         self.user_id = user_id
 
-        client = MongoClient(os.environ.get("MONGODB_URI"))
-        self.db = client[os.environ.get("DATABASE")]
+        client = MongoClient(config.MONGODB_URI)
+        self.db = client[config.DATABASE]
 
     def get(self, id: int):
         pass

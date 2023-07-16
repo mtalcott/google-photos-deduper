@@ -1,10 +1,12 @@
 import flask
 import celery
+import flask_cors
 from app import config
 
 # Flask app setup
 FLASK_APP = flask_app = flask.Flask(config.APP_NAME)
 flask_app.config.from_prefixed_env()
+flask_cors.CORS(flask_app, origins=[config.CLIENT_HOST])
 
 
 # Celery app setup

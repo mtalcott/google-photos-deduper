@@ -12,6 +12,7 @@ google-auth-oauthlib = "*"
 google-auth-httplib2 = "*"
 python-dotenv = "*"
 gunicorn = "*"
+flask-cors = "*"
 
 [dev-packages]
 debugpy = "*"
