@@ -3,6 +3,8 @@ import pprint
 import google_auth_oauthlib.flow
 import flask
 from app import config
+import app.lib.google_photos_client
+import requests
 
 
 # Generate URL for request to Google's OAuth 2.0 server.
@@ -25,6 +27,18 @@ def get_credentials(state: str, authorization_response: dict) -> str:
     flow = __get_oauth_flow(state)
     flow.fetch_token(authorization_response=authorization_response)
     return flow.credentials
+
+
+def are_credentials_valid(credentials: dict) -> bool:
+    try:
+        # Initializing a client with invalid credentials raises an error
+        app.lib.google_photos_client.GooglePhotosClient(credentials)
+    except requests.exceptions.HTTPError as error:
+        if error.response.status_code == 401:
+            return False
+        raise error
+
+    return True
 
 
 def __get_oauth_flow(state: str = None) -> google_auth_oauthlib.flow.Flow:

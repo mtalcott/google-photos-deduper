@@ -20,10 +20,13 @@ def index():
 
 @flask_app.route("/auth/me")
 def me():
-    if "credentials" not in flask.session:
-        return flask.jsonify({"logged_in": False}), 401
+    unauthed_response = flask.jsonify({"logged_in": False})
 
-    # TODO: check if session credentials are valid
+    if "credentials" not in flask.session:
+        return unauthed_response, 401
+
+    if not utils.are_credentials_valid(flask.session["credentials"]):
+        return unauthed_response, 401
 
     # TODO: add more info about current user
     return flask.jsonify({"logged_in": True})
