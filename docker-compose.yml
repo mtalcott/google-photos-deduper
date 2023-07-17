@@ -8,6 +8,15 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
+  nginx:
+    image: nginx:1.25
+    volumes:
+      - ./nginx-dev.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - 80:80
+    depends_on:
+      - server
+      - client
   server:
     build:
       context: .
@@ -19,8 +28,8 @@ services:
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
-      - FLASK_SERVER_NAME=localhost:5000
-      - CLIENT_HOST=http://localhost:3000
+      - FLASK_SERVER_NAME=localhost
+      - CLIENT_HOST=http://localhost
       # - GOOGLE_CLIENT_ID=ABC
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
@@ -44,8 +53,8 @@ services:
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
-      - FLASK_SERVER_NAME=localhost:5000
-      - CLIENT_HOST=http://localhost:3000
+      - FLASK_SERVER_NAME=localhost
+      - CLIENT_HOST=http://localhost
       # - GOOGLE_CLIENT_ID=ABC
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
@@ -62,7 +71,7 @@ services:
       dockerfile: Dockerfile
       context: ./client
     environment:
-      - REACT_APP_SERVER_HOST=http://localhost:5000
+      - REACT_APP_SERVER_HOST=http://localhost
     volumes:
       - /app/node_modules
       - ./client:/app
