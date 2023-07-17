@@ -3,6 +3,7 @@ import { useEffect, useReducer, useRef } from "react";
 interface State<T> {
     data?: T;
     error?: Error;
+    isLoading: Boolean;
 }
 
 // discriminated union type
@@ -21,6 +22,7 @@ export function useFetch<T = unknown>(
     const initialState: State<T> = {
         error: undefined,
         data: undefined,
+        isLoading: true,
     };
 
     // Keep state logic separated
@@ -29,9 +31,17 @@ export function useFetch<T = unknown>(
             case "loading":
                 return { ...initialState };
             case "fetched":
-                return { ...initialState, data: action.payload };
+                return {
+                    ...initialState,
+                    data: action.payload,
+                    isLoading: false,
+                };
             case "error":
-                return { ...initialState, error: action.payload };
+                return {
+                    ...initialState,
+                    error: action.payload,
+                    isLoading: false,
+                };
             default:
                 return state;
         }

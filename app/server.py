@@ -7,18 +7,6 @@ from app.lib.google_api_client import GoogleApiClient
 from app import FLASK_APP as flask_app
 
 
-@flask_app.route("/")
-def index():
-    if "active_task_id" in flask.session:
-        return f"<p>\
-            <a href=\"{flask.url_for('active_task_status')}\">View results</a>\
-        </p>"
-    else:
-        return f"<p>\
-             <a href=\"{flask.url_for('start')}\">Get started</a>\
-        </p>"
-
-
 @flask_app.route("/auth/me")
 def me():
     unauthed_response = flask.jsonify({"logged_in": False})
@@ -30,7 +18,13 @@ def me():
     client = GoogleApiClient(flask.session["credentials"])
     user_info = client.get_user_info()
 
-    return flask.jsonify({"logged_in": True, "user_info": user_info})
+    return flask.jsonify(
+        {
+            "logged_in": True,
+            "user_info": user_info,
+            "has_active_task": "active_task_id" in flask.session,
+        }
+    )
 
 
 @flask_app.route("/auth/google")
@@ -56,12 +50,8 @@ def callback():
     return flask.redirect(flask.url_for("start"))
 
 
-@flask_app.route("/start")
-def start():
-    if "credentials" not in flask.session:
-        # TODO: Make sure credentials are VALID, too
-        return flask.redirect(flask.url_for("auth"))
-
+@flask_app.route("/api/task", methods=["POST"])
+def create_task():
     # TODO: Save credentials in database rather than session
     credentials = flask.session["credentials"]
     flask_app.logger.info(f"Creating task with credentials: {credentials}")
@@ -70,51 +60,39 @@ def start():
     result = tasks.process_duplicates.delay(credentials, refresh_media_items=True)
     flask.session["active_task_id"] = result.id
 
-    return flask.redirect(flask.url_for("active_task_status"))
+    return flask.jsonify({"success": True})
 
 
-@flask_app.route("/status")
-def active_task_status():
-    if "active_task_id" not in flask.session:
-        return "No active task found"
+@flask_app.route("/api/active_task", methods=["GET"])
+def get_active_task():
+    active_task_id = flask.session.get("active_task_id")
+    if not active_task_id:
+        raise RuntimeError("No active task found")
 
-    active_task_id = flask.session["active_task_id"]
-
-    # TODO: Get status for the active job and display info about it
     result = tasks.process_duplicates.AsyncResult(active_task_id)
+    return flask.jsonify({"status": result.status, "info": result.info})
     # TODO: Get some websockets going to live update the page
-    # TODO: React?
 
-    show_results = False
-    fields = []
-    groups = []
-    if result.status == "SUCCESS":
-        show_results = True
-        fields = ["preview_with_link", "filename", "width", "height"]
-        groups = result_groups_for_display(result.info["groups"])
+    # show_results = False
+    # fields = []
+    # groups = []
+    # if result.status == "SUCCESS":
+    #     show_results = True
+    #     fields = ["preview_with_link", "filename", "width", "height"]
+    #     groups = result_groups_for_display(result.info["groups"])
 
-    return flask.render_template(
-        "active_task.html",
-        result=result,
-        groups=groups,
-        show_results=show_results,
-        fields=fields,
-        start_url=flask.url_for("start"),
-        field_length=len(fields),
-    )
-
-
-@flask_app.route("/active_task_results")
-def active_task_results():
-    if "active_task_id" not in flask.session:
-        raise "No active task found"
-
-    active_task_id = flask.session["active_task_id"]
-    result = tasks.process_duplicates.AsyncResult(active_task_id)
-    return flask.jsonify(result.info)
+    # return flask.render_template(
+    #     "active_task.html",
+    #     result=result,
+    #     groups=groups,
+    #     show_results=show_results,
+    #     fields=fields,
+    #     start_url=flask.url_for("start"),
+    #     field_length=len(fields),
+    # )
 
 
-@flask_app.route("/logout")
+@flask_app.route("/api/logout")
 def logout():
     flask.session.clear()
     return flask.redirect(flask.url_for("index"))
