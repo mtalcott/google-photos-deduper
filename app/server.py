@@ -3,6 +3,7 @@ import re
 import flask
 from app import utils
 from app import tasks
+from app.lib.google_api_client import GoogleApiClient
 from app import FLASK_APP as flask_app
 
 
@@ -25,11 +26,11 @@ def me():
     if "credentials" not in flask.session:
         return unauthed_response, 401
 
-    if not utils.are_credentials_valid(flask.session["credentials"]):
-        return unauthed_response, 401
+    utils.refresh_session_credentials_if_invalid()
+    client = GoogleApiClient(flask.session["credentials"])
+    user_info = client.get_user_info()
 
-    # TODO: add more info about current user
-    return flask.jsonify({"logged_in": True})
+    return flask.jsonify({"logged_in": True, "user_info": user_info})
 
 
 @flask_app.route("/auth/google")
@@ -46,7 +47,7 @@ def auth():
 def callback():
     state = flask.session["state"]
     credentials = utils.get_credentials(state, flask.request.url)
-    credentials_dict = credentials_to_dict(credentials)
+    credentials_dict = utils.credentials_to_dict(credentials)
 
     # Store the credentials in the session.
     # TODO: Store in database
@@ -117,17 +118,6 @@ def active_task_results():
 def logout():
     flask.session.clear()
     return flask.redirect(flask.url_for("index"))
-
-
-def credentials_to_dict(credentials):
-    return {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": credentials.scopes,
-    }
 
 
 def result_groups_for_display(groups):

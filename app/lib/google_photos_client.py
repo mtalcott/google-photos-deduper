@@ -1,32 +1,15 @@
-from textwrap import indent
-import google.oauth2.credentials
-import google.auth.transport.requests
-
-import app.models.media_items_repository
-
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-from requests.exceptions import HTTPError
 import logging
-import pprint
+from app.lib.google_api_client import GoogleApiClient
+from app.models.media_items_repository import MediaItemsRepository
 
 
-class GooglePhotosClient:
-    """A simple class"""
-
+class GooglePhotosClient(GoogleApiClient):
     def __init__(self, credentials: dict):
-        credentials_obj = google.oauth2.credentials.Credentials(**credentials)
-        session = google.auth.transport.requests.AuthorizedSession(credentials_obj)
+        super().__init__(credentials)
 
-        self.__configure_requests_session(session)
-        self.session = session
-
-        # TODO: Handle requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://www.googleapis.com/userinfo/v2/me
-        user_info = self.__get_user_info()
+        user_info = self.get_user_info()
         self.user_id = user_info["id"]
-        self.repo = app.models.media_items_repository.MediaItemsRepository(
-            user_id=self.user_id
-        )
+        self.repo = MediaItemsRepository(user_id=self.user_id)
 
     def local_media_items_count(self):
         return self.repo.count()
@@ -201,16 +184,3 @@ class GooglePhotosClient:
     #             # > You can only add media items that have been uploaded by your application to albums that your application has created
     #             debugpy.breakpoint()
     #             pass
-
-    def __configure_requests_session(self, session):
-        # Automatically raise errors
-        session.hooks = {"response": lambda r, *args, **kwargs: r.raise_for_status()}
-
-        # Retry up to 3 times on 503 response
-        retry_strategy = Retry(total=3, backoff_factor=1, status_forcelist=[503])
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
-
-    def __get_user_info(self):
-        return self.session.get("https://www.googleapis.com/userinfo/v2/me").json()

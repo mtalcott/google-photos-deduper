@@ -1,10 +1,9 @@
-import logging
-import pprint
-import google_auth_oauthlib.flow
 import flask
+import google_auth_oauthlib.flow
+import google.oauth2.credentials
+import google.auth.transport.requests
 from app import config
-import app.lib.google_photos_client
-import requests
+from app.lib.google_api_client import GoogleApiClient
 
 
 # Generate URL for request to Google's OAuth 2.0 server.
@@ -29,16 +28,14 @@ def get_credentials(state: str, authorization_response: dict) -> str:
     return flow.credentials
 
 
-def are_credentials_valid(credentials: dict) -> bool:
-    try:
-        # Initializing a client with invalid credentials raises an error
-        app.lib.google_photos_client.GooglePhotosClient(credentials)
-    except requests.exceptions.HTTPError as error:
-        if error.response.status_code == 401:
-            return False
-        raise error
+def refresh_session_credentials_if_invalid():
+    if "credentials" not in flask.session:
+        return
 
-    return True
+    client = GoogleApiClient(flask.session["credentials"])
+    if not client.are_credentials_valid():
+        client.refresh_credentials()
+        flask.session["credentials"] = client.credentials_as_dict()
 
 
 def __get_oauth_flow(state: str = None) -> google_auth_oauthlib.flow.Flow:
@@ -68,3 +65,7 @@ def __get_oauth_flow(state: str = None) -> google_auth_oauthlib.flow.Flow:
     flow.redirect_uri = flask.url_for("callback", _external=True)
 
     return flow
+
+
+def credentials_to_dict(credentials: google.oauth2.credentials.Credentials) -> dict:
+    return GoogleApiClient.credentials_to_dict(credentials)

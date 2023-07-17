@@ -1,7 +1,6 @@
 import celery
 import celery.utils.log
 import app.lib.google_photos_client
-from app import utils
 from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
 
