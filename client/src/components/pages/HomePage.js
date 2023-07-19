@@ -1,33 +1,38 @@
 // import "./HomePage.css";
 
-import { useFetch } from "utils/useFetch";
-import { appApiUrl } from "utils";
+import { Link } from "react-router-dom";
+import { useContext } from "react";
+import { AppContext } from "utils/AppContext";
 
 export default function HomePage() {
-    const { data, error, isLoading } = useFetch(appApiUrl("/auth/me"));
+    const { user } = useContext(AppContext);
 
-    // if (error) return <p>There was an error.</p>;
-    // if (!data) return <p>Loading...</p>;
-
-    // If not authed
-    //   Link to auth
-    // If authed
-    //   Welcome message
-    //   If active task
-    //     Link to active task
-
-    if (isLoading || error) {
-        return null;
+    if (user) {
+        return (
+            <AuthedHome
+                name={user.given_name}
+                hasActiveTask={user.has_active_task}
+            />
+        );
     }
+    return <UnauthedHome />;
+}
 
+function UnauthedHome() {
+    return (
+        <Link reloadDocument to="/auth/google">
+            Get started
+        </Link>
+    );
+}
+
+function AuthedHome({ name, hasActiveTask }) {
     return (
         <>
-            {data.user_info?.given_name && (
-                <p>Welcome, {data?.user_info?.given_name}!</p>
-            )}
-            {data.has_active_task && (
+            <p>Welcome, {name}!</p>
+            {hasActiveTask && (
                 <p>
-                    <a href="/active_task">Active Task</a>
+                    <Link to="/active_task">Active Task</Link>
                 </p>
             )}
         </>

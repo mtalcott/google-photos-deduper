@@ -47,7 +47,7 @@ def callback():
     # TODO: Store in database
     flask.session["credentials"] = credentials_dict
 
-    return flask.redirect(flask.url_for("start"))
+    return flask.redirect("/task_options")
 
 
 @flask_app.route("/api/task", methods=["POST"])
@@ -95,7 +95,7 @@ def get_active_task():
 @flask_app.route("/api/logout")
 def logout():
     flask.session.clear()
-    return flask.redirect(flask.url_for("index"))
+    return flask.redirect("/")
 
 
 def result_groups_for_display(groups):

@@ -20,8 +20,6 @@ export function useFetch<T = unknown>(
     const cancelRequest = useRef<boolean>(false);
 
     const initialState: State<T> = {
-        error: undefined,
-        data: undefined,
         isLoading: true,
     };
 
