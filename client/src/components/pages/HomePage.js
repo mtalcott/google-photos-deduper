@@ -5,14 +5,11 @@ import { useContext } from "react";
 import { AppContext } from "utils/AppContext";
 
 export default function HomePage() {
-    const { user } = useContext(AppContext);
+    const { user, isLoggedIn, hasActiveTask } = useContext(AppContext);
 
-    if (user) {
+    if (isLoggedIn) {
         return (
-            <AuthedHome
-                name={user.given_name}
-                hasActiveTask={user.has_active_task}
-            />
+            <AuthedHome name={user.given_name} hasActiveTask={hasActiveTask} />
         );
     }
     return <UnauthedHome />;
@@ -30,11 +27,13 @@ function AuthedHome({ name, hasActiveTask }) {
     return (
         <>
             <p>Welcome, {name}!</p>
-            {hasActiveTask && (
-                <p>
-                    <Link to="/active_task">Active Task</Link>
-                </p>
-            )}
+            <p>
+                {hasActiveTask ? (
+                    <Link to="/active_task">Active task</Link>
+                ) : (
+                    <Link to="/task_options">Start new task</Link>
+                )}
+            </p>
         </>
     );
 }

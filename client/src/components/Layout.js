@@ -1,6 +1,7 @@
 import { Outlet, Link } from "react-router-dom";
 import { useContext } from "react";
 import { AppContext } from "utils/AppContext";
+import { appApiUrl } from "utils";
 
 export default function Layout() {
     const { isLoggedIn } = useContext(AppContext);
@@ -10,7 +11,7 @@ export default function Layout() {
             <header className="App-header">
                 <h1>Google Photos Deduper</h1>
                 {isLoggedIn && (
-                    <Link reloadDocument to="/api/logout">
+                    <Link reloadDocument to={appApiUrl("/api/logout")}>
                         Logout
                     </Link>
                 )}

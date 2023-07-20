@@ -54,10 +54,12 @@ def callback():
 def create_task():
     # TODO: Save credentials in database rather than session
     credentials = flask.session["credentials"]
-    flask_app.logger.info(f"Creating task with credentials: {credentials}")
+    flask_app.logger.info(f"Creating task with options: {flask.request.form.to_dict()}")
 
-    # TODO: Kick off a job to start processing
-    result = tasks.process_duplicates.delay(credentials, refresh_media_items=True)
+    refresh_media_items = flask.request.form.get("refresh_media_items") == "true"
+    result = tasks.process_duplicates.delay(
+        credentials, refresh_media_items=refresh_media_items
+    )
     flask.session["active_task_id"] = result.id
 
     return flask.jsonify({"success": True})
