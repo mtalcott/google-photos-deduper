@@ -2,11 +2,13 @@ import flask
 import celery
 import flask_cors
 from app import config
+from flask_socketio import SocketIO
 
 # Flask app setup
 FLASK_APP = flask_app = flask.Flask(config.APP_NAME)
 flask_app.config.from_prefixed_env()
 flask_cors.CORS(flask_app, origins=[config.CLIENT_HOST])
+SOCKETIO = SocketIO(flask_app, message_queue=f"redis://{config.REDIS_HOST}")
 
 
 # Celery app setup

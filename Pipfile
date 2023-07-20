@@ -13,6 +13,7 @@ google-auth-httplib2 = "*"
 python-dotenv = "*"
 gunicorn = "*"
 flask-cors = "*"
+flask-socketio = "*"
 
 [dev-packages]
 debugpy = "*"

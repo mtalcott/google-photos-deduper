@@ -1,10 +1,12 @@
+import logging
 import urllib.parse
 import re
 import flask
 from app import utils
 from app import tasks
 from app.lib.google_api_client import GoogleApiClient
-from app import FLASK_APP as flask_app
+from app import FLASK_APP as flask_app, SOCKETIO as socketio
+from flask_socketio import emit
 
 
 @flask_app.route("/auth/me")
@@ -100,6 +102,12 @@ def logout():
     return flask.redirect("/")
 
 
+@socketio.on("connect")
+def test_connect():
+    logging.info("connected")
+    emit("my response", {"data": "Connected"})
+
+
 def result_groups_for_display(groups):
     result_groups = []
     for group in groups:
@@ -121,4 +129,4 @@ def result_groups_for_display(groups):
 
 
 if __name__ == "__main__":
-    flask_app.run()
+    socketio.run(flask_app)

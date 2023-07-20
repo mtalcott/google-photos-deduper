@@ -1,6 +1,7 @@
 amqp==5.1.1
 anyio==3.7.1
 async-timeout==4.0.2; python_full_version <= '3.11.2'
+bidict==0.22.1
 billiard==4.1.0
 blinker==1.6.2
 cachetools==5.3.1
@@ -10,15 +11,16 @@ charset-normalizer==3.2.0
 click-didyoumean==0.3.0
 click-plugins==1.1.1
 click-repl==0.3.0
-click==8.1.5
+click==8.1.6
 dnspython==2.4.0
 exceptiongroup==1.1.2; python_version < '3.11'
 flask-cors==4.0.0
+flask-socketio==5.3.4
 flask==2.3.2
 google-auth-httplib2==0.1.0
 google-auth-oauthlib==1.0.0
 google-auth==2.22.0
-gunicorn==20.1.0
+gunicorn==21.2.0
 h11==0.14.0
 httpcore==0.17.3; python_version >= '3.8'
 httplib2==0.22.0
@@ -29,6 +31,7 @@ jinja2==3.1.2
 kombu==5.3.1
 markupsafe==2.1.3
 oauthlib==3.2.2
+packaging==23.1
 prompt-toolkit==3.0.39
 pyasn1-modules==0.3.0
 pyasn1==0.5.0
@@ -36,6 +39,8 @@ pymongo==4.4.1
 pyparsing==3.1.0; python_version > '3.0'
 python-dateutil==2.8.2
 python-dotenv==1.0.0
+python-engineio==4.5.1
+python-socketio==5.8.0
 redis==4.6.0
 requests-oauthlib==1.3.1
 requests==2.31.0

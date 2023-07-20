@@ -72,6 +72,7 @@ services:
       context: ./client
     environment:
       - REACT_APP_SERVER_HOST=http://localhost
+      - REACT_APP_WS_URL=http://localhost/socket.io
     volumes:
       - /app/node_modules
       - ./client:/app
