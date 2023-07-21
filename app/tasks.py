@@ -12,6 +12,7 @@ def process_duplicates(
     self: celery.Task, credentials: dict, refresh_media_items: bool = False
 ):
     def update_status(m):
+        # `meta` comes through as `info` field on result
         self.update_state(state="PROGRESS", meta={"message": m})
 
     client = app.lib.google_photos_client.GooglePhotosClient(
