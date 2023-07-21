@@ -1,13 +1,12 @@
 import "./ActiveTaskPage.css";
 
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import { useInterval } from "utils/useInterval";
 import { fetchAppJson } from "utils";
 import { Link } from "react-router-dom";
+import LoadingSpinner from "../LoadingSpinner";
 
 export default function ActiveTaskPage() {
-    // const { data, isLoading } = useFetch(appApiUrl("/api/active_task"));
-
     const [task, setTask] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -25,7 +24,7 @@ export default function ActiveTaskPage() {
         <>
             <p>
                 <span>Status: {task?.status || ""}</span>{" "}
-                {isLoading && <span className="loader">Loading...</span>}
+                {isLoading && <LoadingSpinner />}
             </p>
             <Link to="/task_options">Start over</Link>
             {task?.info && (
