@@ -11,9 +11,12 @@ logger = celery.utils.log.get_logger(__name__)
 def process_duplicates(
     self: celery.Task, credentials: dict, refresh_media_items: bool = False
 ):
-    client = app.lib.google_photos_client.GooglePhotosClient(credentials)
+    def update_status(m):
+        self.update_state(state="PROGRESS", meta={"message": m})
 
-    # self.update_state(state="PROGRESS", meta={"current": i + 1, "total": total})
+    client = app.lib.google_photos_client.GooglePhotosClient(
+        credentials, update_status=update_status
+    )
 
     if refresh_media_items or client.local_media_items_count() == 0:
         client.retrieve_media_items()

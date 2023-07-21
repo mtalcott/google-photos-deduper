@@ -1,11 +1,13 @@
 import logging
 from app.lib.google_api_client import GoogleApiClient
 from app.models.media_items_repository import MediaItemsRepository
+from typing import Callable
 
 
 class GooglePhotosClient(GoogleApiClient):
-    def __init__(self, credentials: dict):
+    def __init__(self, credentials: dict, update_status: Callable[[str], None]):
         super().__init__(credentials)
+        self.__update_status = update_status
 
         user_info = self.get_user_info()
         self.user_id = user_info["id"]
@@ -20,7 +22,7 @@ class GooglePhotosClient(GoogleApiClient):
         item_count = 0
         request_data = {"pageSize": 100}
 
-        logging.info("Retrieving mediaItems...")
+        self.update_status("Retrieving mediaItems...")
 
         while item_count < max_items:
             if next_page_token:
@@ -32,8 +34,8 @@ class GooglePhotosClient(GoogleApiClient):
             )
             resp_json = resp.json()
 
-            # logging.info(pprint.pformat(resp_json))
-            # logging.info(json.dumps(resp_json, indent=4, sort_keys=True))
+            # self.update_status(pprint.pformat(resp_json))
+            # self.update_status(json.dumps(resp_json, indent=4, sort_keys=True))
 
             if "mediaItems" in resp_json:
                 for media_item_json in resp_json["mediaItems"]:
@@ -45,31 +47,31 @@ class GooglePhotosClient(GoogleApiClient):
             if not next_page_token:
                 break
 
-            logging.info(f"Retrieved {item_count:,} mediaItems so far")
+            self.update_status(f"Retrieved {item_count:,} mediaItems so far")
 
-        logging.info(f"Done retrieving mediaItems, {item_count:,} total")
+        self.update_status(f"Done retrieving mediaItems, {item_count:,} total")
 
         # for media_item in self.repo.all():
-        #     logging.info(pprint.pformat(media_item))
+        #     self.update_status(pprint.pformat(media_item))
 
     # TODO: The maximum number of mediaItems per album is 20,000. Add logic to split across multiple albums.
     def process_duplicates(self):
-        logging.info("Processing duplicates (getting grouped mediaItems)...")
+        self.update_status("Processing duplicates (getting grouped mediaItems)...")
 
         media_item_groups = list(self.repo.get_media_item_groups())
         num_groups = len(media_item_groups)
         num_duplicates = sum([len(group["all"]) for group in media_item_groups])
 
-        logging.info(
+        self.update_status(
             f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups"
         )
         # for group in media_item_groups:
         #     for line in pprint.pformat(group).splitlines():
-        #         logging.info(line)
+        #         self.update_status(line)
 
         # album = self.__find_or_create_album()
 
-        # logging.info(pprint.pformat(album))
+        # self.update_status(pprint.pformat(album))
 
         result = {
             "groups": [],
@@ -102,15 +104,15 @@ class GooglePhotosClient(GoogleApiClient):
     # def __find_or_create_album(self):
     #     album_title = f"google-photos-deduper-python userid-{self.user_id}"
 
-    #     logging.info("Looking for an existing album...")
+    #     self.update_status("Looking for an existing album...")
     #     existing_album = self.__find_existing_album_with_name(album_title)
 
     #     if existing_album:
-    #         logging.info(f"Existing album \"{album_title}\" found")
+    #         self.update_status(f"Existing album \"{album_title}\" found")
     #         return existing_album
 
     #     new_album = self.__create_album_with_name(album_title)
-    #     logging.info(f"No existing album found, created new album \"{album_title}\"")
+    #     self.update_status(f"No existing album found, created new album \"{album_title}\"")
 
     #     return new_album
 
@@ -130,7 +132,7 @@ class GooglePhotosClient(GoogleApiClient):
     #         )
     #         resp_json = resp.json()
 
-    #         # logging.info(pprint.pformat(resp_json))
+    #         # self.update_status(pprint.pformat(resp_json))
 
     #         if 'albums' in resp_json:
     #             for album_json in resp_json['albums']:
@@ -184,3 +186,8 @@ class GooglePhotosClient(GoogleApiClient):
     #             # > You can only add media items that have been uploaded by your application to albums that your application has created
     #             debugpy.breakpoint()
     #             pass
+
+    def update_status(self, message):
+        logging.info(message)
+        if self.__update_status:
+            self.__update_status(message)
