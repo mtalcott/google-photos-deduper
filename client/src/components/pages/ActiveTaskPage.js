@@ -28,7 +28,9 @@ export default function ActiveTaskPage() {
                 {isLoading && <LoadingSpinner />}
             </p>
             <Link to="/task_options">Start over</Link>
-            {task?.info && <TaskResults results={task.info} />}
+            {isLoading
+                ? task?.info && <pre>{JSON.stringify(task.info, null, 2)}</pre>
+                : task?.results && <TaskResults results={task.results} />}
         </>
     );
 }

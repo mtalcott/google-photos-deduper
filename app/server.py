@@ -72,26 +72,16 @@ def get_active_task():
         raise RuntimeError("No active task found")
 
     result = tasks.process_duplicates.AsyncResult(active_task_id)
-    return flask.jsonify({"status": result.status, "info": result.info})
-    # TODO: Get some websockets going to live update the page
+    response = {"status": result.status}
+    if result.successful():
+        # If the task has completed successfully, return "results"
+        groups = result_groups_for_display(result.info["groups"])
+        response |= {"results": {"groups": groups}}
+    else:
+        # Else, return "info"
+        response |= {"info": result.info}
 
-    # show_results = False
-    # fields = []
-    # groups = []
-    # if result.status == "SUCCESS":
-    #     show_results = True
-    #     fields = ["preview_with_link", "filename", "width", "height"]
-    #     groups = result_groups_for_display(result.info["groups"])
-
-    # return flask.render_template(
-    #     "active_task.html",
-    #     result=result,
-    #     groups=groups,
-    #     show_results=show_results,
-    #     fields=fields,
-    #     start_url=flask.url_for("start"),
-    #     field_length=len(fields),
-    # )
+    return flask.jsonify(response)
 
 
 @flask_app.route("/api/logout")
