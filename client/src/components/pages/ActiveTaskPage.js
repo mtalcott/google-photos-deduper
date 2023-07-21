@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useInterval } from "utils/useInterval";
 import { fetchAppJson } from "utils";
 import { Link } from "react-router-dom";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "components/LoadingSpinner";
+import TaskResults from "components/TaskResults";
 
 export default function ActiveTaskPage() {
     const [task, setTask] = useState(null);
@@ -27,12 +28,7 @@ export default function ActiveTaskPage() {
                 {isLoading && <LoadingSpinner />}
             </p>
             <Link to="/task_options">Start over</Link>
-            {task?.info && (
-                <>
-                    <p>Info:</p>
-                    <pre>{JSON.stringify(task.info, null, 2)}</pre>
-                </>
-            )}
+            {task?.info && <TaskResults results={task.info} />}
         </>
     );
 }
