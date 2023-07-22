@@ -93,9 +93,10 @@ def logout():
 def result_groups_for_display(groups):
     result_groups = []
     for group in groups:
-        g = []
-        for media_item in group:
+        g = {"id": group["id"], "media_items": []}
+        for media_item in group["media_items"]:
             m = media_item.copy()
+
             # TODO: figure out a way for this to work with e.g. PXL_20210303_210331830.PORTRAIT.jpg
             before_period = media_item["filename"].split(".")[0]
             quoted_filename = urllib.parse.quote(before_period)
@@ -104,7 +105,8 @@ def result_groups_for_display(groups):
             m["filenameSearchUrl"] = "".join(
                 ["https://photos.google.com/search/intitle:", replaced_filename]
             )
-            g.append(m)
+
+            g["media_items"].append(m)
         result_groups.append(g)
 
     return result_groups

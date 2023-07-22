@@ -77,7 +77,7 @@ class GooglePhotosClient(GoogleApiClient):
             "groups": [],
         }
 
-        for group in media_item_groups:
+        for index, group in enumerate(media_item_groups):
             raw_media_items = group["all"]
             # Remove _id as it's an ObjectId and is not JSON-serializable
             media_items = [{k: m[k] for k in m if k != "_id"} for m in raw_media_items]
@@ -85,14 +85,18 @@ class GooglePhotosClient(GoogleApiClient):
             # These are already sorted by creationDate asc, so the original mediaItem is the first one
             original_media_item = media_items[0]
 
-            group = []
+            group_media_items = []
+            group = {
+                "id": index,  # TODO: Hack! Replace these with real dupe group IDs
+                "media_items": group_media_items,
+            }
 
             for media_item in media_items:
                 if media_item["id"] == original_media_item["id"]:
                     media_item["type"] = "original"
                 else:
                     media_item["type"] = "duplicate"
-                group.append(media_item)
+                group_media_items.append(media_item)
 
             result["groups"].append(group)
 
