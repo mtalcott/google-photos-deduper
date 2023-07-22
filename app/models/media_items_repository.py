@@ -55,13 +55,10 @@ class MediaItemsRepository:
     def get_media_item_groups(self):
         results = self.db.media_items.aggregate(
             [
-                # TODO: Re-add logic to filter down to the current userId
-                # {
-                #     # Filter down to this user's media items
-                #     "$match": {
-                #         "userId": self.user_id
-                #     }
-                # },
+                {
+                    # Filter down to this user's media items
+                    "$match": {"userId": self.user_id}
+                },
                 {
                     # Order by creationTime ascending, so we can easily identify
                     #   the earliest created mediaItem as the original
