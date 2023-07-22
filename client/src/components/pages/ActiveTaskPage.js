@@ -29,7 +29,7 @@ export default function ActiveTaskPage() {
             </p>
             <Link to="/task_options">Start over</Link>
             {isLoading
-                ? task?.info && <pre>{JSON.stringify(task.info, null, 2)}</pre>
+                ? task?.info && <p>{task.info?.message}</p>
                 : task?.results && <TaskResults results={task.results} />}
         </>
     );
