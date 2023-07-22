@@ -1,4 +1,5 @@
 import "./TaskResults.css";
+import { useState, useEffect } from "react";
 
 export default function TaskResults({ results }) {
     if (!results) {
@@ -27,31 +28,7 @@ export default function TaskResults({ results }) {
                     ))}
                 </tbody>
             </table>
-
-            <p>
-                <i>
-                    Click "Delete duplicates" to delete the selected duplicates.
-                    Assuming you have the Chrome extension installed, this will
-                    open up a new tab and delete the selected duplicate photos
-                    through the Google Photos web app. Deleted photos can be{" "}
-                    <a
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        href="https://support.google.com/photos/answer/6128858#restore-items"
-                    >
-                        restored
-                    </a>{" "}
-                    for up to 60 days after they are deleted.
-                </i>
-            </p>
-            <p>
-                <button
-                    className="processDuplicates"
-                    onClick={processDuplicates}
-                >
-                    Delete duplicates
-                </button>
-            </p>
+            <ChromeExtensionIntegration />
         </>
     );
 }
@@ -112,9 +89,91 @@ function mediaItemField(field, mediaItem) {
     }
 }
 
-function processDuplicates(event) {
+function ChromeExtensionIntegration() {
+    const [isChromeExtensionFound, setIsChromeExtensionFound] = useState(false);
+    useEffect(() => {
+        let listener = window.addEventListener("message", (event) => {
+            if (
+                event.data?.app === "GooglePhotosDeduper" &&
+                event.data?.action === "response" &&
+                event.data?.originalMessage?.action === "healthCheck" &&
+                event.data?.response?.success
+            ) {
+                setIsChromeExtensionFound(true);
+            }
+        });
+        return () => {
+            window.removeEventListener("message", listener);
+        };
+    }, []);
+    useEffect(() => {
+        (async () => {
+            pingCheckChromeExtension();
+        })();
+    }, []);
+
+    if (isChromeExtensionFound) {
+        return (
+            <>
+                <p>
+                    <i>
+                        Click "Delete duplicates" to delete the selected
+                        duplicates. Assuming you have the Chrome extension
+                        installed, this will open up a new tab and delete the
+                        selected duplicate photos through the Google Photos web
+                        app. Deleted photos can be{" "}
+                        <a
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href="https://support.google.com/photos/answer/6128858#restore-items"
+                        >
+                            restored
+                        </a>{" "}
+                        for up to 60 days after they are deleted.
+                    </i>
+                </p>
+                <p>
+                    <button
+                        className="processDuplicates"
+                        onClick={processDuplicates}
+                    >
+                        Delete duplicates
+                    </button>
+                </p>
+            </>
+        );
+    } else {
+        return (
+            <>
+                <p>
+                    <i>
+                        Install the{" "}
+                        <a
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href="https://github.com/mtalcott/google-photos-deduper/tree/main/chrome_extension/README.md"
+                        >
+                            Chrome Extension
+                        </a>{" "}
+                        to delete duplicates.
+                    </i>
+                </p>
+            </>
+        );
+    }
+}
+
+async function pingCheckChromeExtension() {
+    window.postMessage({
+        app: "GooglePhotosDeduper",
+        action: "healthCheck",
+    });
+}
+
+async function processDuplicates(event) {
     console.log("processDuplicates", event);
     window.postMessage({
+        app: "GooglePhotosDeduper",
         action: "startDeletionTask",
         duplicateMediaItems: [
             {
