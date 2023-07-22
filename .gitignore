@@ -1,4 +1,5 @@
 __pycache__/
 .vscode/
 .env*
-.venv/
+# WSL Zone.Identifier files
+*:Zone.Identifier
