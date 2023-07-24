@@ -43,7 +43,7 @@ class GooglePhotosClient(GoogleApiClient):
 
             if "mediaItems" in resp_json:
                 for media_item_json in resp_json["mediaItems"]:
-                    self.repo.create_if_not_exists(media_item_json)
+                    self.repo.create_or_update(media_item_json)
 
                 item_count += len(resp_json["mediaItems"])
 

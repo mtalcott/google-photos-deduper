@@ -30,21 +30,19 @@ class MediaItemsRepository:
     def get(self, id: int):
         pass
 
-    def create_if_not_exists(self, attributes: dict):
-        existing = self.db.media_items.find_one(
-            {"id": attributes["id"], "userId": self.user_id}
-        )
-
-        if existing:
-            return existing
-
+    def create_or_update(self, attributes: dict):
         attributes = {
             k: v
             for (k, v) in attributes.items()
             if k in MediaItemsRepository.attribute_names
         }
-        attributes["userId"] = self.user_id
-        return self.db.media_items.insert_one(attributes)
+        attributes |= {"userId": self.user_id}
+
+        return self.db.media_items.update_one(
+            {"id": attributes["id"], "userId": self.user_id},
+            {"$set": attributes},
+            upsert=True,
+        )
 
     def all(self):
         return (
