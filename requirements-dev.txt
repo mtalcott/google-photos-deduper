@@ -1,10 +1,11 @@
-black==23.3.0
-click==8.1.4
+-i https://pypi.org/simple
+black==23.7.0
+click==8.1.6 ; python_version >= '3.7'
 debugpy==1.6.7
-mypy-extensions==1.0.0
-packaging==23.1
-pathspec==0.11.1
-platformdirs==3.8.1
-tomli==2.0.1; python_version < '3.11'
-typing-extensions==4.7.1; python_version < '3.10'
+mypy-extensions==1.0.0 ; python_version >= '3.5'
+packaging==23.1 ; python_version >= '3.7'
+pathspec==0.11.1 ; python_version >= '3.7'
+platformdirs==3.9.1 ; python_version >= '3.7'
+tomli==2.0.1 ; python_version < '3.11'
+typing-extensions==4.7.1 ; python_version >= '3.7'
 watchdog==3.0.0

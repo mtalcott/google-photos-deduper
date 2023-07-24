@@ -73,13 +73,13 @@ def get_active_task():
 
     result = tasks.process_duplicates.AsyncResult(active_task_id)
     response = {"status": result.status}
-    if result.successful():
+    if result.status == "SUCCESS":
         # If the task has completed successfully, return "results"
         groups = result_groups_for_display(result.info["groups"])
         response |= {"results": {"groups": groups}}
-    else:
-        # Else, return "info"
-        response |= {"info": result.info}
+    elif result.info:
+        # Else (PENDING, PROGRESS, FAILURE), return "message" within info
+        response |= {"message": str(result.info)}
 
     return flask.jsonify(response)
 

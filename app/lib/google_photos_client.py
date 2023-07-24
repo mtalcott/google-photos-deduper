@@ -5,7 +5,11 @@ from typing import Callable
 
 
 class GooglePhotosClient(GoogleApiClient):
-    def __init__(self, credentials: dict, update_status: Callable[[str], None]):
+    def __init__(
+        self,
+        credentials: dict,
+        update_status: Callable[[str], None],
+    ):
         super().__init__(credentials)
         self.__update_status = update_status
 
@@ -16,13 +20,13 @@ class GooglePhotosClient(GoogleApiClient):
     def local_media_items_count(self):
         return self.repo.count()
 
-    def retrieve_media_items(self):
-        max_items = 2_000
+    def fetch_media_items(self):
+        max_items = 20_000
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
 
-        self.update_status("Retrieving mediaItems...")
+        self.update_status("Fetched mediaItems...")
 
         while item_count < max_items:
             if next_page_token:
@@ -47,63 +51,66 @@ class GooglePhotosClient(GoogleApiClient):
             if not next_page_token:
                 break
 
-            self.update_status(f"Retrieved {item_count:,} mediaItems so far")
+            self.update_status(f"Fetched {item_count:,} mediaItems so far")
 
         self.update_status(f"Done retrieving mediaItems, {item_count:,} total")
 
         # for media_item in self.repo.all():
         #     self.update_status(pprint.pformat(media_item))
 
+    def get_local_media_items(self):
+        return self.repo.all()
+
     # TODO: The maximum number of mediaItems per album is 20,000. Add logic to split across multiple albums.
-    def process_duplicates(self):
-        self.update_status("Processing duplicates (getting grouped mediaItems)...")
+    # def process_duplicates(self):
+    #     self.update_status("Processing duplicates (getting grouped mediaItems)...")
 
-        media_item_groups = list(self.repo.get_media_item_groups())
-        num_groups = len(media_item_groups)
-        num_duplicates = sum([len(group["all"]) for group in media_item_groups])
+    #     media_item_groups = list(self.repo.get_media_item_groups())
+    #     num_groups = len(media_item_groups)
+    #     num_duplicates = sum([len(group["all"]) for group in media_item_groups])
 
-        self.update_status(
-            f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups"
-        )
-        # for group in media_item_groups:
-        #     for line in pprint.pformat(group).splitlines():
-        #         self.update_status(line)
+    #     self.update_status(
+    #         f"Done processing duplicates. Found {num_duplicates:,} duplicate mediaItems across {num_groups:,} groups"
+    #     )
+    #     # for group in media_item_groups:
+    #     #     for line in pprint.pformat(group).splitlines():
+    #     #         self.update_status(line)
 
-        # album = self.__find_or_create_album()
+    #     # album = self.__find_or_create_album()
 
-        # self.update_status(pprint.pformat(album))
+    #     # self.update_status(pprint.pformat(album))
 
-        result = {
-            "groups": [],
-        }
+    #     result = {
+    #         "groups": [],
+    #     }
 
-        for index, group in enumerate(media_item_groups):
-            raw_media_items = group["all"]
-            # Remove _id as it's an ObjectId and is not JSON-serializable
-            media_items = [{k: m[k] for k in m if k != "_id"} for m in raw_media_items]
+    #     for index, group in enumerate(media_item_groups):
+    #         raw_media_items = group["all"]
+    #         # Remove _id as it's an ObjectId and is not JSON-serializable
+    #         media_items = [{k: m[k] for k in m if k != "_id"} for m in raw_media_items]
 
-            # These are already sorted by creationDate asc, so the original mediaItem is the first one
-            original_media_item = media_items[0]
+    #         # These are already sorted by creationDate asc, so the original mediaItem is the first one
+    #         original_media_item = media_items[0]
 
-            group_media_items = []
-            group = {
-                "id": index,  # TODO: Hack! Replace these with real dupe group IDs
-                "media_items": group_media_items,
-            }
+    #         group_media_items = []
+    #         group = {
+    #             "id": index,  # TODO: Hack! Replace these with real dupe group IDs
+    #             "media_items": group_media_items,
+    #         }
 
-            for media_item in media_items:
-                if media_item["id"] == original_media_item["id"]:
-                    media_item["type"] = "original"
-                else:
-                    media_item["type"] = "duplicate"
-                group_media_items.append(media_item)
+    #         for media_item in media_items:
+    #             if media_item["id"] == original_media_item["id"]:
+    #                 media_item["type"] = "original"
+    #             else:
+    #                 media_item["type"] = "duplicate"
+    #             group_media_items.append(media_item)
 
-            result["groups"].append(group)
+    #         result["groups"].append(group)
 
-        # print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
-        # self.__add_media_items_to_album(duplicate_media_items, album['id'])
+    #     # print(f"Adding {len(duplicate_media_items):,} duplicate mediaItems to the album")
+    #     # self.__add_media_items_to_album(duplicate_media_items, album['id'])
 
-        return result
+    #     return result
 
     # def __find_or_create_album(self):
     #     album_title = f"google-photos-deduper-python userid-{self.user_id}"

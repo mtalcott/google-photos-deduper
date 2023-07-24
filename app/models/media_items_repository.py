@@ -47,7 +47,12 @@ class MediaItemsRepository:
         return self.db.media_items.insert_one(attributes)
 
     def all(self):
-        return list(self.db.media_items.find())
+        return (
+            self.db.media_items.find({"userId": self.user_id})
+            # Order by creationTime ascending, so we can easily identify
+            #   the earliest created mediaItem as the original
+            .sort("mediaMetadata.creationTime", 1)
+        )
 
     def count(self):
         return self.db.media_items.count_documents({})

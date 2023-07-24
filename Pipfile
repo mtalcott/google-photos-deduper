@@ -13,6 +13,8 @@ google-auth-httplib2 = "*"
 python-dotenv = "*"
 gunicorn = "*"
 flask-cors = "*"
+sentence-transformers = "*"
+celery = {extras = [ "redis",]}
 
 [dev-packages]
 debugpy = "*"
@@ -21,6 +23,3 @@ black = "*"
 
 [requires]
 python_version = "3.9"
-
-[packages.celery]
-extras = [ "redis",]
