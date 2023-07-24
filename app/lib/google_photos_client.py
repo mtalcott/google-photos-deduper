@@ -8,10 +8,10 @@ class GooglePhotosClient(GoogleApiClient):
     def __init__(
         self,
         credentials: dict,
-        update_status: Callable[[str], None],
+        # logger=logging,
     ):
         super().__init__(credentials)
-        self._update_status = update_status
+        # self.logger = logger
 
         user_info = self.get_user_info()
         self.user_id = user_info["id"]
@@ -204,5 +204,4 @@ class GooglePhotosClient(GoogleApiClient):
     #             pass
 
     def update_status(self, message):
-        if self._update_status:
-            self._update_status(message)
+        logging.info(message)

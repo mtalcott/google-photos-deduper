@@ -48,7 +48,7 @@ class MediaItemsRepository:
         return self.db.media_items.delete_many({"userId": self.user_id})
 
     def all(self):
-        return (
+        return list(
             self.db.media_items.find({"userId": self.user_id})
             # Order by creationTime ascending, so we can easily identify
             #   the earliest created mediaItem as the original

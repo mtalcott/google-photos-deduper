@@ -4,6 +4,7 @@ import time
 from sentence_transformers import SentenceTransformer, util
 from PIL import Image
 from urllib.request import urlopen
+from tqdm.autonotebook import trange
 from typing import Callable
 
 from typing_extensions import Protocol
@@ -25,13 +26,9 @@ from typing_extensions import Protocol
 class DuplicateImageDetector:
     """Uses https://github.com/UKPLab/sentence-transformers to calculate image embeddings and compute cosine similarities"""
 
-    def __init__(
-        self,
-        update_status: Callable[[str], None],
-    ):
+    def __init__(self):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
-        self._update_status = update_status
 
     def calculate_clusters(
         self,
@@ -81,12 +78,11 @@ class DuplicateImageDetector:
         Returns an iterator which yields a PIL Image object for each
           media item passed
         """
-        # return ImageIterator(media_items, resolution)
         width, height = resolution
-        for media_item in media_items:
+        for i in trange(0, len(media_items), desc="Downloading media items"):
+            media_item = media_items[i]
             url = f"{media_item['baseUrl']}=w{width}-h{height}"
             yield Image.open(urlopen(url))
 
     def update_status(self, message):
-        if self._update_status:
-            self._update_status(message)
+        logging.info(message)

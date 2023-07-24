@@ -9,8 +9,20 @@ from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
 from typing import Callable
 
-task_logger = celery.utils.log.get_logger(__name__)
-worker_logger = celery.utils.log.worker_logger
+logger = celery.utils.log.get_logger(__name__)
+
+
+class LoggingHandler(logging.Handler):
+    def __init__(self, update_status: Callable[[str], None]):
+        super().__init__()
+        self.update_status = update_status
+
+    # def set_status_updater(self, update_status: Callable[[str], None]):
+    #     self.update_status = update_status
+
+    def emit(self, record):
+        self.update_status(record.getMessage())
+        print(f"LoggingHandler: {record.getMessage()}")
 
 
 # import torch
@@ -28,19 +40,18 @@ def process_duplicates(
         # `meta` comes through as `info` field on result
         self.update_state(state=state, meta=message)
 
-    setup_logging(update_status)
+    # logging_handler.set_status_updater(update_status)
+    logging_handler = LoggingHandler(update_status)
+    logging.getLogger().addHandler(logging_handler)
 
     try:
-        client = GooglePhotosClient(
-            credentials,
-            update_status=update_status,
-        )
+        client = GooglePhotosClient(credentials)
 
         if refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()
 
         media_items_count = client.local_media_items_count()
-        update_status(f"Processing duplicates for {media_items_count:,} media items...")
+        logging.info(f"Processing duplicates for {media_items_count:,} media items...")
 
         # media_item_groups = list(self.repo.get_media_item_groups())
         # num_groups = len(media_item_groups)
@@ -54,8 +65,9 @@ def process_duplicates(
 
         # update_status(pprint.pformat(album))
 
-        media_items = list(client.get_local_media_items())
-        duplicate_detector = DuplicateImageDetector(update_status=update_status)
+        media_items = []
+        media_items = client.get_local_media_items()
+        duplicate_detector = DuplicateImageDetector()
         clusters = duplicate_detector.calculate_clusters(media_items)
 
         result = {
@@ -111,23 +123,13 @@ def setup_logging(update_status: Callable):
         we can take advantage of the built-in tdqm progress bars
         from sentence_transformers.
     """
-    task_logger.root.addHandler(LoggingHandler(update_status))
+    # task_logger.root.addHandler(LoggingHandler(update_status))
     # logger.basicConfig(
     #     encoding="utf-8",
     #     format="%(asctime)s %(levelname)-8s %(message)s",
     #     level=logging.INFO,
     #     datefmt="%Y-%m-%d %H:%M:%S",
     # )
-
-
-class LoggingHandler(logging.Handler):
-    def __init__(self, update_status: Callable):
-        super().__init__()
-        self.update_status = update_status
-
-    def emit(self, record):
-        self.update_status(record.getMessage())
-        print(f"LoggingHandler: {record.getMessage()}")
 
 
 class UserFacingError(Exception):

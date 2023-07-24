@@ -15,6 +15,7 @@ gunicorn = "*"
 flask-cors = "*"
 sentence-transformers = "*"
 celery = {extras = [ "redis",]}
+tqdm = "*"
 
 [dev-packages]
 debugpy = "*"
