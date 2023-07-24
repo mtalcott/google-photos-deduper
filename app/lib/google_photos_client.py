@@ -20,7 +20,12 @@ class GooglePhotosClient(GoogleApiClient):
     def local_media_items_count(self):
         return self.repo.count()
 
+    def clear_local_media_items(self):
+        self.repo.delete_all()
+
     def fetch_media_items(self):
+        self.clear_local_media_items()
+
         max_items = 2_000
         next_page_token = None
         item_count = 0

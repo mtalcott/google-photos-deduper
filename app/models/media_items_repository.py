@@ -44,6 +44,9 @@ class MediaItemsRepository:
             upsert=True,
         )
 
+    def delete_all(self):
+        return self.db.media_items.delete_many({"userId": self.user_id})
+
     def all(self):
         return (
             self.db.media_items.find({"userId": self.user_id})
