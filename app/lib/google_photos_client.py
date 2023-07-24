@@ -11,7 +11,7 @@ class GooglePhotosClient(GoogleApiClient):
         update_status: Callable[[str], None],
     ):
         super().__init__(credentials)
-        self.__update_status = update_status
+        self._update_status = update_status
 
         user_info = self.get_user_info()
         self.user_id = user_info["id"]
@@ -21,7 +21,7 @@ class GooglePhotosClient(GoogleApiClient):
         return self.repo.count()
 
     def fetch_media_items(self):
-        max_items = 20_000
+        max_items = 2_000
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
@@ -199,6 +199,5 @@ class GooglePhotosClient(GoogleApiClient):
     #             pass
 
     def update_status(self, message):
-        logging.info(message)
-        if self.__update_status:
-            self.__update_status(message)
+        if self._update_status:
+            self._update_status(message)

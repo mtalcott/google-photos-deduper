@@ -1,8 +1,10 @@
 import logging
 import pprint
+import time
 from sentence_transformers import SentenceTransformer, util
 from PIL import Image
 from urllib.request import urlopen
+from typing import Callable
 
 from typing_extensions import Protocol
 
@@ -23,16 +25,36 @@ from typing_extensions import Protocol
 class DuplicateImageDetector:
     """Uses https://github.com/UKPLab/sentence-transformers to calculate image embeddings and compute cosine similarities"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        update_status: Callable[[str], None],
+    ):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
+        self._update_status = update_status
 
-    def calculate_clusters(self, media_items, threshold=0.99, resolution=[100, 100]):
+    def calculate_clusters(
+        self,
+        media_items,
+        threshold=0.99,
+        resolution=[100, 100],
+    ):
+        start = time.perf_counter()
         images = list(self._get_images(media_items, resolution))
+        self.update_status(
+            f"Loaded images in {(time.perf_counter() - start):.2f} seconds"
+        )
 
         # Calculate embeddings in bulk
+        start = time.perf_counter()
         embeddings = self.model.encode(
-            images, batch_size=128, convert_to_tensor=True, show_progress_bar=True
+            images,
+            batch_size=8,
+            convert_to_tensor=True,
+            show_progress_bar=True,
+        )
+        self.update_status(
+            f"Encoded images in {(time.perf_counter() - start):.2f} seconds"
         )
 
         # # duplicates contains a list with triplets (score, image_id1, image_id2) and is sorted in decreasing order
@@ -44,7 +66,9 @@ class DuplicateImageDetector:
         #   threshold: Consider sentence pairs with a cosine-similarity larger than threshold as similar
 
         clusters = util.community_detection(
-            embeddings, min_community_size=2, threshold=threshold
+            embeddings,
+            min_community_size=2,
+            threshold=threshold,
         )
 
         # duplicates contains a list with triplets (score, image_id1, image_id2) and is sorted in decreasing order
@@ -63,20 +87,6 @@ class DuplicateImageDetector:
             url = f"{media_item['baseUrl']}=w{width}-h{height}"
             yield Image.open(urlopen(url))
 
-
-# class ImageIterator:
-#     def __init__(self, media_items, resolution):
-#         self.width, self.height = resolution
-#         self.media_items = media_items
-#         self.index = 0
-
-#     def __iter__(self):
-#         return self
-
-#     def __next__(self):
-#         media_item = self.media_items.next()
-#         if media_item:
-#             url = f"{media_item.baseUrl}=w{self.width}-h{self.height}"
-#             return Image.open(urlopen(url))
-#         else:
-#             raise StopIteration
+    def update_status(self, message):
+        if self._update_status:
+            self._update_status(message)

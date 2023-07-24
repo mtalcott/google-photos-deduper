@@ -1,12 +1,19 @@
+import logging
 import celery
 import celery.utils.log
-from urllib.error import HTTPError
+import urllib.error
+import requests.exceptions
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
 from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
+from typing import Callable
 
 logger = celery.utils.log.get_logger(__name__)
+
+# import torch
+
+# torch.set_num_threads(1)
 
 
 @celery.shared_task(bind=True)
@@ -15,9 +22,12 @@ def process_duplicates(
     credentials: dict,
     refresh_media_items: bool = False,
 ):
-    def update_status(m, state="PROGRESS"):
+    def update_status(message, state="PROGRESS"):
+        logging.info(message)
         # `meta` comes through as `info` field on result
-        self.update_state(state=state, meta=m)
+        self.update_state(state=state, meta=message)
+
+    # setup_logging(update_status)
 
     try:
         client = GooglePhotosClient(
@@ -44,7 +54,7 @@ def process_duplicates(
         # update_status(pprint.pformat(album))
 
         media_items = list(client.get_local_media_items())
-        duplicate_detector = DuplicateImageDetector()
+        duplicate_detector = DuplicateImageDetector(update_status=update_status)
         clusters = duplicate_detector.calculate_clusters(media_items)
 
         result = {
@@ -78,16 +88,51 @@ def process_duplicates(
 
         return result
 
-    except HTTPError as error:
+    except urllib.error.HTTPError as error:
         if error.status == 403:
-            update_status(
-                "HTTP Error 403 Forbidden encoutered. Please log out and reauthenticate.",
-                state="FAILURE",
-            )
-        elif error.status == 401:
-            update_status(
-                "HTTP Error 401 Unauthorized encountered. Please log out and reauthenticate.",
-                state="FAILURE",
-            )
+            raise UserFacingError(
+                "HTTP Error 403 Forbidden encoutered. Please refresh media items."
+            ) from error
         else:
             raise error
+    except requests.exceptions.HTTPError as error:
+        if error.response.status_code == 401:
+            raise UserFacingError(
+                "HTTP Error 401 Unauthorized encountered. Please log out and reauthenticate."
+            ) from error
+        else:
+            raise error
+
+
+def setup_logging(update_status: Callable):
+    """
+    Sets up logging config & logging callback to update celery task meta so
+        we can take advantage of the built-in tdqm progress bars
+        from sentence_transformers.
+    """
+    # logger.basicConfig(
+    #     encoding="utf-8",
+    #     format="%(asctime)s %(levelname)-8s %(message)s",
+    #     level=logging.INFO,
+    #     datefmt="%Y-%m-%d %H:%M:%S",
+    # )
+
+    # def on_log(record):
+    #     # update_status(record.getMessage())
+    #     print(f"custom logger on_log: {record.getMessage()}")
+    #     return True
+
+    # logger.root.addFilter(on_log)
+
+
+class UserFacingError(Exception):
+    pass
+
+
+# class LoggingHandler(logging.Handler):
+#     def emit(self, record):
+#         print("custom handler called with\n   ", record)
+
+
+# logger = logging.getLogger(__name__)
+# logger.addHandler(MyHandler())  # or: logger.handlers = [MyHandler()]

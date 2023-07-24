@@ -55,7 +55,7 @@ class MediaItemsRepository:
         )
 
     def count(self):
-        return self.db.media_items.count_documents({})
+        return self.db.media_items.count_documents({"userId": self.user_id})
 
     def get_media_item_groups(self):
         results = self.db.media_items.aggregate(
