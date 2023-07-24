@@ -192,8 +192,7 @@ function ChromeExtensionIntegration({ selectedGroups }) {
                 <p>
                     <i>
                         Click "Delete duplicates" to delete the selected
-                        duplicates. Assuming you have the Chrome extension
-                        installed, this will open up a new tab and delete the
+                        duplicates. This will open up a new tab and delete the
                         selected duplicate photos through the Google Photos web
                         app. Deleted photos can be{" "}
                         <a

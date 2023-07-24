@@ -9,7 +9,9 @@ from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
 from typing import Callable
 
-logger = celery.utils.log.get_logger(__name__)
+task_logger = celery.utils.log.get_logger(__name__)
+worker_logger = celery.utils.log.worker_logger
+
 
 # import torch
 
@@ -23,11 +25,10 @@ def process_duplicates(
     refresh_media_items: bool = False,
 ):
     def update_status(message, state="PROGRESS"):
-        logging.info(message)
         # `meta` comes through as `info` field on result
         self.update_state(state=state, meta=message)
 
-    # setup_logging(update_status)
+    setup_logging(update_status)
 
     try:
         client = GooglePhotosClient(
@@ -110,6 +111,7 @@ def setup_logging(update_status: Callable):
         we can take advantage of the built-in tdqm progress bars
         from sentence_transformers.
     """
+    task_logger.root.addHandler(LoggingHandler(update_status))
     # logger.basicConfig(
     #     encoding="utf-8",
     #     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -117,12 +119,15 @@ def setup_logging(update_status: Callable):
     #     datefmt="%Y-%m-%d %H:%M:%S",
     # )
 
-    # def on_log(record):
-    #     # update_status(record.getMessage())
-    #     print(f"custom logger on_log: {record.getMessage()}")
-    #     return True
 
-    # logger.root.addFilter(on_log)
+class LoggingHandler(logging.Handler):
+    def __init__(self, update_status: Callable):
+        super().__init__()
+        self.update_status = update_status
+
+    def emit(self, record):
+        self.update_status(record.getMessage())
+        print(f"LoggingHandler: {record.getMessage()}")
 
 
 class UserFacingError(Exception):
