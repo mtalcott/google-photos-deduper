@@ -37,6 +37,7 @@ task_logger.addHandler(task_updater_log_handler)
 
 
 # TODO: Can't get this to work, so setting up with a global flag when the task runs instead :(
+#       By the time the task runs, the handler no longer appears to be registered
 # Note: after_setup_logger and  signals are called BEFORE
 #       stdout is redirected, so we need to listen to a later
 # @celery.signals.worker_ready.connect
