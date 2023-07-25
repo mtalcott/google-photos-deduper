@@ -1,5 +1,6 @@
 import logging
 import celery
+import celery.signals
 import celery.utils.log
 import urllib.error
 import requests.exceptions
@@ -9,21 +10,47 @@ from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
 from typing import Callable
 
-logger = celery.utils.log.get_logger(__name__)
 
+class TaskUpdaterLogHandler(logging.Handler):
+    """
+    Custom logging handler that updates celery task meta
+    """
 
-class LoggingHandler(logging.Handler):
-    def __init__(self, update_status: Callable[[str], None]):
+    def __init__(self):
         super().__init__()
+        self.update_status = None
+
+    def set_status_updater(self, update_status: Callable[[str], None]):
         self.update_status = update_status
 
-    # def set_status_updater(self, update_status: Callable[[str], None]):
-    #     self.update_status = update_status
-
     def emit(self, record):
-        self.update_status(record.getMessage())
-        print(f"LoggingHandler: {record.getMessage()}")
+        # print(f"TaskUpdaterLogHandler: {record.getMessage()}")
+        if self.update_status:
+            self.update_status(record.getMessage())
 
+
+task_updater_log_handler = TaskUpdaterLogHandler()
+
+# Update celery task meta with logs from task logger
+task_logger = celery.utils.log.get_task_logger(__name__)
+task_logger.addHandler(task_updater_log_handler)
+
+
+# TODO: Can't get this to work, so setting up with a global flag when the task runs instead :(
+# Note: after_setup_logger and  signals are called BEFORE
+#       stdout is redirected, so we need to listen to a later
+# @celery.signals.worker_ready.connect
+# def setup_stdout_handler(**kwargs):
+#     """
+#     Sets up logging handlers to update task metadata on stdout output, so
+#     we can pass along progress from the tdqm progress bars from
+#     sentence_transformers and our DuplicateImageDetector.
+#     """
+#     print(f"setup_stdout_handler, kwargs: {kwargs}")
+#     # Update celery task meta with logs from redirected output (e.g. print statements)
+#     logging.getLogger("celery.redirected").addHandler(task_updater_log_handler)
+
+is_stdout_handler_setup = False
 
 # import torch
 
@@ -37,15 +64,20 @@ def process_duplicates(
     refresh_media_items: bool = False,
 ):
     def update_status(message, state="PROGRESS"):
-        # `meta` comes through as `info` field on result
+        # `meta` comes through as `info` field on task result
         self.update_state(state=state, meta=message)
 
-    # logging_handler.set_status_updater(update_status)
-    logging_handler = LoggingHandler(update_status)
-    logging.getLogger().addHandler(logging_handler)
+    task_updater_log_handler.set_status_updater(update_status)
+
+    global is_stdout_handler_setup
+    if not is_stdout_handler_setup:
+        logging.getLogger("celery.redirected").addHandler(task_updater_log_handler)
+        is_stdout_handler_setup = True
+
+    task_logger = celery.utils.log.get_task_logger(__name__)
 
     try:
-        client = GooglePhotosClient(credentials)
+        client = GooglePhotosClient(credentials, logger=task_logger)
 
         if refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()
@@ -67,7 +99,7 @@ def process_duplicates(
 
         media_items = []
         media_items = client.get_local_media_items()
-        duplicate_detector = DuplicateImageDetector()
+        duplicate_detector = DuplicateImageDetector(logger=task_logger)
         clusters = duplicate_detector.calculate_clusters(media_items)
 
         result = {
@@ -117,29 +149,5 @@ def process_duplicates(
             raise error
 
 
-def setup_logging(update_status: Callable):
-    """
-    Sets up logging config & logging callback to update celery task meta so
-        we can take advantage of the built-in tdqm progress bars
-        from sentence_transformers.
-    """
-    # task_logger.root.addHandler(LoggingHandler(update_status))
-    # logger.basicConfig(
-    #     encoding="utf-8",
-    #     format="%(asctime)s %(levelname)-8s %(message)s",
-    #     level=logging.INFO,
-    #     datefmt="%Y-%m-%d %H:%M:%S",
-    # )
-
-
 class UserFacingError(Exception):
     pass
-
-
-# class LoggingHandler(logging.Handler):
-#     def emit(self, record):
-#         print("custom handler called with\n   ", record)
-
-
-# logger = logging.getLogger(__name__)
-# logger.addHandler(MyHandler())  # or: logger.handlers = [MyHandler()]

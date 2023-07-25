@@ -4,7 +4,7 @@ import time
 from sentence_transformers import SentenceTransformer, util
 from PIL import Image
 from urllib.request import urlopen
-from tqdm.autonotebook import trange
+from tqdm import trange
 from typing import Callable
 
 from typing_extensions import Protocol
@@ -16,7 +16,6 @@ from typing_extensions import Protocol
 # from IPython.display import display
 # from IPython.display import Image as IPImage
 # import os
-# from tqdm.autonotebook import tqdm
 
 # See:
 #   - https://github.com/UKPLab/sentence-transformers/blob/master/examples/applications/image-search/Image_Duplicates.ipynb
@@ -26,9 +25,10 @@ from typing_extensions import Protocol
 class DuplicateImageDetector:
     """Uses https://github.com/UKPLab/sentence-transformers to calculate image embeddings and compute cosine similarities"""
 
-    def __init__(self):
+    def __init__(self, logger=logging.getLogger()):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
+        self.logger = logger
 
     def calculate_clusters(
         self,
@@ -38,7 +38,7 @@ class DuplicateImageDetector:
     ):
         start = time.perf_counter()
         images = list(self._get_images(media_items, resolution))
-        self.update_status(
+        self.logger.info(
             f"Loaded images in {(time.perf_counter() - start):.2f} seconds"
         )
 
@@ -50,7 +50,7 @@ class DuplicateImageDetector:
             convert_to_tensor=True,
             show_progress_bar=True,
         )
-        self.update_status(
+        self.logger.info(
             f"Encoded images in {(time.perf_counter() - start):.2f} seconds"
         )
 
@@ -83,6 +83,3 @@ class DuplicateImageDetector:
             media_item = media_items[i]
             url = f"{media_item['baseUrl']}=w{width}-h{height}"
             yield Image.open(urlopen(url))
-
-    def update_status(self, message):
-        logging.info(message)
