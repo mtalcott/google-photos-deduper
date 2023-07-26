@@ -30,15 +30,20 @@ def get_credentials(state: str, authorization_response: dict) -> str:
     return flow.credentials
 
 
-def refresh_session_credentials_if_invalid():
+def refresh_session_credentials_if_invalid(
+    func: Callable[[dict], None],
+):
     if "credentials" not in flask.session:
         return
 
-    client = GoogleApiClient(flask.session["credentials"])
+    def set_credentials(credentials):
+        flask.session["credentials"] = credentials
 
-    if not client.are_credentials_valid():
-        client.refresh_credentials()
-        flask.session["credentials"] = client.credentials_as_dict()
+    refresh_credentials_if_invalid(
+        flask.session["credentials"],
+        func,
+        set_credentials=set_credentials,
+    )
 
 
 def __get_oauth_flow(state: str = None) -> google_auth_oauthlib.flow.Flow:

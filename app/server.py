@@ -14,9 +14,14 @@ def me():
     if "credentials" not in flask.session:
         return unauthed_response, 401
 
-    utils.refresh_session_credentials_if_invalid()
-    client = GoogleApiClient(flask.session["credentials"])
-    user_info = client.get_user_info()
+    user_info = None
+
+    def get_user_info(credentials):
+        client = GoogleApiClient(credentials)
+        nonlocal user_info
+        user_info = client.get_user_info()
+
+    utils.refresh_session_credentials_if_invalid(get_user_info)
 
     return flask.jsonify(
         {
