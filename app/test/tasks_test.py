@@ -8,18 +8,6 @@ from app.lib.google_api_client import GoogleApiClient
 from app.models.media_items_repository import MediaItemsRepository
 
 
-@pytest.fixture
-def credentials():
-    return {
-        "token": "TOKEN",
-        "refresh_token": "REFRESH_TOKEN",
-        "token_uri": "TOKEN_URI",
-        "client_id": "CLIENT_ID",
-        "client_secret": "CLIENT_SECRET",
-        "scopes": ["SCOPE"],
-    }
-
-
 # @mongomock.patch(servers="mongodb://mongotest:27017/")
 @pytest.mark.skip  # TODO: Make mongomock work and get MediaItemsRepository mock working
 @mongomock.patch(servers=(("mongotest", 27017),))

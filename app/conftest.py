@@ -11,6 +11,18 @@ def celery_config():
 
 
 @pytest.fixture
+def credentials():
+    return {
+        "token": "TOKEN",
+        "refresh_token": "REFRESH_TOKEN",
+        "token_uri": "TOKEN_URI",
+        "client_id": "CLIENT_ID",
+        "client_secret": "CLIENT_SECRET",
+        "scopes": ["SCOPE"],
+    }
+
+
+@pytest.fixture
 def media_item():
     return {
         # "baseUrl": "https://lh3.googleusercontent.com/lr/AJUiC1xWhyltXJ-YvIFjY2oePjh8BSa-LaqZEwTXFtUwUIWubYgxBuK6elu33DtYSkPpuUc1uwHzEolcX2SgV1CXVCvP3LKnwWGeoa_SeIZXBwKy5Y40gdYHFPWLuhiCvhxIVdL7gio_fzKzt8Hpl4QyfESqhf2SBl1AT-0EL_CuIlDYtOsGRfS9rEB30DKXx8gMGx4PQ7wyd_EBvUQ_FkWAsOAQDbS5QjxBBujpKQxC8IyDPgKJdkW9VsIqIs-RejpoWi6tKHZJaK_-iwKyMzEvCEsqbnQ7DT3OqpcNNjZR0jj3eyzPA00a4m2e48hhpzYvlXlKFXjTUX7F8J4yxWNc087ESdtW6I9Ocv0HSUDETPIUlCv01lhDE8eNAn85E3_oVDM1HuFxdHH1jGaxvF85EweWE8vPVeMmfZEKJYLDy6vkPXqWk9EcWnqBPaKzEj25HVdMf7YNe82UlDRQ6lq0Q_c-uCqYy6btUzKuJvW7wEIljPrIO1GmONgNgvk8-qYC07vd44AUZtXhhK5M5AGu_LmEMYtUcSwYwXjl1El3mP_v9EZZTzQEzx9ezBdlavEG8UWequjCvOls3oiyFLOIEbLixHbbN1rxCScPoKZV7_1MmC3_xcQqSpjgWV3vMEFPDRl7ez0Ac6IT8uc_mOsXqZJtXPl751FUWrUEZ1KRWO3G5JVsZtbRuuUjNAk2Q_0sF9WaS685nYQb6zcrS2dcqq5hSGvK1YQ8EaON0dodUEPEcTiP4Tx7o0h1YB8RWNb2yjZV98XZZu-N1vFZOxcmp2wlhThKZ8RvUTdJNFn_ZX4M1bwBMuq_CrEL0MkhXRtAwwfDd79mZbWolhjd0HCza7pChhlHU74X4ulWLu3ZLZ41-_uGQu9GBbrcxFCgmzeZqONYhBqtR87HnkLF6B9_gWTzCrluE_uC6ybwetkNQFtC_3YZA0rsUie70EwNKQDKhk24B8AIzUOTSz3ICmeQkAt3AGLp_0SfsDzWz7rtI0_hRFWeqrL4JRjMjByaiZA",
