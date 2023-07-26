@@ -1,5 +1,19 @@
 import pytest
 
+from app import create_flask_app, FLASK_APP
+
+
+@pytest.fixture(scope="session")
+def flask_app():
+    app = FLASK_APP
+    app.config.update(
+        {
+            "TESTING": True,
+        }
+    )
+
+    yield app
+
 
 @pytest.fixture(scope="session")
 def celery_config():
@@ -15,10 +29,17 @@ def credentials():
     return {
         "token": "TOKEN",
         "refresh_token": "REFRESH_TOKEN",
-        "token_uri": "TOKEN_URI",
+        "token_uri": "https://TOKEN_URI",
         "client_id": "CLIENT_ID",
         "client_secret": "CLIENT_SECRET",
         "scopes": ["SCOPE"],
+    }
+
+
+@pytest.fixture
+def user_info():
+    return {
+        "id": "test-user-id",
     }
 
 

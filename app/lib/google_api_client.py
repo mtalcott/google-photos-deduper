@@ -25,11 +25,12 @@ class GoogleApiClient:
 
         return True
 
-    def refresh_credentials(self) -> None:
+    def refresh_credentials(self) -> dict:
         request = google.auth.transport.requests.Request()
         self.credentials_obj.refresh(request)
+        return self.credentials_as_dict()
 
-    def credentials_as_dict(self):
+    def credentials_as_dict(self) -> dict:
         return self.__class__.credentials_to_dict(self.credentials_obj)
 
     def get_user_info(self):
@@ -51,6 +52,9 @@ class GoogleApiClient:
     def credentials_to_dict(
         cls, credentials: google.oauth2.credentials.Credentials
     ) -> dict:
+        """
+        Convert a google.oauth2.credentials.Credentials object to a dict
+        """
         return {
             "token": credentials.token,
             "refresh_token": credentials.refresh_token,
