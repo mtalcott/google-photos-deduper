@@ -66,6 +66,15 @@ services:
       - redis
     volumes:
       - ./:/usr/src/app
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         # Enable GPU support
+    #         # Sped up processing of images by 65%, but also kept crashing WSL and resulting in system instability...
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
   client:
     build:
       dockerfile: Dockerfile
