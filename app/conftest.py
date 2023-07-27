@@ -29,17 +29,19 @@ def credentials():
     return {
         "token": "TOKEN",
         "refresh_token": "REFRESH_TOKEN",
-        "token_uri": "https://TOKEN_URI",
-        "client_id": "CLIENT_ID",
-        "client_secret": "CLIENT_SECRET",
         "scopes": ["SCOPE"],
     }
 
 
 @pytest.fixture
-def user_info():
+def user_id():
+    return "test-user-id"
+
+
+@pytest.fixture
+def user_info(user_id):
     return {
-        "id": "test-user-id",
+        "id": user_id,
     }
 
 

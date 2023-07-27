@@ -1,4 +1,3 @@
-import logging
 from app.lib.google_api_client import GoogleApiClient
 from app.lib.media_items_image_store import MediaItemsImageStore
 from app.models.media_items_repository import MediaItemsRepository
@@ -8,17 +7,15 @@ from typing import Callable
 class GooglePhotosClient(GoogleApiClient):
     def __init__(
         self,
-        credentials: dict,
-        logger=logging.getLogger(),
-        image_store=MediaItemsImageStore(),
+        *args,
+        **kwargs,
     ):
-        super().__init__(credentials)
-        self.logger = logger
+        super().__init__(*args, **kwargs)
 
-        user_info = self.get_user_info()
-        self.user_id = user_info["id"]
-        self.image_store = image_store
-        self.repo = MediaItemsRepository(user_id=self.user_id)
+        user_id = self.get_user_id()
+        self.image_store = MediaItemsImageStore()
+        self.repo = MediaItemsRepository(user_id=user_id)
+        self.image_store = MediaItemsImageStore()
 
     def local_media_items_count(self):
         return self.repo.count()
@@ -41,11 +38,13 @@ class GooglePhotosClient(GoogleApiClient):
             if next_page_token:
                 request_data["pageToken"] = next_page_token
 
-            resp = self.session.get(
-                "https://photoslibrary.googleapis.com/v1/mediaItems",
-                params=request_data,
-            )
-            resp_json = resp.json()
+            def func():
+                return self.session.get(
+                    "https://photoslibrary.googleapis.com/v1/mediaItems",
+                    params=request_data,
+                ).json()
+
+            resp_json = self._refresh_credentials_if_invalid(func)
 
             if "mediaItems" in resp_json:
                 for media_item_json in resp_json["mediaItems"]:

@@ -7,7 +7,10 @@ from app import config
 
 
 class MediaItemsRepository:
-    """A simple class"""
+    """
+    Repository for Google Images media items (photo and video metadata) stored
+    in MongoDB.
+    """
 
     attribute_names = [
         "id",  # mediaItem ID, not Mongo ID (which is _id)
@@ -19,9 +22,9 @@ class MediaItemsRepository:
         "storageFilename",  # Locally stored filename per MediaItemsImageStore
     ]
 
-    def __init__(self, user_id):
+    def __init__(self, user_id: str):
         if not user_id:
-            raise Error("must provide a user_id")
+            raise ValueError("user_id is required")
 
         self.user_id = user_id
 
@@ -59,9 +62,3 @@ class MediaItemsRepository:
 
     def count(self):
         return self.collection.count_documents({"userId": self.user_id})
-
-
-class Error(Exception):
-    """Base class for exceptions in this module."""
-
-    pass

@@ -61,7 +61,7 @@ is_stdout_handler_setup = False
 @celery.shared_task(bind=True)
 def process_duplicates(
     self: celery.Task,
-    credentials: dict,
+    user_id: str,
     refresh_media_items: bool = False,
 ):
     def update_status(message, state="PROGRESS"):
@@ -78,7 +78,7 @@ def process_duplicates(
     task_logger = celery.utils.log.get_task_logger(__name__)
 
     try:
-        client = GooglePhotosClient(credentials, logger=task_logger)
+        client = GooglePhotosClient.from_user_id(user_id, logger=task_logger)
 
         if refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()

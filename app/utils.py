@@ -24,10 +24,10 @@ def get_authorization_url() -> "tuple[str, str]":
     return authorization_url, state
 
 
-def get_credentials(state: str, authorization_response: dict) -> str:
+def get_credentials(state: str, authorization_response: dict) -> dict:
     flow = __get_oauth_flow(state)
     flow.fetch_token(authorization_response=authorization_response)
-    return flow.credentials
+    return GoogleApiClient.credentials_to_dict(flow.credentials)
 
 
 def refresh_session_credentials_if_invalid(
@@ -73,41 +73,3 @@ def __get_oauth_flow(state: str = None) -> google_auth_oauthlib.flow.Flow:
     flow.redirect_uri = flask.url_for("callback", _external=True)
 
     return flow
-
-
-def credentials_to_dict(credentials: google.oauth2.credentials.Credentials) -> dict:
-    return GoogleApiClient.credentials_to_dict(credentials)
-
-
-def refresh_credentials_if_invalid(
-    credentials: dict,
-    func: Callable[[dict], None],
-    set_credentials: Optional[Callable[[dict], None]] = None,
-) -> tuple[bool, dict]:
-    """
-    Call `func` with the given credentials, refreshing them and retrying if
-    they are invalid.
-
-    @param credentials: A dict containing credentials (see
-        GoogleApiClient.credentials_to_dict)
-    @param set_credentials: A function or lambda to call to store the refreshed
-        credentials, if changed
-
-    @return A tuple containing a boolean indicating whether the credentials
-        were refreshed, and the credentials dict (refreshed if needed)
-    """
-    # Would use `with` keyword and @contextmanager, but unfortunately it does
-    #   not support multiple yields: https://stackoverflow.com/a/16919782/379231
-    try:
-        func(credentials)
-        return (False, credentials)
-    except requests.exceptions.HTTPError as error:
-        if error.response.status_code == 401:
-            client = GoogleApiClient(credentials)
-            refreshed_credentials = client.refresh_credentials()
-            func(refreshed_credentials)
-            if set_credentials:
-                set_credentials(refreshed_credentials)
-            return (True, refreshed_credentials)
-        else:
-            raise error

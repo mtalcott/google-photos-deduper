@@ -12,17 +12,12 @@ from app import FLASK_APP as flask_app
 def me():
     unauthed_response = flask.jsonify({"logged_in": False})
 
-    if "credentials" not in flask.session:
+    user_id = flask.session.get("user_id")
+    if not user_id:
         return unauthed_response, 401
 
-    user_info = None
-
-    def get_user_info(credentials):
-        client = GoogleApiClient(credentials)
-        nonlocal user_info
-        user_info = client.get_user_info()
-
-    utils.refresh_session_credentials_if_invalid(get_user_info)
+    client = GoogleApiClient.from_user_id(user_id)
+    user_info = client.get_user_info()
 
     return flask.jsonify(
         {
@@ -47,24 +42,27 @@ def auth():
 def callback():
     state = flask.session["state"]
     credentials = utils.get_credentials(state, flask.request.url)
-    credentials_dict = utils.credentials_to_dict(credentials)
 
-    # Store the credentials in the session.
-    # TODO: Store in database
-    flask.session["credentials"] = credentials_dict
+    client = GoogleApiClient(credentials)
+    client.save_credentials()
+    flask.session["user_id"] = client.get_user_id()
 
     return flask.redirect("/task_options")
 
 
 @flask_app.route("/api/task", methods=["POST"])
 def create_task():
-    # TODO: Save credentials in database rather than session
-    credentials = flask.session["credentials"]
-    flask_app.logger.info(f"Creating task with options: {flask.request.form.to_dict()}")
+    # TODO: Better checking of active user across authed endpoints
+    user_id = flask.session.get("user_id")
+    assert user_id
+
+    flask_app.logger.info(
+        f"Creating task for user_id {user_id} with options: {flask.request.form.to_dict()}"
+    )
 
     refresh_media_items = flask.request.form.get("refresh_media_items") == "true"
     result = tasks.process_duplicates.delay(
-        credentials, refresh_media_items=refresh_media_items
+        user_id, refresh_media_items=refresh_media_items
     )
     flask.session["active_task_id"] = result.id
 

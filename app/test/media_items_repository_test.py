@@ -2,7 +2,6 @@ import copy
 import pytest
 import app.config
 from app.models.media_items_repository import MediaItemsRepository
-import app.models.media_items_repository
 import pymongo
 
 # These tests require a real mongo database connection
@@ -10,11 +9,6 @@ import pymongo
 #   `TEST_DB=1 pytest app/test/media_items_repository_test.py`
 #   in separate terminals
 requires_mongodb = pytest.mark.skipif("os.environ.get('TEST_DB') is None")
-
-
-@pytest.fixture
-def database():
-    return
 
 
 @pytest.fixture
@@ -37,7 +31,7 @@ def repo(user_id):
 
 
 def test_init__requires_user_id():
-    with pytest.raises(app.models.media_items_repository.Error):
+    with pytest.raises(ValueError):
         MediaItemsRepository(None)
 
 
