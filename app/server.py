@@ -80,7 +80,12 @@ def get_active_task():
     if result.status == "SUCCESS":
         # If the task has completed successfully, return "results"
         groups = result_groups_for_display(result.info["groups"])
-        response |= {"results": {"groups": groups}}
+        response |= {
+            "results": {
+                "groups": groups,
+                "similarity_map": result.info["similarity_map"],
+            }
+        }
     elif result.info:
         # Else (PENDING, PROGRESS, FAILURE), return "message" within info
         response |= {"message": str(result.info)}
