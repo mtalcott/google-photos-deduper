@@ -25,7 +25,6 @@ pytest = "*"
 pytest-mock = "*"
 pytest-celery = "*"
 pytest-dotenv = "*"
-mongomock = "*"
 
 [requires]
 python_version = "3.9"

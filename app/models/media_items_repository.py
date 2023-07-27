@@ -1,7 +1,7 @@
 # import pprint
 # import json
 import os
-from pymongo import MongoClient
+import pymongo
 from bson.objectid import ObjectId
 from app import config
 
@@ -24,8 +24,9 @@ class MediaItemsRepository:
 
         self.user_id = user_id
 
-        client = MongoClient(config.MONGODB_URI)
+        client = pymongo.MongoClient(config.MONGODB_URI)
         self.db = client[config.DATABASE]
+        self.collection = self.db.media_items
 
     def get(self, id: int):
         pass
@@ -38,28 +39,28 @@ class MediaItemsRepository:
         }
         attributes |= {"userId": self.user_id}
 
-        return self.db.media_items.update_one(
+        return self.collection.update_one(
             {"id": attributes["id"], "userId": self.user_id},
             {"$set": attributes},
             upsert=True,
         )
 
     def delete_all(self):
-        return self.db.media_items.delete_many({"userId": self.user_id})
+        return self.collection.delete_many({"userId": self.user_id})
 
     def all(self):
         return list(
-            self.db.media_items.find({"userId": self.user_id})
+            self.collection.find({"userId": self.user_id})
             # Order by creationTime ascending, so we can easily identify
             #   the earliest created mediaItem as the original
             .sort("mediaMetadata.creationTime", 1)
         )
 
     def count(self):
-        return self.db.media_items.count_documents({"userId": self.user_id})
+        return self.collection.count_documents({"userId": self.user_id})
 
     def get_media_item_groups(self):
-        results = self.db.media_items.aggregate(
+        results = self.collection.aggregate(
             [
                 {
                     # Filter down to this user's media items

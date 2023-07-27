@@ -24,7 +24,7 @@ services:
       target: dev-server
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
-      - DATABASE=test
+      - DATABASE=dev
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
@@ -49,7 +49,7 @@ services:
       target: dev-worker
     environment:
       - MONGODB_URI=mongodb://mongo:27017/
-      - DATABASE=test
+      - DATABASE=dev
       - FLASK_DEBUG=1
       - FLASK_APP=./app.py
       # - FLASK_SECRET_KEY=XYZ
