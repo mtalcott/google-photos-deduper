@@ -92,7 +92,6 @@ def test_all__same_user_id(collection, user_id, media_item, repo):
     insert2 = collection.insert_one(attr2)
     documents = repo.all()
 
-    assert type(documents) == list
     ids = [doc["id"] for doc in documents]
     print(documents)
     assert ids == ["id2", "id1"]

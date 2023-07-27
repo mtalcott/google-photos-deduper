@@ -49,7 +49,7 @@ class MediaItemsRepository:
         return self.collection.delete_many({"userId": self.user_id})
 
     def all(self):
-        return list(
+        return (
             self.collection.find({"userId": self.user_id})
             # Order by creationTime ascending, so we can easily identify
             #   the earliest created mediaItem as the original
@@ -58,46 +58,6 @@ class MediaItemsRepository:
 
     def count(self):
         return self.collection.count_documents({"userId": self.user_id})
-
-    def get_media_item_groups(self):
-        results = self.collection.aggregate(
-            [
-                {
-                    # Filter down to this user's media items
-                    "$match": {"userId": self.user_id}
-                },
-                {
-                    # Order by creationTime ascending, so we can easily identify
-                    #   the earliest created mediaItem as the original
-                    "$sort": {"mediaMetadata.creationTime": 1}
-                },
-                {
-                    # Group by attributes that indicate duplicate media items
-                    "$group": {
-                        "_id": {
-                            "filename": "$filename",
-                            "mimeType": "$mimeType",
-                            "height": "$mediaMetadata.height",
-                            "width": "$mediaMetadata.width",
-                        },
-                        "count": {"$sum": 1},
-                        # "_ids": {"$push": "$_id"},  # Mongo ids
-                        # "ids": {"$push": "$id"},  # mediaItem ids,
-                        "all": {"$push": "$$ROOT"},
-                    }
-                },
-                {
-                    # Filter down to only groups that contain duplicates
-                    "$match": {"count": {"$gt": 1}}
-                },
-                {
-                    # Sort groups by number of duplicates, descending
-                    "$sort": {"count": -1}
-                },
-            ]
-        )
-
-        return list(results)
 
 
 class Error(Exception):

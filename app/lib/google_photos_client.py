@@ -1,5 +1,6 @@
 import logging
 from app.lib.google_api_client import GoogleApiClient
+from app.lib.media_items_image_store import MediaItemsImageStore
 from app.models.media_items_repository import MediaItemsRepository
 from typing import Callable
 
@@ -9,12 +10,14 @@ class GooglePhotosClient(GoogleApiClient):
         self,
         credentials: dict,
         logger=logging.getLogger(),
+        image_store=MediaItemsImageStore(),
     ):
         super().__init__(credentials)
         self.logger = logger
 
         user_info = self.get_user_info()
         self.user_id = user_info["id"]
+        self.image_store = image_store
         self.repo = MediaItemsRepository(user_id=self.user_id)
 
     def local_media_items_count(self):
@@ -25,6 +28,7 @@ class GooglePhotosClient(GoogleApiClient):
 
     def fetch_media_items(self):
         self.clear_local_media_items()
+        # TODO: clear image cache?
 
         max_items = 2_000
         next_page_token = None
@@ -43,22 +47,25 @@ class GooglePhotosClient(GoogleApiClient):
             )
             resp_json = resp.json()
 
-            # self.logger.info(pprint.pformat(resp_json))
-            # self.logger.info(json.dumps(resp_json, indent=4, sort_keys=True))
-
             if "mediaItems" in resp_json:
                 for media_item_json in resp_json["mediaItems"]:
+                    # The baseUrls that the Google Images API provides expire
+                    # and start returning 403s after a few hours, so we cache a
+                    # local copy as soon as we get the URLs so we don't have to
+                    # refresh them later for long-running tasks.
+                    storage_filename = self.image_store.store_image(media_item_json)
+                    media_item_json["storageFilename"] = storage_filename
+
                     self.repo.create_or_update(media_item_json)
 
-                item_count += len(resp_json["mediaItems"])
+                    item_count += 1
+                    self.logger.info(f"Fetched {item_count:,} mediaItems so far")
 
             next_page_token = resp_json.get("nextPageToken", None)
             if not next_page_token:
                 break
 
-            self.logger.info(f"Fetched {item_count:,} mediaItems so far")
-
-        self.logger.info(f"Done retrieving mediaItems, {item_count:,} total")
+        self.logger.info(f"Done fetching mediaItems, {item_count:,} total")
 
         # for media_item in self.repo.all():
         #     self.logger.info(pprint.pformat(media_item))

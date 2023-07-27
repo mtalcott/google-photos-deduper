@@ -12,6 +12,7 @@ services:
     image: nginx:1.25
     volumes:
       - ./nginx-dev.conf:/etc/nginx/conf.d/default.conf
+      - image-volume:/mnt/images
     ports:
       - 80:80
     depends_on:
@@ -34,6 +35,8 @@ services:
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
       - REDIS_HOST=redis:6379
+      - IMAGE_STORE_PATH=/mnt/images
+      - PUBLIC_IMAGE_FOLDER=/images
     ports:
       - "5000:5000" # flask
       - "5678:5678" # debugpy
@@ -42,6 +45,7 @@ services:
       - redis
     volumes:
       - ./:/usr/src/app
+      - image-volume:/mnt/images
   worker:
     build:
       context: .
@@ -59,6 +63,8 @@ services:
       # - GOOGLE_CLIENT_SECRET=XYZ
       - OAUTHLIB_INSECURE_TRANSPORT=1
       - REDIS_HOST=redis:6379
+      - IMAGE_STORE_PATH=/mnt/images
+      - PUBLIC_IMAGE_FOLDER=/images
     ports:
       - "5679:5678" # debugpy
     depends_on:
@@ -66,6 +72,7 @@ services:
       - redis
     volumes:
       - ./:/usr/src/app
+      - image-volume:/mnt/images
     # deploy:
     #   resources:
     #     reservations:
@@ -86,3 +93,5 @@ services:
       - ./client:/app
     ports:
       - "3000:3000"
+volumes:
+  image-volume:

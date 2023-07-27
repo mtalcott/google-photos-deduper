@@ -13,6 +13,8 @@ REDIS_HOST = os.environ.get("REDIS_HOST")
 MONGODB_URI = os.environ.get("MONGODB_URI")
 DATABASE = os.environ.get("DATABASE")
 
+IMAGE_STORE_PATH = os.environ.get("IMAGE_STORE_PATH")
+
 CLIENT_HOST = os.environ.get("CLIENT_HOST")
 
 # By default .env will be loaded

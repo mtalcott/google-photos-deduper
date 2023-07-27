@@ -84,6 +84,7 @@ def process_duplicates(
             client.fetch_media_items()
 
         media_items_count = client.local_media_items_count()
+
         logging.info(f"Processing duplicates for {media_items_count:,} media items...")
 
         # media_item_groups = list(self.repo.get_media_item_groups())
@@ -98,8 +99,7 @@ def process_duplicates(
 
         # update_status(pprint.pformat(album))
 
-        media_items = []
-        media_items = client.get_local_media_items()
+        media_items = list(client.get_local_media_items())
         duplicate_detector = DuplicateImageDetector(logger=task_logger)
         clusters = duplicate_detector.calculate_clusters(media_items)
 

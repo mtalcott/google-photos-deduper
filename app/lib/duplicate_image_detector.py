@@ -9,6 +9,8 @@ from typing import Callable
 
 from typing_extensions import Protocol
 
+from app.lib.media_items_image_store import MediaItemsImageStore
+
 # import glob
 # import torch
 # import pickle
@@ -28,16 +30,16 @@ class DuplicateImageDetector:
     def __init__(self, logger=logging.getLogger()):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
+        self.image_store = MediaItemsImageStore()
         self.logger = logger
 
     def calculate_clusters(
         self,
         media_items,
         threshold=0.99,
-        resolution=[100, 100],
     ):
         start = time.perf_counter()
-        images = list(self._get_images(media_items, resolution))
+        images = list(self._get_images(media_items))
         self.logger.info(
             f"Loaded images in {(time.perf_counter() - start):.2f} seconds"
         )
@@ -73,13 +75,10 @@ class DuplicateImageDetector:
 
         return clusters
 
-    def _get_images(self, media_items, resolution):
+    def _get_images(self, media_items) -> Image:
         """
         Returns an iterator which yields a PIL Image object for each
           media item passed
         """
-        width, height = resolution
-        for i in trange(0, len(media_items), desc="Downloading media items"):
-            media_item = media_items[i]
-            url = f"{media_item['baseUrl']}=w{width}-h{height}"
-            yield Image.open(urlopen(url))
+        for media_item in media_items:
+            yield self.image_store.get_image(media_item)
