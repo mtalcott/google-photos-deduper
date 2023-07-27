@@ -36,7 +36,7 @@ services:
       - OAUTHLIB_INSECURE_TRANSPORT=1
       - REDIS_HOST=redis:6379
       - IMAGE_STORE_PATH=/mnt/images
-      - PUBLIC_IMAGE_FOLDER=/images
+      - PUBLIC_IMAGE_FOLDER=http://localhost/images/
     ports:
       - "5000:5000" # flask
       - "5678:5678" # debugpy
@@ -64,7 +64,7 @@ services:
       - OAUTHLIB_INSECURE_TRANSPORT=1
       - REDIS_HOST=redis:6379
       - IMAGE_STORE_PATH=/mnt/images
-      - PUBLIC_IMAGE_FOLDER=/images
+      - PUBLIC_IMAGE_FOLDER=http://localhost/images/
     ports:
       - "5679:5678" # debugpy
     depends_on:

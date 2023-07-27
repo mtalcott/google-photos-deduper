@@ -2,7 +2,7 @@ import "./TaskResults.css";
 import { useState, useEffect } from "react";
 
 export default function TaskResults({ results }) {
-    const fields = ["preview_with_link", "filename", "width", "height"];
+    const fields = ["preview_with_link", "filename", "dimensions"];
     const [selectedGroups, setSelectedGroups] = useState(() =>
         // Initialize selected groups with an object with every {<id>: true}
         Object.fromEntries(results.groups.map((g) => [g.id, true]))
@@ -141,12 +141,12 @@ function mediaItemField(field, mediaItem) {
                     rel="noopener noreferrer"
                     href={mediaItem["productUrl"]}
                 >
-                    <img src={`${mediaItem["baseUrl"]}=w100-h100`} />
+                    <img
+                        src={mediaItem["imageUrl"]}
+                        alt={mediaItem["filename"]}
+                    />
                 </a>
             );
-        case "width":
-        case "height":
-            return mediaItem["mediaMetadata"][field];
         case "filename":
             return (
                 <a

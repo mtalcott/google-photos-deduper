@@ -16,6 +16,7 @@ class MediaItemsRepository:
         "mimeType",
         "productUrl",
         "baseUrl",
+        "storageFilename",  # Locally stored filename per MediaItemsImageStore
     ]
 
     def __init__(self, user_id):

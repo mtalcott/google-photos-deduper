@@ -3,6 +3,7 @@ import re
 import flask
 from app import utils
 from app import tasks
+from app import config
 from app.lib.google_api_client import GoogleApiClient
 from app import FLASK_APP as flask_app
 
@@ -100,21 +101,40 @@ def result_groups_for_display(groups):
     for group in groups:
         g = {"id": group["id"], "media_items": []}
         for media_item in group["media_items"]:
-            m = media_item.copy()
-
-            # TODO: figure out a way for this to work with e.g. PXL_20210303_210331830.PORTRAIT.jpg
-            before_period = media_item["filename"].split(".")[0]
-            quoted_filename = urllib.parse.quote(before_period)
-            # Replace underscores with double underscores, for some reason
-            replaced_filename = re.sub("_", "__", quoted_filename)
-            m["filenameSearchUrl"] = "".join(
-                ["https://photos.google.com/search/intitle:", replaced_filename]
-            )
-
+            m = media_item_for_display(media_item)
             g["media_items"].append(m)
         result_groups.append(g)
 
     return result_groups
+
+
+def media_item_for_display(media_item):
+    m = {k: media_item[k] for k in ("id", "type", "filename", "mimeType")}
+
+    image_url = urllib.parse.urljoin(
+        config.PUBLIC_IMAGE_FOLDER,
+        media_item["storageFilename"],
+    )
+    m["imageUrl"] = image_url
+
+    # TODO: figure out a way for this to work with e.g. PXL_20210303_210331830.PORTRAIT.jpg
+    before_period = media_item["filename"].split(".")[0]
+    quoted_filename = urllib.parse.quote(before_period)
+    # Replace underscores with double underscores, for some reason
+    replaced_filename = re.sub("_", "__", quoted_filename)
+    filename_search_url = "".join(
+        ["https://photos.google.com/search/intitle:", replaced_filename]
+    )
+    m["filenameSearchUrl"] = filename_search_url
+
+    m["dimensions"] = " x ".join(
+        [
+            media_item["mediaMetadata"]["width"],
+            media_item["mediaMetadata"]["height"],
+        ]
+    )
+
+    return m
 
 
 if __name__ == "__main__":
