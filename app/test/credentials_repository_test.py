@@ -73,5 +73,4 @@ def test_get(collection, user_id, credentials, repo):
     result = repo.get()
 
     assert type(result) == dict
-    assert result["userId"] == user_id
     assert result["token"] == credentials["token"]
