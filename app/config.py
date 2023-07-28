@@ -18,5 +18,7 @@ PUBLIC_IMAGE_FOLDER = os.environ.get("PUBLIC_IMAGE_FOLDER")
 
 CLIENT_HOST = os.environ.get("CLIENT_HOST")
 
+DISABLE_GPU = os.environ.get("DISABLE_GPU") == "1"
+
 # By default .env will be loaded
 dotenv.load_dotenv()

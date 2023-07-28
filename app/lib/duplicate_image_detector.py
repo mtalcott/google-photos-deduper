@@ -6,6 +6,7 @@ from PIL import Image
 from urllib.request import urlopen
 from tqdm import trange
 from typing import Callable
+import app.config
 
 from typing_extensions import Protocol
 
@@ -35,6 +36,10 @@ class DuplicateImageDetector:
     ):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
+        # GPU processing can cause system instability. Disable if necessary.
+        if app.config.DISABLE_GPU:
+            self.model = self.model.to("cpu")
+
         self.media_items = media_items
         self.threshold = threshold
         self.logger = logger
