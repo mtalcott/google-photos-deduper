@@ -112,7 +112,16 @@ def result_groups_for_display(groups):
 
 
 def media_item_for_display(media_item):
-    m = {k: media_item[k] for k in ("id", "type", "filename", "mimeType")}
+    m = {
+        k: media_item[k]
+        for k in (
+            "id",
+            "type",
+            "productUrl",
+            "filename",
+            "mimeType",
+        )
+    }
 
     image_url = urllib.parse.urljoin(
         config.PUBLIC_IMAGE_FOLDER,

@@ -1,5 +1,7 @@
 import "./TaskResults.css";
 import { useState, useEffect } from "react";
+import { TaskResultsContext } from "utils/TaskResultsContext";
+import { useContext } from "react";
 
 export default function TaskResults({ results }) {
     const fields = ["preview_with_link", "filename", "dimensions"];
@@ -26,7 +28,15 @@ export default function TaskResults({ results }) {
     }
 
     return (
-        <>
+        <TaskResultsContext.Provider
+            value={{
+                results,
+                selectedGroups,
+                setSelectedGroups,
+                selectedOriginals,
+                setSelectedOriginals,
+            }}
+        >
             <table className="results">
                 <thead>
                     <tr>
@@ -52,8 +62,10 @@ export default function TaskResults({ results }) {
                     ))}
                 </tbody>
             </table>
-            <ChromeExtensionIntegration {...{ selectedGroups }} />
-        </>
+            <ChromeExtensionIntegration
+                {...{ selectedGroups, selectedOriginals }}
+            />
+        </TaskResultsContext.Provider>
     );
 }
 
@@ -72,7 +84,6 @@ function ResultRow({
         }));
     };
     const handleSelectedOriginalChange = (event) => {
-        console.debug("selectedOriginal change", event, event.target.checked);
         setSelectedOriginals((prev) => ({
             ...prev,
             [group.id]: event.target.value,
@@ -162,7 +173,7 @@ function mediaItemField(field, mediaItem) {
     }
 }
 
-function ChromeExtensionIntegration({ selectedGroups }) {
+function ChromeExtensionIntegration() {
     const [isChromeExtensionFound, setIsChromeExtensionFound] = useState(false);
     useEffect(() => {
         let listener = window.addEventListener("message", (event) => {
@@ -180,11 +191,16 @@ function ChromeExtensionIntegration({ selectedGroups }) {
         };
     }, []);
     useEffect(() => {
-        (async () => {
-            pingCheckChromeExtension();
-        })();
+        // (async () => {
+        pingCheckChromeExtension();
+        // })();
     }, []);
+
+    const { results, selectedGroups, selectedOriginals } =
+        useContext(TaskResultsContext);
     const selectedCount = Object.values(selectedGroups).filter((v) => v).length;
+
+    const [isProcessing, setIsProcessing] = useState(false);
 
     if (isChromeExtensionFound) {
         return (
@@ -208,7 +224,14 @@ function ChromeExtensionIntegration({ selectedGroups }) {
                 <p>
                     <button
                         className="processDuplicates"
-                        onClick={processDuplicates}
+                        onClick={() =>
+                            processDuplicates({
+                                results,
+                                selectedGroups,
+                                selectedOriginals,
+                                setIsProcessing,
+                            })
+                        }
                     >
                         Delete {selectedCount} duplicate
                         {selectedCount !== 1 && "s"}
@@ -244,16 +267,37 @@ async function pingCheckChromeExtension() {
     });
 }
 
-async function processDuplicates(event) {
-    console.debug("processDuplicates", event);
-    // window.postMessage({
-    //     app: "GooglePhotosDeduper",
-    //     action: "startDeletionTask",
-    //     duplicateMediaItems: [
-    //         {
-    //             productUrl:
-    //                 "https://photos.google.com/lr/photo/AE-vYs5HuL4Zq0oJTIcklVdIGa9ylN7wcW0p86fHMQSxlS8wOtkmvFM5bLiV8idUx5zcsM-ftX45Oiojo3Pms0sabovI3X6Exg",
-    //         },
-    //     ],
-    // });
+async function processDuplicates({
+    results,
+    selectedGroups,
+    selectedOriginals,
+    setIsProcessing,
+}) {
+    const selectedDuplicates = results.groups
+        .reduce((acc, group) => {
+            if (selectedGroups[group.id]) {
+                const groupDuplicates = group.media_items.filter(
+                    (mediaItem) => {
+                        // Select all duplicates except the selected original
+                        return selectedOriginals[group.id] !== mediaItem.id;
+                    }
+                );
+
+                acc.push(...groupDuplicates);
+            }
+            return acc;
+        }, [])
+        .map((mediaItem) => {
+            return {
+                // We only need the productUrls to open the page with the Chrome extension
+                productUrl: mediaItem.productUrl,
+            };
+        });
+
+    console.debug("processDuplicates", selectedDuplicates);
+    window.postMessage({
+        app: "GooglePhotosDeduper",
+        action: "startDeletionTask",
+        duplicateMediaItems: selectedDuplicates,
+    });
 }
