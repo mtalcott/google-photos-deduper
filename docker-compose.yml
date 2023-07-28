@@ -73,15 +73,14 @@ services:
     volumes:
       - ./:/usr/src/app
       - image-volume:/mnt/images
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         # Enable GPU support
-    #         # Sped up processing of images by 65%, but also kept crashing WSL and resulting in system instability...
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # Enable GPU support. Speeds up processing of images by 65%.
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
   client:
     build:
       dockerfile: Dockerfile

@@ -34,11 +34,7 @@ class DuplicateImageDetector:
         logger=logging.getLogger(),
     ):
         # First, load the CLIP model
-        self.model = SentenceTransformer(
-            "clip-ViT-B-32"
-            # Force CPU as the GPU computations cause system instability
-            # device="cpu",
-        )
+        self.model = SentenceTransformer("clip-ViT-B-32")
         self.media_items = media_items
         self.threshold = threshold
         self.logger = logger
@@ -84,6 +80,11 @@ class DuplicateImageDetector:
     def _calculate_embeddings(self):
         if self.embeddings is not None:
             return self.embeddings
+        print(
+            f"Calculating embeddings for {len(self.media_items)} images \
+                using {self.model.device}"
+        )
+
         start = time.perf_counter()
         images = list(self._get_images())
         self.logger.info(
