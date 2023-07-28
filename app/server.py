@@ -1,9 +1,11 @@
+import pprint
 import urllib.parse
 import re
 import flask
 from app import utils
 from app import tasks
 from app import config
+from app import server  # required for building URLs
 from app.lib.google_api_client import GoogleApiClient
 from app import FLASK_APP as flask_app
 
@@ -78,17 +80,22 @@ def get_active_task():
     result = tasks.process_duplicates.AsyncResult(active_task_id)
     response = {"status": result.status}
     if result.status == "SUCCESS":
-        # If the task has completed successfully, return "results"
-        groups = result_groups_for_display(result.info["groups"])
+        # If the task has completed successfully, return results
+        results = task_results_for_display(result.info["results"])
         response |= {
-            "results": {
-                "groups": groups,
-                "similarityMap": result.info["similarityMap"],
-            }
+            "results": results,
+            "meta": result.info["meta"],
         }
-    elif result.info:
-        # Else (PENDING, PROGRESS, FAILURE), return "message" within info
-        response |= {"message": str(result.info)}
+    elif result.status == "PROGRESS":
+        # PROGRESS state. Return info dict.
+        response |= result.info
+    else:
+        # Some other state we didn't explictly set.
+        # response |= {"meta": {"logMessage": str(result.info)}}
+        flask_app.logger.info(
+            f"Excluding result info in active task response,\n\
+                status: {result.status}, info: {pprint.pformat(result.info)}"
+        )
 
     return flask.jsonify(response)
 
@@ -99,16 +106,18 @@ def logout():
     return flask.redirect("/")
 
 
-def result_groups_for_display(groups):
+def task_results_for_display(results):
+    results_for_display = results.copy()
+
     result_groups = []
-    for group in groups:
+    for group in results["groups"]:
         g = {"id": group["id"], "mediaItems": []}
         for media_item in group["mediaItems"]:
             m = media_item_for_display(media_item)
             g["mediaItems"].append(m)
         result_groups.append(g)
 
-    return result_groups
+    return results_for_display | {"groups": result_groups}
 
 
 def media_item_for_display(media_item):

@@ -1,14 +1,9 @@
 import logging
 import celery
-import celery.signals
-import celery.utils.log
-import urllib.error
-import requests.exceptions
-from app.lib.duplicate_image_detector import DuplicateImageDetector
-from app.lib.google_photos_client import GooglePhotosClient
-from app import server  # required for building URLs
-from app import CELERY_APP as celery_app
 from typing import Callable
+from app import CELERY_APP as celery_app
+
+from app.lib.process_duplicates_task import ProcessDuplicatesTask
 
 
 class TaskUpdaterLogHandler(logging.Handler):
@@ -18,15 +13,14 @@ class TaskUpdaterLogHandler(logging.Handler):
 
     def __init__(self):
         super().__init__()
-        self.update_status = None
+        self.handler = None
 
-    def set_status_updater(self, update_status: Callable[[str], None]):
-        self.update_status = update_status
+    def set_handler(self, handler: Callable[[str], None]):
+        self.handler = handler
 
     def emit(self, record):
-        # print(f"TaskUpdaterLogHandler: {record.getMessage()}")
-        if self.update_status:
-            self.update_status(record.getMessage())
+        if self.handler:
+            self.handler(record.getMessage())
 
 
 task_updater_log_handler = TaskUpdaterLogHandler()
@@ -59,17 +53,7 @@ is_stdout_handler_setup = False
 
 
 @celery.shared_task(bind=True)
-def process_duplicates(
-    self: celery.Task,
-    user_id: str,
-    refresh_media_items: bool = False,
-):
-    def update_status(message):
-        # `meta` comes through as `info` field on task result
-        self.update_state(state="PROGRESS", meta=message)
-
-    task_updater_log_handler.set_status_updater(update_status)
-
+def process_duplicates(self: celery.Task, *args, **kwargs):
     global is_stdout_handler_setup
     if not is_stdout_handler_setup:
         logging.getLogger("celery.redirected").addHandler(task_updater_log_handler)
@@ -77,49 +61,23 @@ def process_duplicates(
 
     task_logger = celery.utils.log.get_task_logger(__name__)
 
-    client = GooglePhotosClient.from_user_id(user_id, logger=task_logger)
+    task_instance = ProcessDuplicatesTask(
+        self,
+        logger=task_logger,
+        *args,
+        **kwargs,
+    )
 
-    if refresh_media_items or client.local_media_items_count() == 0:
-        client.fetch_media_items()
+    def set_task_meta_log_message(message):
+        task_instance.update_meta(self, log_message=message)
 
-    media_items_count = client.local_media_items_count()
+    task_updater_log_handler.set_handler(set_task_meta_log_message)
+    results = task_instance.run()
+    # Celery replaces the `info` field with the return value of the task, so
+    #   return the last meta update alongside our results
+    final_meta = task_instance.get_meta()
 
-    logging.info(f"Processing duplicates for {media_items_count:,} media items...")
-
-    media_items = list(client.get_local_media_items())
-    duplicate_detector = DuplicateImageDetector(media_items, logger=task_logger)
-    similarity_map = duplicate_detector.calculate_similarity_map()
-    clusters = duplicate_detector.calculate_clusters()
-
-    result = {
-        "similarityMap": similarity_map,
-        "groups": [],
+    return {
+        "results": results,
+        "meta": final_meta,
     }
-
-    for group_index, media_item_indices in enumerate(clusters):
-        raw_media_items = [media_items[i] for i in media_item_indices]
-
-        # These are already sorted by creationDate asc, so the original mediaItem is the lowest index
-        original_media_item_id = media_items[min(media_item_indices)]["id"]
-
-        group_media_items = []
-        group = {
-            "id": group_index,
-            "mediaItems": group_media_items,
-        }
-
-        for raw_media_item in raw_media_items:
-            # Remove _id as it's an ObjectId and is not JSON-serializable
-            media_item = {k: raw_media_item[k] for k in raw_media_item if k != "_id"}
-            # Set is_original flag
-            media_item["isOriginal"] = raw_media_item["id"] == original_media_item_id
-
-            group_media_items.append(media_item)
-
-        result["groups"].append(group)
-
-    return result
-
-
-class UserFacingError(Exception):
-    pass
