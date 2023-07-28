@@ -31,7 +31,7 @@ class ProcessDuplicatesTask:
         # Initialize meta structure
         self.meta = {"logMessage": None}
         self.meta["steps"] = {
-            step: {"startedAt": None, "endedAt": None} for step in Steps.all
+            step: {"startedAt": None, "completedAt": None} for step in Steps.all
         }
 
     def run(self):
@@ -107,14 +107,12 @@ class ProcessDuplicatesTask:
         """
         if log_message:
             self.meta["logMessage"] = log_message
+
+        now = datetime.datetime.now().astimezone().isoformat()
         if start_step_name:
-            self.meta["steps"][start_step_name][
-                "startedAt"
-            ] = datetime.datetime.utcnow().isoformat()
+            self.meta["steps"][start_step_name]["startedAt"] = now
         if complete_step_name:
-            self.meta["steps"][complete_step_name][
-                "completedAt"
-            ] = datetime.datetime.utcnow().isoformat()
+            self.meta["steps"][complete_step_name]["completedAt"] = now
 
         self.task.update_state(
             # If we don't pass a state, it gets updated to blank.
