@@ -13,9 +13,10 @@ google-auth-httplib2 = "*"
 python-dotenv = "*"
 gunicorn = "*"
 flask-cors = "*"
-sentence-transformers = "*"
 celery = {extras = [ "redis",]}
 tqdm = "*"
+install = "*"
+sentence-transformers = {editable = true, ref = "d8982c9", git = "https://github.com/UKPLab/sentence-transformers.git"}
 
 [dev-packages]
 debugpy = "*"
