@@ -1,3 +1,4 @@
+import logging
 import os
 import app.config
 from PIL import Image
@@ -18,7 +19,22 @@ class MediaItemsImageStore:
         path = self._get_storage_path(media_item)
         # If we already have a local copy, don't download it again
         if not os.path.isfile(path):
-            urllib.request.urlretrieve(url, path)
+            attempts = 3
+            success = False
+            while not success:
+                try:
+                    urllib.request.urlretrieve(url, path)
+                    success = True
+                except urllib.error.HTTPError as error:
+                    attempts -= 1
+                    logging.warn(
+                        f"Received {error} downloading image\n\
+                        media_item: {media_item}\n\
+                        url: {url}\n\
+                        attempts left: {attempts}"
+                    )
+                    if attempts <= 0:
+                        raise error
 
         return self.get_storage_filename(media_item)
 
