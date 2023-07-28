@@ -36,9 +36,8 @@ class DuplicateImageDetector:
     ):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
-        # GPU processing can cause system instability. Disable if necessary.
-        if app.config.DISABLE_GPU:
-            self.model = self.model.to("cpu")
+        if app.config.ENABLE_GPU:
+            self.model = self.model.to("gpu")
 
         self.media_items = media_items
         self.threshold = threshold

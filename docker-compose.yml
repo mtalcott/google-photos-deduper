@@ -73,14 +73,6 @@ services:
     volumes:
       - ./:/usr/src/app
       - image-volume:/mnt/images
-    deploy:
-      resources:
-        reservations:
-          devices:
-            # Enable GPU support. Speeds up processing of images by 65%.
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
   client:
     build:
       dockerfile: Dockerfile
