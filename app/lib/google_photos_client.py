@@ -27,7 +27,7 @@ class GooglePhotosClient(GoogleApiClient):
         self.clear_local_media_items()
         # TODO: clear image cache?
 
-        max_items = 2_000
+        max_items = 1_000
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}

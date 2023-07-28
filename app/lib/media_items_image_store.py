@@ -27,8 +27,8 @@ class MediaItemsImageStore:
         return Image.open(path)
 
     def get_storage_filename(self, media_item) -> str:
-        extension = os.path.splitext(media_item["filename"])[1]
-        return f"{media_item['id']}{extension}"
+        # These are all JPEG images (baseUrl for movies is a thumbnail)
+        return f"{media_item['id']}.jpg"
 
     def _get_storage_path(self, media_item) -> str:
         return os.path.join(
