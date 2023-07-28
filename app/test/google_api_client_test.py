@@ -8,6 +8,18 @@ class TestRefreshCredentialsIfInvalid:
     def test_refresh_credentials_if_invalid__valid_credentials(self, credentials):
         func = Mock()
 
+        # TODO: Test retry on 401
+        # mock_response = Mock(spec=requests.Response, status_code=401)
+        # error = requests.exceptions.HTTPError(response=mock_response)
+        # assert error.response.status_code == 401
+
+        # mocker.patch.multiple(
+        #     "app.lib.google_api_client.GoogleApiClient",
+        #     # First call raises unauthorized error, second call succeeds
+        #     get_user_info=Mock(side_effect=[error, user_info]),
+        #     refresh_credentials=Mock(return_value=new_credentials),
+        # )
+
         refreshed, returned_credentials = refresh_credentials_if_invalid(
             credentials, func
         )

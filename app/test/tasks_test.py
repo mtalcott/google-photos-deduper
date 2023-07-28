@@ -9,8 +9,17 @@ from unittest.mock import Mock
 
 
 def test_process_duplicates(
-    mocker, celery_app, celery_worker, credentials, user_info, media_item
+    mocker,
+    celery_app,
+    celery_worker, # Starts a celery worker in a separate thread
+    credentials,
+    user_info,
+    media_item,
 ):
+    mocker.patch.multiple(
+        "app.models.credentials_repository.CredentialsRepository",
+        get=Mock(return_value=credentials),
+    )
     mocker.patch.multiple(
         "app.lib.google_photos_client.GooglePhotosClient",
         get_user_info=Mock(return_value=user_info),
@@ -25,7 +34,7 @@ def test_process_duplicates(
     )
 
     async_result = app.tasks.process_duplicates.delay(
-        credentials=credentials,
+        user_info["id"],
         refresh_media_items=True,
     )
     result = async_result.get()
