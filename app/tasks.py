@@ -69,7 +69,7 @@ def process_duplicates(self: celery.Task, *args, **kwargs):
     )
 
     def set_task_meta_log_message(message):
-        task_instance.update_meta(self, log_message=message)
+        task_instance.update_meta(log_message=message)
 
     task_updater_log_handler.set_handler(set_task_meta_log_message)
     results = task_instance.run()

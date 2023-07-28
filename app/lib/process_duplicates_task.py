@@ -1,10 +1,18 @@
 import copy
+import datetime
 import logging
 import celery
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
 from app import server  # required for building URLs
 from app import CELERY_APP as celery_app
+
+
+class Steps:
+    FETCH_MEDIA_ITEMS = "fetch_media_items"
+    PROCESS_DUPLICATES = "process_duplicates"
+
+    all = [FETCH_MEDIA_ITEMS, PROCESS_DUPLICATES]
 
 
 class ProcessDuplicatesTask:
@@ -19,13 +27,22 @@ class ProcessDuplicatesTask:
         self.user_id = user_id
         self.refresh_media_items = refresh_media_items
         self.logger = logger
-        self.meta = {}  # Store our own meta locally
+
+        # Initialize meta structure
+        self.meta = {"logMessage": None}
+        self.meta["steps"] = {
+            step: {"startedAt": None, "endedAt": None} for step in Steps.all
+        }
 
     def run(self):
+        self.start_step(Steps.FETCH_MEDIA_ITEMS)
         client = GooglePhotosClient.from_user_id(self.user_id, logger=self.logger)
 
         if self.refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()
+
+        self.complete_step(Steps.FETCH_MEDIA_ITEMS)
+        self.start_step(Steps.PROCESS_DUPLICATES)
 
         media_items_count = client.local_media_items_count()
 
@@ -72,17 +89,32 @@ class ProcessDuplicatesTask:
 
             result["groups"].append(group)
 
+        self.complete_step(Steps.PROCESS_DUPLICATES)
+
         return result
 
     # Celery's `update_state` method overwrites the `info`/`meta` field.
     #   Store our own local meta so we don't have to read it from Redis for
     #   every update
-    def update_meta(self, thing="that", log_message=None):
+    def update_meta(
+        self,
+        log_message=None,
+        start_step_name=None,
+        complete_step_name=None,
+    ):
         """
         Update local meta, then call celery method to update task state.
         """
         if log_message:
             self.meta["logMessage"] = log_message
+        if start_step_name:
+            self.meta["steps"][start_step_name][
+                "startedAt"
+            ] = datetime.datetime.utcnow().isoformat()
+        if complete_step_name:
+            self.meta["steps"][complete_step_name][
+                "completedAt"
+            ] = datetime.datetime.utcnow().isoformat()
 
         self.task.update_state(
             # If we don't pass a state, it gets updated to blank.
@@ -94,3 +126,9 @@ class ProcessDuplicatesTask:
 
     def get_meta(self):
         return copy.deepcopy(self.meta)
+
+    def start_step(self, step):
+        self.update_meta(start_step_name=step)
+
+    def complete_step(self, step):
+        self.update_meta(complete_step_name=step)
