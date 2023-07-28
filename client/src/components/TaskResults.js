@@ -116,20 +116,22 @@ function ResultRow({
                             key={mediaItem.id}
                             className={[field, mediaItem["type"]]}
                         >
-                            {field === "selectedOriginal" ? (
-                                <input
-                                    type="radio"
-                                    checked={
-                                        selectedOriginals[group.id] ===
-                                        mediaItem.id
-                                    }
-                                    onChange={handleSelectedOriginalChange}
-                                    // name={`selectedOriginal-${group.id}`}
-                                    value={mediaItem.id}
-                                />
-                            ) : (
-                                mediaItemField(field, mediaItem)
-                            )}
+                            {field === "selectedOriginal"
+                                ? selectedGroups[group.id] && (
+                                      <input
+                                          type="radio"
+                                          checked={
+                                              selectedOriginals[group.id] ===
+                                              mediaItem.id
+                                          }
+                                          onChange={
+                                              handleSelectedOriginalChange
+                                          }
+                                          // name={`selectedOriginal-${group.id}`}
+                                          value={mediaItem.id}
+                                      />
+                                  )
+                                : mediaItemField(field, mediaItem)}
                         </td>
                     ))}
                 </tr>
