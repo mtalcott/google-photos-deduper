@@ -3,6 +3,9 @@ import dotenv
 
 APP_NAME = "app"
 
+# By default .env will be loaded
+dotenv.load_dotenv()
+
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
@@ -20,6 +23,3 @@ CLIENT_HOST = os.environ.get("CLIENT_HOST")
 
 # Speeds up processing by 65%, but can cause system instability. Not recommended.
 ENABLE_GPU = os.environ.get("ENABLE_GPU") == "1"
-
-# By default .env will be loaded
-dotenv.load_dotenv()
