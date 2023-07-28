@@ -11,7 +11,7 @@ from unittest.mock import Mock
 def test_process_duplicates(
     mocker,
     celery_app,
-    celery_worker, # Starts a celery worker in a separate thread
+    celery_worker,  # Starts a celery worker in a separate thread
     credentials,
     user_info,
     media_item,
@@ -41,9 +41,11 @@ def test_process_duplicates(
 
     assert "groups" in result
     assert len(result["groups"]) == 1
-    assert "media_items" in result["groups"][0]
-    assert len(result["groups"][0]["media_items"]) == 1
+    assert "mediaItems" in result["groups"][0]
+    assert len(result["groups"][0]["mediaItems"]) == 1
     assert (
-        result["groups"][0]["media_items"][0].items()
-        >= {"id": media_item["id"]}.items()
+        result["groups"][0]["mediaItems"][0].items() >= {"id": media_item["id"]}.items()
     )
+
+    assert "similarityMap" in result
+    assert result["similarityMap"] == {}

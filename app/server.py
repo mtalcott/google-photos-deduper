@@ -83,7 +83,7 @@ def get_active_task():
         response |= {
             "results": {
                 "groups": groups,
-                "similarity_map": result.info["similarity_map"],
+                "similarityMap": result.info["similarityMap"],
             }
         }
     elif result.info:
@@ -102,10 +102,10 @@ def logout():
 def result_groups_for_display(groups):
     result_groups = []
     for group in groups:
-        g = {"id": group["id"], "media_items": []}
-        for media_item in group["media_items"]:
+        g = {"id": group["id"], "mediaItems": []}
+        for media_item in group["mediaItems"]:
             m = media_item_for_display(media_item)
-            g["media_items"].append(m)
+            g["mediaItems"].append(m)
         result_groups.append(g)
 
     return result_groups
@@ -116,7 +116,7 @@ def media_item_for_display(media_item):
         k: media_item[k]
         for k in (
             "id",
-            "type",
+            "isOriginal",
             "productUrl",
             "filename",
             "mimeType",

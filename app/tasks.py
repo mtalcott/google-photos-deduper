@@ -64,9 +64,9 @@ def process_duplicates(
     user_id: str,
     refresh_media_items: bool = False,
 ):
-    def update_status(message, state="PROGRESS"):
+    def update_status(message):
         # `meta` comes through as `info` field on task result
-        self.update_state(state=state, meta=message)
+        self.update_state(state="PROGRESS", meta=message)
 
     task_updater_log_handler.set_status_updater(update_status)
 
@@ -92,7 +92,7 @@ def process_duplicates(
     clusters = duplicate_detector.calculate_clusters()
 
     result = {
-        "similarity_map": similarity_map,
+        "similarityMap": similarity_map,
         "groups": [],
     }
 
@@ -105,16 +105,15 @@ def process_duplicates(
         group_media_items = []
         group = {
             "id": group_index,
-            "media_items": group_media_items,
+            "mediaItems": group_media_items,
         }
 
         for raw_media_item in raw_media_items:
             # Remove _id as it's an ObjectId and is not JSON-serializable
             media_item = {k: raw_media_item[k] for k in raw_media_item if k != "_id"}
-            if raw_media_item["id"] == original_media_item_id:
-                media_item["type"] = "original"
-            else:
-                media_item["type"] = "duplicate"
+            # Set is_original flag
+            media_item["isOriginal"] = raw_media_item["id"] == original_media_item_id
+
             group_media_items.append(media_item)
 
         result["groups"].append(group)

@@ -4,7 +4,7 @@ import { TaskResultsContext } from "utils/TaskResultsContext";
 import { useContext } from "react";
 
 export default function TaskResults({ results }) {
-    const fields = ["preview_with_link", "filename", "dimensions"];
+    const fields = ["previewWithLink", "similarity", "filename", "dimensions"];
     const [selectedGroups, setSelectedGroups] = useState(() =>
         // Initialize selected groups with an object with every {<id>: true}
         Object.fromEntries(results.groups.map((g) => [g.id, true]))
@@ -15,13 +15,10 @@ export default function TaskResults({ results }) {
                 // Key: group ID
                 g.id,
                 // Value: selected original media item ID
-                g.media_items.find((mi) => mi.type === "original").id,
+                g.mediaItems.find((mi) => mi.isOriginal).id,
             ])
         )
     );
-
-    console.debug("selectedGroups", selectedGroups);
-    console.debug("selectedOriginals", selectedOriginals);
 
     if (!results) {
         return null;
@@ -77,6 +74,7 @@ function ResultRow({
     selectedOriginals,
     setSelectedOriginals,
 }) {
+    const { results } = useContext(TaskResultsContext);
     const handleGroupCheckboxChange = (event) => {
         setSelectedGroups((prev) => ({
             ...prev,
@@ -90,9 +88,13 @@ function ResultRow({
         }));
     };
 
+    if (selectedGroups[group.id]) {
+        fields.push("selectedOriginal");
+    }
+
     return (
         <>
-            {[...fields, "selectedOriginal"].map((field, index) => (
+            {fields.map((field, index) => (
                 <tr key={field}>
                     {index === 0 && (
                         <td
@@ -111,27 +113,30 @@ function ResultRow({
                     <td className="field-name" key="field-name">
                         {prettyFieldName(field)}
                     </td>
-                    {group.media_items.map((mediaItem) => (
+                    {group.mediaItems.map((mediaItem) => (
                         <td
                             key={mediaItem.id}
-                            className={[field, mediaItem["type"]]}
+                            className={[
+                                field,
+                                mediaItem.isOriginal ? "original" : "duplicate",
+                            ]}
                         >
-                            {field === "selectedOriginal"
-                                ? selectedGroups[group.id] && (
-                                      <input
-                                          type="radio"
-                                          checked={
-                                              selectedOriginals[group.id] ===
-                                              mediaItem.id
-                                          }
-                                          onChange={
-                                              handleSelectedOriginalChange
-                                          }
-                                          // name={`selectedOriginal-${group.id}`}
-                                          value={mediaItem.id}
-                                      />
-                                  )
-                                : mediaItemField(field, mediaItem)}
+                            {field === "selectedOriginal" ? (
+                                <input
+                                    type="radio"
+                                    checked={
+                                        selectedOriginals[group.id] ===
+                                        mediaItem.id
+                                    }
+                                    onChange={handleSelectedOriginalChange}
+                                    // name={`selectedOriginal-${group.id}`}
+                                    value={mediaItem.id}
+                                />
+                            ) : field === "similarity" ? (
+                                <>Test</>
+                            ) : (
+                                mediaItemField(field, mediaItem)
+                            )}
                         </td>
                     ))}
                 </tr>
@@ -147,7 +152,7 @@ function prettyFieldName(field) {
 
 function mediaItemField(field, mediaItem) {
     switch (field) {
-        case "preview_with_link":
+        case "previewWithLink":
             return (
                 <a
                     target="_blank"
@@ -278,12 +283,10 @@ async function processDuplicates({
     const selectedDuplicates = results.groups
         .reduce((acc, group) => {
             if (selectedGroups[group.id]) {
-                const groupDuplicates = group.media_items.filter(
-                    (mediaItem) => {
-                        // Select all duplicates except the selected original
-                        return selectedOriginals[group.id] !== mediaItem.id;
-                    }
-                );
+                const groupDuplicates = group.mediaItems.filter((mediaItem) => {
+                    // Select all duplicates except the selected original
+                    return selectedOriginals[group.id] !== mediaItem.id;
+                });
 
                 acc.push(...groupDuplicates);
             }
