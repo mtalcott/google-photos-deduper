@@ -1,3 +1,4 @@
+import time
 from app.lib.google_api_client import GoogleApiClient
 from app.lib.media_items_image_store import MediaItemsImageStore
 from app.models.media_items_repository import MediaItemsRepository
@@ -33,6 +34,7 @@ class GooglePhotosClient(GoogleApiClient):
         request_data = {"pageSize": 100}
 
         self.logger.info("Fetched mediaItems...")
+        last_log_time = time.time()
 
         while item_count < max_items:
             if next_page_token:
@@ -58,7 +60,11 @@ class GooglePhotosClient(GoogleApiClient):
                     self.repo.create_or_update(media_item_json)
 
                     item_count += 1
-                    self.logger.info(f"Fetched {item_count:,} mediaItems so far")
+
+                    # Log every 3 seconds
+                    if last_log_time < time.time() - 3:
+                        self.logger.info(f"Fetched {item_count:,} mediaItems so far")
+                        last_log_time = time.time()
 
             next_page_token = resp_json.get("nextPageToken", None)
             if not next_page_token:
