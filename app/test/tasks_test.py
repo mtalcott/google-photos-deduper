@@ -21,6 +21,7 @@ def test_process_duplicates(
     mocker.patch.multiple(
         "app.lib.duplicate_image_detector.DuplicateImageDetector",
         calculate_clusters=Mock(return_value=[[0]]),
+        calculate_similarity_map=Mock(return_value={}),
     )
 
     async_result = app.tasks.process_duplicates.delay(

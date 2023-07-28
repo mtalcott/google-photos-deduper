@@ -22,26 +22,45 @@ local_images_folder_path = "app/test/images"
 @pytest.fixture
 def media_items(media_item):
     return [
-        media_item | {"baseUrl": duplicate_image_urls[0]},
-        media_item | {"baseUrl": duplicate_image_urls[1]},
-        media_item | {"baseUrl": other_image_url},
+        media_item | {"id": "image1"},
+        media_item | {"id": "image2"},
+        media_item | {"id": "image3"},
     ]
 
 
 @pytest.fixture
-def test_image():
-    return Image.open(f"{local_images_folder_path}/test-image-dup-1a.jpg")
+def test_images():
+    return [
+        Image.open(f"{local_images_folder_path}/test-image-dup-1a.jpg"),
+        Image.open(f"{local_images_folder_path}/test-image-dup-1b.jpg"),
+        Image.open(f"{local_images_folder_path}/test-image-2.jpg"),
+    ]
 
 
-@pytest.mark.slow
-def test_calculate_clusters(mocker, media_items, test_image):
+def test_calculate_clusters(mocker, media_items, test_images):
     p1 = mocker.patch.object(GoogleApiClient, "get_user_info")
     p1.return_value = {"id": "test-user-id"}
 
     p2 = mocker.patch.object(MediaItemsImageStore, "get_image")
-    p2.return_value = test_image
+    p2.side_effect = test_images  # Return first, then second, then third
 
     detector = DuplicateImageDetector(media_items)
-    results = detector.calculate_clusters()
+    clusters = detector.calculate_clusters()
 
-    assert results == [[0, 1]]
+    assert clusters == [[0, 1]]
+
+
+def test_calculate_similarity_map(mocker, media_items, test_images):
+    p1 = mocker.patch.object(GoogleApiClient, "get_user_info")
+    p1.return_value = {"id": "test-user-id"}
+
+    p2 = mocker.patch.object(MediaItemsImageStore, "get_image")
+    p2.side_effect = test_images  # Return first, then second, then third
+
+    detector = DuplicateImageDetector(media_items)
+    similarity_map = detector.calculate_similarity_map()
+
+    assert type(similarity_map) == dict
+    assert len(similarity_map) == 2
+    assert similarity_map["image1"]["image2"] == 1.0
+    assert similarity_map["image2"]["image1"] == 1.0
