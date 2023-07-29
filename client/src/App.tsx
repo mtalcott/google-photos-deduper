@@ -43,7 +43,7 @@ export default function App() {
           </Toolbar>
         </AppBar>
         <VerticalNavbar />
-        <main>
+        <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 8 }}>
           <Router>
             <Routes>
               <Route path="/" element={<Layout />}>
@@ -82,7 +82,7 @@ export default function App() {
               </Route>
             </Routes>
           </Router>
-        </main>
+        </Box>
       </Box>
     </AppContext.Provider>
   );
