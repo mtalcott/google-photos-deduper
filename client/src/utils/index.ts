@@ -1,4 +1,4 @@
-const SERVER_HOST = import.meta.env.REACT_APP_SERVER_HOST;
+const SERVER_HOST = import.meta.env.VITE_SERVER_HOST;
 
 export function appApiUrl(path: string): string {
   if (!SERVER_HOST) {
