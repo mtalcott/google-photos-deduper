@@ -17,9 +17,11 @@ export default function HomePage() {
 
 function UnauthedHome() {
     return (
-        <Link reloadDocument to="/auth/google">
-            Get started
-        </Link>
+        <>
+            <Link reloadDocument to="/auth/google">
+                Get started
+            </Link>
+        </>
     );
 }
 
@@ -27,6 +29,7 @@ function AuthedHome({ name, hasActiveTask }) {
     return (
         <>
             <p>Welcome, {name}!</p>
+            <h1 className="text-3xl font-bold underline">Hello world!</h1>
             <p>
                 {hasActiveTask ? (
                     <Link to="/active_task">Active task</Link>
