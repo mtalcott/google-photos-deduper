@@ -9,6 +9,11 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import { useFetch } from "utils/useFetch";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import VerticalNavbar from "./components/VerticalNavbar";
+import Box from "@mui/material/Box";
 
 export default function App() {
   const { data, isLoading } = useFetch(appApiUrl("/auth/me"));
@@ -25,47 +30,60 @@ export default function App() {
 
   return (
     <AppContext.Provider value={appState}>
-      <div className="App">
+      <Box sx={{ display: "flex" }}>
         <CssBaseline />
-        <Router>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route
-                index
-                element={
-                  <Page>
-                    <HomePage />
-                  </Page>
-                }
-              />
-              <Route
-                path="/task_options"
-                element={
-                  <Page title="Task Options">
-                    <TaskOptionsPage />
-                  </Page>
-                }
-              />
-              <Route
-                path="/active_task"
-                element={
-                  <Page title="Active Task">
-                    <ActiveTaskPage />
-                  </Page>
-                }
-              />
-              <Route
-                path="*"
-                element={
-                  <Page title="Not Found">
-                    <NoPage />
-                  </Page>
-                }
-              />
-            </Route>
-          </Routes>
-        </Router>
-      </div>
+        <AppBar
+          position="fixed"
+          sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        >
+          <Toolbar>
+            <Typography variant="h6" color="inherit" noWrap>
+              Google Photos Deduper
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <VerticalNavbar />
+        <main>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route
+                  index
+                  element={
+                    <Page>
+                      <HomePage />
+                    </Page>
+                  }
+                />
+                <Route
+                  path="/task_options"
+                  element={
+                    <Page title="Task Options">
+                      <TaskOptionsPage />
+                    </Page>
+                  }
+                />
+                <Route
+                  path="/active_task"
+                  element={
+                    <Page title="Active Task">
+                      <ActiveTaskPage />
+                    </Page>
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    <Page title="Not Found">
+                      <NoPage />
+                    </Page>
+                  }
+                />
+              </Route>
+            </Routes>
+          </Router>
+        </main>
+      </Box>
     </AppContext.Provider>
   );
 }
