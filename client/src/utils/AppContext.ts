@@ -7,11 +7,11 @@ interface UserType {
 interface AppContextType {
   user?: UserType;
   hasActiveTask: boolean;
-  isLoading: boolean;
+  isLoggedIn: boolean;
 }
 
 export const AppContext = createContext<AppContextType>({
-  user: null,
+  user: undefined,
   hasActiveTask: false,
-  isLoading: true,
+  isLoggedIn: true,
 });
