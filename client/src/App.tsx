@@ -9,10 +9,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import { useFetch } from "utils/useFetch";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
-import AppBar from "@mui/material/AppBar";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
-import VerticalNavbar from "./components/VerticalNavbar";
+import DeduperAppBar from "components/DeduperAppBar";
+import DeduperDrawer from "components/DeduperDrawer";
 import Box from "@mui/material/Box";
 
 export default function App() {
@@ -30,19 +28,10 @@ export default function App() {
 
   return (
     <AppContext.Provider value={appState}>
+      <CssBaseline />
       <Box sx={{ display: "flex" }}>
-        <CssBaseline />
-        <AppBar
-          position="fixed"
-          sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        >
-          <Toolbar>
-            <Typography variant="h6" color="inherit" noWrap>
-              Google Photos Deduper
-            </Typography>
-          </Toolbar>
-        </AppBar>
-        <VerticalNavbar />
+        <DeduperAppBar />
+        <DeduperDrawer />
         <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 8 }}>
           <Router>
             <Routes>

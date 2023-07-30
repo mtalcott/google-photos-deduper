@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 
-export default function Page({ title, children }) {
+type PageProps = {
+  title?: string;
+  children: React.ReactNode;
+};
+
+export default function Page({ title, children }: PageProps) {
   useEffect(() => {
     document.title = ["Google Photos Deduper", title]
       .filter((s) => s)
