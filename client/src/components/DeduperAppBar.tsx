@@ -1,6 +1,6 @@
 import Toolbar from "@mui/material/Toolbar";
 import AppBar from "@mui/material/AppBar";
-import Typography from "@mui/material/Typography";
+import Link from "@mui/material/Link";
 
 export default function DeduperDrawer() {
   return (
@@ -9,9 +9,9 @@ export default function DeduperDrawer() {
       sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
     >
       <Toolbar>
-        <Typography variant="h6" color="inherit" noWrap>
+        <Link to="/" variant="h6" color="inherit" underline="none" noWrap>
           Google Photos Deduper
-        </Typography>
+        </Link>
       </Toolbar>
     </AppBar>
   );

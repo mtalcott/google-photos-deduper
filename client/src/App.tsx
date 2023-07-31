@@ -1,3 +1,4 @@
+import React from "react";
 import "./App.css";
 import CssBaseline from "@mui/material/CssBaseline";
 import Page from "components/pages/Page";
@@ -5,7 +6,15 @@ import HomePage from "components/pages/HomePage";
 import TaskOptionsPage from "components/pages/TaskOptionsPage";
 import ActiveTaskPage from "components/pages/ActiveTaskPage";
 import Layout from "components/Layout";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link as RouterLink,
+  LinkProps as RouterLinkProps,
+} from "react-router-dom";
+import { LinkProps } from "@mui/material/Link";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useFetch } from "utils/useFetch";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
@@ -29,50 +38,52 @@ export default function App() {
   return (
     <AppContext.Provider value={appState}>
       <CssBaseline />
-      <Box sx={{ display: "flex" }}>
-        <DeduperAppBar />
-        <DeduperDrawer />
-        <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 8 }}>
-          <Router>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route
-                  index
-                  element={
-                    <Page>
-                      <HomePage />
-                    </Page>
-                  }
-                />
-                <Route
-                  path="/task_options"
-                  element={
-                    <Page title="Task Options">
-                      <TaskOptionsPage />
-                    </Page>
-                  }
-                />
-                <Route
-                  path="/active_task"
-                  element={
-                    <Page title="Active Task">
-                      <ActiveTaskPage />
-                    </Page>
-                  }
-                />
-                <Route
-                  path="*"
-                  element={
-                    <Page title="Not Found">
-                      <NoPage />
-                    </Page>
-                  }
-                />
-              </Route>
-            </Routes>
-          </Router>
-        </Box>
-      </Box>
+      <ThemeProvider theme={theme}>
+        <Router>
+          <Box sx={{ display: "flex" }}>
+            <DeduperAppBar />
+            <DeduperDrawer />
+            <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 8 }}>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route
+                    index
+                    element={
+                      <Page>
+                        <HomePage />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path="/task_options"
+                    element={
+                      <Page title="Task Options">
+                        <TaskOptionsPage />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path="/active_task"
+                    element={
+                      <Page title="Active Task">
+                        <ActiveTaskPage />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={
+                      <Page title="Not Found">
+                        <NoPage />
+                      </Page>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </Box>
+          </Box>
+        </Router>
+      </ThemeProvider>
     </AppContext.Provider>
   );
 }
@@ -87,3 +98,28 @@ function NoPage() {
     </div>
   );
 }
+
+// See https://mui.com/material-ui/guides/routing/#global-theme-link
+const LinkBehavior = React.forwardRef<
+  HTMLAnchorElement,
+  Omit<RouterLinkProps, "to"> & { href: RouterLinkProps["to"] }
+>((props, ref) => {
+  const { href, ...other } = props;
+  // Map href (Material UI) -> to (react-router)
+  return <RouterLink ref={ref} to={href} {...other} />;
+});
+
+const theme = createTheme({
+  components: {
+    MuiLink: {
+      defaultProps: {
+        component: LinkBehavior,
+      } as LinkProps,
+    },
+    MuiButtonBase: {
+      defaultProps: {
+        LinkComponent: LinkBehavior,
+      },
+    },
+  },
+});
