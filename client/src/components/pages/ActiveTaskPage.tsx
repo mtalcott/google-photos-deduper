@@ -3,20 +3,19 @@ import "./ActiveTaskPage.css";
 import { useState } from "react";
 import { useInterval } from "utils/useInterval";
 import { fetchAppJson } from "utils";
-import { Link } from "react-router-dom";
-import LoadingSpinner from "components/LoadingSpinner";
-import TaskResults from "components/TaskResults";
+import CircularProgress from "@mui/material/CircularProgress";
+import Button from "@mui/material/Button";
 
 export default function ActiveTaskPage() {
-  const [task, setTask] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [task, setTask] = useState(null); // TODO: set all the way up in app context.
+  const [isRunning, setIsRunning] = useState(true);
 
   useInterval(async () => {
-    if (isLoading) {
-      let taskJson = await fetchAppJson("/api/active_task");
+    if (isRunning) {
+      const taskJson = await fetchAppJson("/api/active_task");
       setTask(taskJson);
-      setIsLoading(
-        !taskJson || ["PENDING", "PROGRESS"].includes(taskJson?.status),
+      setIsRunning(
+        !taskJson || ["PENDING", "PROGRESS"].includes(taskJson?.status)
       );
     }
   }, 1000);
@@ -25,11 +24,12 @@ export default function ActiveTaskPage() {
     <>
       <p>
         <span>Status: {task?.status || ""}</span>{" "}
-        {isLoading && <LoadingSpinner />}
+        {isRunning && <CircularProgress size={"1rem"} />}
       </p>
-      <Link to="/task_options">Start over</Link>
       {task?.meta?.logMessage && <pre>{task.meta.logMessage}</pre>}
-      {task?.results && <TaskResults results={task.results} />}
+      {task?.status === "SUCCESS" && (
+        <Button to="/active_task/results">View Results</Button>
+      )}
     </>
   );
 }

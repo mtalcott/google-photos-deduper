@@ -78,24 +78,32 @@ def get_active_task():
         raise RuntimeError("No active task found")
 
     result = tasks.process_duplicates.AsyncResult(active_task_id)
+
     response = {"status": result.status}
-    if result.status == "SUCCESS":
-        # If the task has completed successfully, return results
-        results = task_results_for_display(result.info["results"])
-        response |= {
-            "results": results,
-            "meta": result.info["meta"],
-        }
-    elif result.status == "PROGRESS":
-        # PROGRESS state. Return info dict.
-        response |= result.info
+    if result.status in ["SUCCESS", "PROGRESS"]:
+        response["meta"] = result.info["meta"]
     else:
         # Some other state we didn't explictly set.
-        # response |= {"meta": {"logMessage": str(result.info)}}
         flask_app.logger.info(
             f"Excluding result info in active task response,\n\
                 status: {result.status}, info: {pprint.pformat(result.info)}"
         )
+
+    return flask.jsonify(response)
+
+
+@flask_app.route("/api/active_task/results", methods=["GET"])
+def get_active_task_results():
+    active_task_id = flask.session.get("active_task_id")
+    if not active_task_id:
+        raise RuntimeError("No active task found")
+
+    result = tasks.process_duplicates.AsyncResult(active_task_id)
+    response = {}
+    if result.status == "SUCCESS":
+        # If the task has completed successfully, return results
+        results = task_results_for_display(result.info["results"])
+        response |= {"results": results}
 
     return flask.jsonify(response)
 

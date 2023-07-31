@@ -71,7 +71,7 @@ const defaultSteps: Array<StepType> = [
   {
     number: 4,
     label: "Review and Delete Duplicates",
-    link: { href: "/active_task" },
+    link: { href: "/active_task/results" },
     state: "disabled",
   },
 ];
@@ -87,6 +87,7 @@ function DeduperStepper() {
 
   let steps = structuredClone(defaultSteps);
   let activeStep = 0; // TODO: just calculate this?
+  // TODO: some notion of enabled steps (button works) vs active (current page)
 
   if (isLoggedIn) {
     steps[0].state = "completed";

@@ -21,6 +21,7 @@ import { AppContext } from "utils/AppContext";
 import DeduperAppBar from "components/DeduperAppBar";
 import DeduperDrawer from "components/DeduperDrawer";
 import Box from "@mui/material/Box";
+import TaskResultsPage from "components/pages/TaskResultsPage";
 
 export default function App() {
   const { data: me, isLoading: meIsLoading } = useFetch(appApiUrl("/auth/me"));
@@ -71,6 +72,14 @@ export default function App() {
                     element={
                       <Page title="Active Task">
                         <ActiveTaskPage />
+                      </Page>
+                    }
+                  />
+                  <Route
+                    path="/active_task/results"
+                    element={
+                      <Page title="Task Results">
+                        <TaskResultsPage />
                       </Page>
                     }
                   />
