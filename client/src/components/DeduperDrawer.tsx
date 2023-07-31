@@ -36,37 +36,42 @@ export default function DeduperDrawer() {
   );
 }
 
+interface StepLinkType {
+  href: string;
+  reloadDocument?: boolean;
+}
+
 interface StepType {
   number: number;
   label: string;
   state: "active" | "completed" | "inProgress" | "disabled";
-  link?: string;
   content?: React.ReactNode;
+  link?: StepLinkType;
 }
 
 const defaultSteps: Array<StepType> = [
   {
     number: 1,
     label: "Authorize",
-    link: "/auth/google",
+    link: { href: "/auth/google", reloadDocument: true },
     state: "active",
   },
   {
     number: 2,
     label: "Select Options",
-    link: "/task_options",
+    link: { href: "/task_options" },
     state: "disabled",
   },
   {
     number: 3,
     label: "Process Duplicates",
-    link: "/active_task",
+    link: { href: "/active_task" },
     state: "disabled",
   },
   {
     number: 4,
     label: "Review and Delete Duplicates",
-    link: "/active_task",
+    link: { href: "/active_task" },
     state: "disabled",
   },
 ];
@@ -131,7 +136,8 @@ function DeduperStepContent({ number, label, link, state, content }: StepType) {
         variant="text"
         size="small"
         sx={{ p: 1 }}
-        href={link}
+        href={link?.href}
+        reloadDocument={link?.reloadDocument}
         disabled={state === "disabled"}
       >
         <StepLabel sx={{ py: 0 }} StepIconComponent={DeduperStepIcon}>
