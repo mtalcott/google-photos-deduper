@@ -6,17 +6,19 @@ import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import StepContent from "@mui/material/StepContent";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import StepIcon, { StepIconProps } from "@mui/material/StepIcon";
+import { useStepContext } from "@mui/material/Step";
+import { CircularProgress, Grow } from "@mui/material";
+import Check from "@mui/icons-material/Check";
 
 const steps = [
   {
     label: "Authorize",
-    description: `Step 1`,
+    description: `Logged in as user@email.com`,
   },
   {
     label: "Select Options",
-    description: `Step 2`,
   },
   {
     label: "Process Duplicates",
@@ -52,12 +54,12 @@ export default function DeduperDrawer() {
 }
 
 function DeduperStepper() {
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState(2);
 
   return (
     <Stepper
-      activeStep={activeStep}
       orientation="vertical"
+      activeStep={activeStep}
       sx={{
         [`& .MuiStepContent-root, & .MuiStepConnector-root`]: {
           // Adjust alignment with an unexpected button inside steps
@@ -66,10 +68,11 @@ function DeduperStepper() {
       }}
     >
       {steps.map((step, index) => (
-        <Step key={step.label}>
+        <Step key={step.label} expanded={true} active={index <= activeStep}>
           <DeduperStepContent
             key={step.label}
-            {...{ activeStep, step, index }}
+            active={index <= activeStep}
+            {...{ step, index }}
           />
         </Step>
       ))}
@@ -77,23 +80,32 @@ function DeduperStepper() {
   );
 }
 
-function DeduperStepContent({ activeStep, step, index }) {
-  const isActive = activeStep === index;
-  const isLinkActive = index <= activeStep;
-
+function DeduperStepContent({ active, step }) {
   return (
     <>
-      <Button
-        variant="text"
-        size="small"
-        sx={{ p: 1 }}
-        disabled={!isLinkActive}
-      >
-        <StepLabel sx={{ py: 0 }}>{step.label}</StepLabel>
+      <Button variant="text" size="small" sx={{ p: 1 }} disabled={!active}>
+        <StepLabel sx={{ py: 0 }} StepIconComponent={DeduperStepIcon}>
+          {step.label}
+        </StepLabel>
       </Button>
-      <StepContent>
-        <Typography>{step.description}</Typography>
+      <StepContent TransitionComponent={Grow}>
+        <Typography variant="body2">{step.description}</Typography>
       </StepContent>
     </>
+  );
+}
+
+function DeduperStepIcon({ active, completed, className }: StepIconProps) {
+  const { icon, index } = useStepContext();
+  let stepIcon = icon;
+  if (index == 0) {
+    stepIcon = <Check />;
+  } else if (index == 1) {
+    stepIcon = <CircularProgress size={"24px"} />;
+  }
+  return (
+    <StepIcon {...{ active, completed, className }} icon={stepIcon}>
+      xasdf
+    </StepIcon>
   );
 }
