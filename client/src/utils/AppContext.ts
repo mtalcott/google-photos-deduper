@@ -4,14 +4,19 @@ interface UserType {
   name: string;
 }
 
+interface ActiveTaskType {
+  status: "PENDING" | "PROGRESS" | "FAILURE" | "SUCCESS";
+  // TODO: progress
+}
+
 interface AppContextType {
-  user?: UserType;
-  hasActiveTask: boolean;
   isLoggedIn: boolean;
+  user?: UserType;
+  activeTask?: ActiveTaskType;
 }
 
 export const AppContext = createContext<AppContextType>({
+  isLoggedIn: false,
   user: undefined,
-  hasActiveTask: false,
-  isLoggedIn: true,
+  activeTask: undefined,
 });

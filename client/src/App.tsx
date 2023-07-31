@@ -13,7 +13,7 @@ import {
   Link as RouterLink,
   LinkProps as RouterLinkProps,
 } from "react-router-dom";
-import { LinkProps } from "@mui/material/Link";
+import Link, { LinkProps } from "@mui/material/Link";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useFetch } from "utils/useFetch";
 import { appApiUrl } from "utils";
@@ -23,16 +23,20 @@ import DeduperDrawer from "components/DeduperDrawer";
 import Box from "@mui/material/Box";
 
 export default function App() {
-  const { data, isLoading } = useFetch(appApiUrl("/auth/me"));
+  const { data: me, isLoading: meIsLoading } = useFetch(appApiUrl("/auth/me"));
+  const { data: activeTask, isLoading: activeTaskIsLoading } = useFetch(
+    appApiUrl("/api/active_task")
+  );
 
-  if (isLoading) {
+  if (meIsLoading) {
     return null;
   }
 
   const appState = {
-    user: data?.user_info,
-    isLoggedIn: data?.logged_in,
-    hasActiveTask: data?.has_active_task,
+    user: me?.user_info,
+    isLoggedIn: me?.logged_in,
+    hasActiveTask: me?.has_active_task,
+    activeTask: activeTask,
   };
 
   return (
