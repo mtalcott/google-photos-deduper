@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./App.css";
 import CssBaseline from "@mui/material/CssBaseline";
 import Page from "components/pages/Page";
@@ -16,7 +16,7 @@ import {
 import Link, { LinkProps } from "@mui/material/Link";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useFetch } from "utils/useFetch";
-import { appApiUrl } from "utils";
+import { appApiUrl, fetchAppJson } from "utils";
 import { AppContext } from "utils/AppContext";
 import DeduperAppBar from "components/DeduperAppBar";
 import DeduperDrawer from "components/DeduperDrawer";
@@ -25,9 +25,17 @@ import TaskResultsPage from "components/pages/TaskResultsPage";
 
 export default function App() {
   const { data: me, isLoading: meIsLoading } = useFetch(appApiUrl("/auth/me"));
-  const { data: activeTask, isLoading: activeTaskIsLoading } = useFetch(
-    appApiUrl("/api/active_task")
-  );
+  const [activeTask, setActiveTask] = useState(null);
+  const reloadActiveTask = async () => {
+    const activeTaskJson = await fetchAppJson("/api/active_task");
+    setActiveTask(activeTaskJson);
+  };
+  useEffect(() => {
+    reloadActiveTask();
+  }, []);
+  // const { data: activeTask, isLoading: activeTaskIsLoading } = useFetch(
+  //   appApiUrl("/api/active_task")
+  // );
 
   if (meIsLoading) {
     return null;
@@ -38,6 +46,7 @@ export default function App() {
     isLoggedIn: me?.logged_in,
     hasActiveTask: me?.has_active_task,
     activeTask: activeTask,
+    reloadActiveTask: reloadActiveTask,
   };
 
   return (

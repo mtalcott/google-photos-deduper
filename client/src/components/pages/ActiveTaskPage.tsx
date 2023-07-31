@@ -1,33 +1,32 @@
 import "./ActiveTaskPage.css";
 
-import { useState } from "react";
+import { useContext } from "react";
 import { useInterval } from "utils/useInterval";
-import { fetchAppJson } from "utils";
 import CircularProgress from "@mui/material/CircularProgress";
 import Button from "@mui/material/Button";
+import { AppContext } from "utils/AppContext";
 
 export default function ActiveTaskPage() {
-  const [task, setTask] = useState(null); // TODO: set all the way up in app context.
-  const [isRunning, setIsRunning] = useState(true);
+  const { activeTask, reloadActiveTask } = useContext(AppContext);
+  const isRunning =
+    !activeTask || ["PENDING", "PROGRESS"].includes(activeTask?.status);
 
   useInterval(async () => {
     if (isRunning) {
-      const taskJson = await fetchAppJson("/api/active_task");
-      setTask(taskJson);
-      setIsRunning(
-        !taskJson || ["PENDING", "PROGRESS"].includes(taskJson?.status)
-      );
+      reloadActiveTask();
     }
   }, 1000);
+
+  // TODO: go to task results if task is complete
 
   return (
     <>
       <p>
-        <span>Status: {task?.status || ""}</span>{" "}
+        <span>Status: {activeTask?.status || ""}</span>{" "}
         {isRunning && <CircularProgress size={"1rem"} />}
       </p>
-      {task?.meta?.logMessage && <pre>{task.meta.logMessage}</pre>}
-      {task?.status === "SUCCESS" && (
+      {activeTask?.meta?.logMessage && <pre>{activeTask.meta.logMessage}</pre>}
+      {activeTask?.status === "SUCCESS" && (
         <Button to="/active_task/results">View Results</Button>
       )}
     </>

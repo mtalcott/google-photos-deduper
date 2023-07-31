@@ -1,10 +1,13 @@
 // import "./TaskOptionsPage.css";
 
+import { useContext } from "react";
 import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
+import { AppContext } from "utils/AppContext";
 
 export default function TaskOptionsPage() {
   const navigate = useNavigate();
+  const { reloadActiveTask } = useContext(AppContext);
 
   async function handleSubmit(e) {
     // Prevent the browser from reloading the page
@@ -19,6 +22,7 @@ export default function TaskOptionsPage() {
     });
 
     if (response.ok) {
+      reloadActiveTask();
       navigate("/active_task");
     }
   }

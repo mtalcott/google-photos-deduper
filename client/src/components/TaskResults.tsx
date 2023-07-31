@@ -7,7 +7,7 @@ export default function TaskResults({ results }) {
   const fields = ["previewWithLink", "similarity", "filename", "dimensions"];
   const [selectedGroups, setSelectedGroups] = useState(() =>
     // Initialize selected groups with an object with every {<id>: true}
-    Object.fromEntries(results.groups.map((g) => [g.id, true])),
+    Object.fromEntries(results.groups.map((g) => [g.id, true]))
   );
   const [selectedOriginals, setSelectedOriginals] = useState(() =>
     Object.fromEntries(
@@ -16,8 +16,8 @@ export default function TaskResults({ results }) {
         g.id,
         // Value: selected original media item ID
         g.mediaItems.find((mi) => mi.isOriginal).id,
-      ]),
-    ),
+      ])
+    )
   );
 
   if (!results) {
