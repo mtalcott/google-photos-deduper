@@ -1,3 +1,5 @@
+import Box from "@mui/material/Box";
+import Grow from "@mui/material/Grow";
 import { useEffect } from "react";
 
 type PageProps = {
@@ -12,5 +14,9 @@ export default function Page({ title, children }: PageProps) {
       .join(" | ");
   }, [title]);
 
-  return <>{children}</>;
+  return (
+    <Grow in key={title}>
+      <Box>{children}</Box>
+    </Grow>
+  );
 }
