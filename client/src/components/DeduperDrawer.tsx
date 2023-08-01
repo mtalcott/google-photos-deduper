@@ -191,9 +191,9 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
 function DeduperSubstep({ step, info }) {
   let substepTitle = "";
   if (step === "fetch_media_items") {
-    substepTitle = "Gathering photos and videos";
+    substepTitle = "Gather photos and videos";
   } else if (step === "process_duplicates") {
-    substepTitle = "Processing duplicates";
+    substepTitle = "Process duplicates";
   }
   if (info.startedAt) {
     const start = Date.parse(info.startedAt);
