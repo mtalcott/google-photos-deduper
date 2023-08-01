@@ -1,5 +1,9 @@
 // import "./TaskOptionsPage.css";
 
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
 import { useContext } from "react";
 import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
@@ -29,17 +33,24 @@ export default function TaskOptionsPage() {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <label>
-          Refresh media items:
-          <input
-            type="checkbox"
-            defaultChecked={true}
-            name="refresh_media_items"
-            value="true"
-          />
-        </label>
         <p>
-          <button type="submit">Submit</button>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  defaultChecked
+                  name="refresh_media_items"
+                  value="true"
+                />
+              }
+              label="Refresh media items"
+            />
+          </FormGroup>
+        </p>
+        <p>
+          <Button type="submit" variant="contained">
+            Start
+          </Button>
         </p>
       </form>
     </>
