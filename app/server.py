@@ -108,10 +108,10 @@ def get_active_task_results():
     return flask.jsonify(response)
 
 
-@flask_app.route("/api/logout")
+@flask_app.route("/api/logout", methods=["POST"])
 def logout():
     flask.session.clear()
-    return flask.redirect("/")
+    return flask.jsonify(success=True)
 
 
 def task_results_for_display(results):
