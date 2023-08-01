@@ -3,36 +3,40 @@
 import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { AppContext } from "utils/AppContext";
+import Button from "@mui/material/Button";
 
 export default function HomePage() {
-  const { user, isLoggedIn, hasActiveTask } = useContext(AppContext);
+  const { user, isLoggedIn, activeTask } = useContext(AppContext);
 
   if (isLoggedIn) {
-    return <AuthedHome name={user.given_name} hasActiveTask={hasActiveTask} />;
+    return <AuthedHome name={user.given_name} hasActiveTask={!!activeTask} />;
   }
   return <UnauthedHome />;
 }
 
 function UnauthedHome() {
   return (
-    <>
-      <Link reloadDocument to="/auth/google">
-        Get started
-      </Link>
-    </>
+    <p>
+      <Button variant="contained" size="large" reloadDocument to="/auth/google">
+        Get Started
+      </Button>
+    </p>
   );
 }
 
 function AuthedHome({ name, hasActiveTask }) {
   return (
     <>
-      <p>Welcome, {name}!</p>
-      <h1 className="text-3xl font-bold underline">Hello world!</h1>
+      <p>Welcome, {name}</p>
       <p>
         {hasActiveTask ? (
-          <Link to="/active_task">Active task</Link>
+          <Button variant="contained" size="large" to="/active_task">
+            Resume
+          </Button>
         ) : (
-          <Link to="/task_options">Start new task</Link>
+          <Button variant="contained" size="large" to="/task_options">
+            Get Started
+          </Button>
         )}
       </p>
     </>

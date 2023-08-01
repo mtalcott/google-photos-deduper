@@ -75,7 +75,7 @@ def create_task():
 def get_active_task():
     active_task_id = flask.session.get("active_task_id")
     if not active_task_id:
-        raise RuntimeError("No active task found")
+        return flask.jsonify({"error": "No active task found"}), 404
 
     result = tasks.process_duplicates.AsyncResult(active_task_id)
 
@@ -96,7 +96,7 @@ def get_active_task():
 def get_active_task_results():
     active_task_id = flask.session.get("active_task_id")
     if not active_task_id:
-        raise RuntimeError("No active task found")
+        return flask.jsonify({"error": "No active task found"}), 404
 
     result = tasks.process_duplicates.AsyncResult(active_task_id)
     response = {}

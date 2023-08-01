@@ -28,7 +28,6 @@ export default function TaskOptionsPage() {
   }
   return (
     <>
-      <p>Task Options</p>
       <form onSubmit={handleSubmit}>
         <label>
           Refresh media items:

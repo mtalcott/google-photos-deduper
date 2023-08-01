@@ -1,3 +1,4 @@
+import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Grow from "@mui/material/Grow";
 import { useEffect } from "react";
@@ -16,7 +17,12 @@ export default function Page({ title, children }: PageProps) {
 
   return (
     <Grow in key={title}>
-      <Box>{children}</Box>
+      <Box>
+        <Typography variant="h4" component="h1">
+          {title}
+        </Typography>
+        {children}
+      </Box>
     </Grow>
   );
 }

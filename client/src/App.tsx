@@ -57,7 +57,7 @@ export default function App() {
           <Box sx={{ display: "flex" }}>
             <DeduperAppBar />
             <DeduperDrawer />
-            <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 8 }}>
+            <Box component="main" sx={{ flexGrow: 1, p: 2, pt: 10 }}>
               <Routes>
                 <Route path="/" element={<Layout />}>
                   <Route
