@@ -1,6 +1,6 @@
 import "./ActiveTaskPage.css";
 
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { useInterval } from "utils/useInterval";
 import CircularProgress from "@mui/material/CircularProgress";
 import Button from "@mui/material/Button";
@@ -17,8 +17,6 @@ export default function ActiveTaskPage() {
     }
   }, 1000);
 
-  // TODO: go to task results if task is complete
-
   return (
     <>
       <p>
@@ -27,7 +25,9 @@ export default function ActiveTaskPage() {
       </p>
       {activeTask?.meta?.logMessage && <pre>{activeTask.meta.logMessage}</pre>}
       {activeTask?.status === "SUCCESS" && (
-        <Button to="/active_task/results">View Results</Button>
+        <Button to="/active_task/results" variant="contained">
+          View Results
+        </Button>
       )}
     </>
   );

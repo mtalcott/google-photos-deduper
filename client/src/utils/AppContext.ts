@@ -1,8 +1,5 @@
 import { createContext } from "react";
-
-interface UserType {
-  name: string;
-}
+import { UserInfoType } from "utils";
 
 interface ActiveTaskType {
   status: "PENDING" | "PROGRESS" | "FAILURE" | "SUCCESS";
@@ -11,7 +8,7 @@ interface ActiveTaskType {
 
 interface AppContextType {
   isLoggedIn: boolean;
-  user?: UserType;
+  user?: UserInfoType;
   activeTask?: ActiveTaskType;
   reloadActiveTask: () => void;
 }

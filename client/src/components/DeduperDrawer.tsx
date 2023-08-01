@@ -1,4 +1,4 @@
-import React, { useState, useContext, createContext } from "react";
+import React, { useContext, createContext } from "react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import Stepper from "@mui/material/Stepper";
@@ -8,10 +8,10 @@ import StepContent from "@mui/material/StepContent";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import StepIcon, { StepIconProps } from "@mui/material/StepIcon";
-import { useStepContext } from "@mui/material/Step";
 import { CircularProgress, Grow } from "@mui/material";
 import Check from "@mui/icons-material/Check";
 import { AppContext } from "utils/AppContext";
+import { useMatch } from "react-router-dom";
 
 const drawerWidth = 240;
 
@@ -44,74 +44,84 @@ interface StepLinkType {
 interface StepType {
   number: number;
   label: string;
-  state: "active" | "completed" | "inProgress" | "disabled";
+  isEnabled: boolean; // Is this step enabled (button works)?
+  isInProgress: boolean; // Is this step in progress (spinner)?
+  isCompleted: boolean; // Is this step completed (checkmark)?
   content?: React.ReactNode;
   link?: StepLinkType;
 }
 
+const stepDefaults = {
+  number: 0,
+  label: "",
+  isEnabled: false,
+  isInProgress: false,
+  isCompleted: false,
+};
+
 const defaultSteps: Array<StepType> = [
   {
+    ...stepDefaults,
     number: 1,
     label: "Authorize",
     link: { href: "/auth/google", reloadDocument: true },
-    state: "active",
+    isEnabled: true,
   },
   {
+    ...stepDefaults,
     number: 2,
     label: "Select Options",
     link: { href: "/task_options" },
-    state: "disabled",
   },
   {
+    ...stepDefaults,
     number: 3,
     label: "Process Duplicates",
     link: { href: "/active_task" },
-    state: "disabled",
   },
   {
+    ...stepDefaults,
     number: 4,
     label: "Review and Delete Duplicates",
     link: { href: "/active_task/results" },
-    state: "disabled",
   },
 ];
 
-const DeduperStepContext = createContext<StepType>({
-  label: "",
-  state: "disabled",
-});
+const DeduperStepContext = createContext<StepType>(stepDefaults);
 
 function DeduperStepper() {
-  const { isLoggedIn, user, hasActiveTask, activeTask } =
-    useContext(AppContext);
+  const { isLoggedIn, user, activeTask } = useContext(AppContext);
 
-  let steps = structuredClone(defaultSteps);
-  let activeStep = 0; // TODO: just calculate this?
-  // TODO: some notion of enabled steps (button works) vs active (current page)
+  const steps = structuredClone(defaultSteps);
 
   if (isLoggedIn) {
-    steps[0].state = "completed";
-    steps[0].content = `Logged in as ${user?.email}`;
-    steps[1].state = "active";
-    activeStep = 1;
+    steps[0] = {
+      ...steps[0],
+      isCompleted: true,
+      content: `Logged in as ${user?.email}`,
+    };
+    steps[1].isEnabled = true;
   }
-  if (hasActiveTask) {
-    steps[1].state = "completed";
-    steps[2].state = "active";
-    activeStep = 2;
+  if (activeTask) {
+    steps[1].isCompleted = true;
+    steps[2].isEnabled = true;
     if (["PENDING", "PROGRESS"].includes(activeTask?.status)) {
-      steps[2].state = "inProgress";
+      steps[2].isInProgress = true;
     } else if (activeTask?.status == "SUCCESS") {
-      steps[2].state = "completed";
-      steps[3].state = "active";
-      activeStep = 3;
+      steps[2].isCompleted = true;
+      steps[3].isEnabled = true;
     }
   }
+
+  const maxEnabledStep = steps.reduce(
+    (maxIndex, step, i) => (step.isEnabled ? i : maxIndex),
+    0
+  );
 
   return (
     <Stepper
       orientation="vertical"
-      activeStep={activeStep}
+      activeStep={maxEnabledStep}
       sx={{
         [`& .MuiStepContent-root, & .MuiStepConnector-root`]: {
           // Adjust alignment with an unexpected button inside steps
@@ -120,7 +130,7 @@ function DeduperStepper() {
       }}
     >
       {steps.map((step, index) => (
-        <Step key={step.label} expanded={true} active={index <= activeStep}>
+        <Step key={step.label} expanded={true} active={index <= maxEnabledStep}>
           <DeduperStepContent key={step.label} {...step} />
         </Step>
       ))}
@@ -128,18 +138,20 @@ function DeduperStepper() {
   );
 }
 
-function DeduperStepContent({ number, label, link, state, content }: StepType) {
+function DeduperStepContent(props: StepType) {
+  const { label, link, content, isEnabled, isInProgress, isCompleted } = props;
+
+  const isActive = useMatch(link?.href);
+
   return (
-    <DeduperStepContext.Provider
-      value={{ number, label, link, state, content }}
-    >
+    <DeduperStepContext.Provider value={{ ...props }}>
       <Button
-        variant="text"
+        variant={isActive ? "outlined" : "text"}
         size="small"
         sx={{ p: 1 }}
         href={link?.href}
         reloadDocument={link?.reloadDocument}
-        disabled={state === "disabled"}
+        disabled={!isEnabled}
       >
         <StepLabel sx={{ py: 0 }} StepIconComponent={DeduperStepIcon}>
           {label}
@@ -153,11 +165,11 @@ function DeduperStepContent({ number, label, link, state, content }: StepType) {
 }
 
 function DeduperStepIcon({ active, completed, className }: StepIconProps) {
-  const { number, state } = useContext(DeduperStepContext);
+  const { number, isInProgress, isCompleted } = useContext(DeduperStepContext);
 
-  if (state === "completed") {
+  if (isCompleted) {
     return <Check />;
-  } else if (state === "inProgress") {
+  } else if (isInProgress) {
     return <CircularProgress size={"24px"} />;
   }
   return <StepIcon {...{ active, completed, className }} icon={number} />;
