@@ -9,7 +9,7 @@ import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import StepIcon, { StepIconProps } from "@mui/material/StepIcon";
 import { CircularProgress, Grow } from "@mui/material";
-import Check from "@mui/icons-material/Check";
+import CheckIcon from "@mui/icons-material/Check";
 import { AppContext } from "utils/AppContext";
 import { useMatch } from "react-router-dom";
 import { prettyDuration } from "utils";
@@ -181,7 +181,7 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
   const { number, isInProgress, isCompleted } = useContext(DeduperStepContext);
 
   if (isCompleted) {
-    return <Check />;
+    return <CheckIcon />;
   } else if (isInProgress) {
     return <CircularProgress size={"24px"} />;
   }
@@ -201,10 +201,17 @@ function DeduperSubstep({ step, info }) {
     const duration = Math.round((end - start) / 1000);
     const count = info.count;
     return (
-      <Typography variant="body2">
-        {substepTitle} ({count !== undefined && `${count} in `}
-        {prettyDuration(duration)})
-      </Typography>
+      <>
+        <Typography variant="body2" sx={{ pt: 2 }}>
+          {info.completedAt ? (
+            <CheckIcon fontSize="inherit" color="primary" />
+          ) : (
+            <CircularProgress size={"1em"} />
+          )}{" "}
+          {substepTitle} ({count !== undefined && `${count} in `}
+          {prettyDuration(duration)})
+        </Typography>
+      </>
     );
   }
 }
