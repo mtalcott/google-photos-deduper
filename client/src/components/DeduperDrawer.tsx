@@ -12,6 +12,7 @@ import { CircularProgress, Grow } from "@mui/material";
 import Check from "@mui/icons-material/Check";
 import { AppContext } from "utils/AppContext";
 import { useMatch } from "react-router-dom";
+import { prettyDuration } from "utils";
 
 const drawerWidth = 240;
 
@@ -111,6 +112,16 @@ function DeduperStepper() {
       steps[2].isCompleted = true;
       steps[3].isEnabled = true;
     }
+    if (activeTask.meta?.steps) {
+      activeTask.meta.steps;
+      steps[2].content = (
+        <>
+          {Object.entries(activeTask.meta.steps).map(([step, info]) => {
+            return <DeduperSubstep {...{ step, info }} />;
+          })}
+        </>
+      );
+    }
   }
 
   const maxEnabledStep = steps.reduce(
@@ -131,7 +142,9 @@ function DeduperStepper() {
     >
       {steps.map((step, index) => (
         <Step key={step.label} expanded={true} active={index <= maxEnabledStep}>
-          <DeduperStepContent key={step.label} {...step} />
+          <DeduperStepContent key={step.label} {...step}>
+            {step.content}
+          </DeduperStepContent>
         </Step>
       ))}
     </Stepper>
@@ -139,7 +152,7 @@ function DeduperStepper() {
 }
 
 function DeduperStepContent(props: StepType) {
-  const { label, link, content, isEnabled, isInProgress, isCompleted } = props;
+  const { label, link, isEnabled, isInProgress, isCompleted, children } = props;
 
   const isActive = useMatch(link?.href);
 
@@ -158,7 +171,7 @@ function DeduperStepContent(props: StepType) {
         </StepLabel>
       </Button>
       <StepContent TransitionComponent={Grow}>
-        <Typography variant="body2">{content}</Typography>
+        <Typography variant="body2">{children}</Typography>
       </StepContent>
     </DeduperStepContext.Provider>
   );
@@ -173,4 +186,23 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
     return <CircularProgress size={"24px"} />;
   }
   return <StepIcon {...{ active, completed, className }} icon={number} />;
+}
+
+function DeduperSubstep({ step, info }) {
+  let substepTitle = "";
+  if (step === "fetch_media_items") {
+    substepTitle = "Gathering photos and videos";
+  } else if (step === "process_duplicates") {
+    substepTitle = "Processing duplicates";
+  }
+  if (info.startedAt) {
+    const start = Date.parse(info.startedAt);
+    const end = info.completedAt ? Date.parse(info.completedAt) : new Date();
+    const duration = Math.round((end - start) / 1000);
+    return (
+      <Typography variant="body2">
+        {substepTitle} ({prettyDuration(duration)})
+      </Typography>
+    );
+  }
 }
