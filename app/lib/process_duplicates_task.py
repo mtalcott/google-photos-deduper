@@ -41,10 +41,9 @@ class ProcessDuplicatesTask:
         if self.refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()
 
-        self.complete_step(Steps.FETCH_MEDIA_ITEMS)
-        self.start_step(Steps.PROCESS_DUPLICATES)
-
         media_items_count = client.local_media_items_count()
+        self.complete_step(Steps.FETCH_MEDIA_ITEMS, count=media_items_count)
+        self.start_step(Steps.PROCESS_DUPLICATES)
 
         self.logger.info(
             f"Processing duplicates for {media_items_count:,} media items..."
@@ -89,7 +88,7 @@ class ProcessDuplicatesTask:
 
             result["groups"].append(group)
 
-        self.complete_step(Steps.PROCESS_DUPLICATES)
+        self.complete_step(Steps.PROCESS_DUPLICATES, count=len(result["groups"]))
 
         return result
 
@@ -101,6 +100,7 @@ class ProcessDuplicatesTask:
         log_message=None,
         start_step_name=None,
         complete_step_name=None,
+        count=None,
     ):
         """
         Update local meta, then call celery method to update task state.
@@ -111,8 +111,12 @@ class ProcessDuplicatesTask:
         now = datetime.datetime.now().astimezone().isoformat()
         if start_step_name:
             self.meta["steps"][start_step_name]["startedAt"] = now
+            if count:
+                self.meta["steps"][start_step_name]["count"] = count
         if complete_step_name:
             self.meta["steps"][complete_step_name]["completedAt"] = now
+            if count:
+                self.meta["steps"][complete_step_name]["count"] = count
 
         self.task.update_state(
             # If we don't pass a state, it gets updated to blank.
@@ -128,5 +132,5 @@ class ProcessDuplicatesTask:
     def start_step(self, step):
         self.update_meta(start_step_name=step)
 
-    def complete_step(self, step):
-        self.update_meta(complete_step_name=step)
+    def complete_step(self, step, count=None):
+        self.update_meta(complete_step_name=step, count=count)

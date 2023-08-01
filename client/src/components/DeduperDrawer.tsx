@@ -199,9 +199,11 @@ function DeduperSubstep({ step, info }) {
     const start = Date.parse(info.startedAt);
     const end = info.completedAt ? Date.parse(info.completedAt) : new Date();
     const duration = Math.round((end - start) / 1000);
+    const count = info.count;
     return (
       <Typography variant="body2">
-        {substepTitle} ({prettyDuration(duration)})
+        {substepTitle} ({count !== undefined && `${count} in `}
+        {prettyDuration(duration)})
       </Typography>
     );
   }
