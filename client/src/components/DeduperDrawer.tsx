@@ -10,9 +10,11 @@ import Typography from "@mui/material/Typography";
 import StepIcon, { StepIconProps } from "@mui/material/StepIcon";
 import { CircularProgress, Grow } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
+import ErrorIcon from "@mui/icons-material/Error";
 import { AppContext } from "utils/AppContext";
 import { useMatch } from "react-router-dom";
 import { prettyDuration } from "utils";
+import { Reddit } from "@mui/icons-material";
 
 const drawerWidth = 240;
 
@@ -48,6 +50,7 @@ interface StepType {
   isEnabled: boolean; // Is this step enabled (button works)?
   isInProgress: boolean; // Is this step in progress (spinner)?
   isCompleted: boolean; // Is this step completed (checkmark)?
+  isFailed: boolean; // Is this step failed (red X)?
   content?: React.ReactNode;
   link?: StepLinkType;
 }
@@ -58,6 +61,7 @@ const stepDefaults = {
   isEnabled: false,
   isInProgress: false,
   isCompleted: false,
+  isFailed: false,
 };
 
 const defaultSteps: Array<StepType> = [
@@ -111,6 +115,8 @@ function DeduperStepper() {
     } else if (activeTask?.status == "SUCCESS") {
       steps[2].isCompleted = true;
       steps[3].isEnabled = true;
+    } else if (activeTask?.status == "FAILURE") {
+      steps[2].isFailed = true;
     }
     if (activeTask.meta?.steps) {
       activeTask.meta.steps;
@@ -152,7 +158,7 @@ function DeduperStepper() {
 }
 
 function DeduperStepContent(props: StepType) {
-  const { label, link, isEnabled, isInProgress, isCompleted, children } = props;
+  const { label, link, isEnabled, children } = props;
 
   const isActive = useMatch(link?.href);
 
@@ -180,10 +186,13 @@ function DeduperStepContent(props: StepType) {
 }
 
 function DeduperStepIcon({ active, completed, className }: StepIconProps) {
-  const { number, isInProgress, isCompleted } = useContext(DeduperStepContext);
+  const { number, isInProgress, isCompleted, isFailed } =
+    useContext(DeduperStepContext);
 
   if (isCompleted) {
     return <CheckIcon />;
+  } else if (isFailed) {
+    return <ErrorIcon sx={{ color: "error.main" }} />;
   } else if (isInProgress) {
     return <CircularProgress size={"24px"} />;
   }
@@ -193,7 +202,7 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
 function DeduperTaskStep({ step, info }) {
   let taskStepTitle = "";
   if (step === "fetch_media_items") {
-    taskStepTitle = "Gather photos and videos";
+    taskStepTitle = "Gather media items";
   } else if (step === "process_duplicates") {
     taskStepTitle = "Process duplicates";
   }

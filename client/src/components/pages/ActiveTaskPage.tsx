@@ -5,6 +5,8 @@ import Button from "@mui/material/Button";
 import { AppContext } from "utils/AppContext";
 import SnackbarContent from "@mui/material/SnackbarContent";
 import { css } from "@emotion/react";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
 
 export default function ActiveTaskPage() {
   const { activeTask, reloadActiveTask } = useContext(AppContext);
@@ -33,6 +35,12 @@ export default function ActiveTaskPage() {
         <Button to="/active_task/results" variant="contained">
           View Results
         </Button>
+      )}
+      {activeTask?.status === "FAILURE" && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          <AlertTitle>Error</AlertTitle>
+          Whoops! An unexpected error occurred. Check application logs.
+        </Alert>
       )}
     </>
   );
