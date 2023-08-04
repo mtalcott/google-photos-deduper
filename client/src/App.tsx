@@ -71,7 +71,7 @@ export default function App() {
                   <Route
                     path="/task_options"
                     element={
-                      <Page title="Task Options">
+                      <Page title="Select Options">
                         <TaskOptionsPage />
                       </Page>
                     }
@@ -79,7 +79,7 @@ export default function App() {
                   <Route
                     path="/active_task"
                     element={
-                      <Page title="Active Task">
+                      <Page title="Process Duplicates">
                         <ActiveTaskPage />
                       </Page>
                     }
@@ -87,7 +87,7 @@ export default function App() {
                   <Route
                     path="/active_task/results"
                     element={
-                      <Page title="Task Results">
+                      <Page title="Review and Delete Duplicates">
                         <TaskResultsPage />
                       </Page>
                     }
