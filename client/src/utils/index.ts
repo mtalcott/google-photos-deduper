@@ -27,6 +27,23 @@ export function prettyDuration(seconds: number): string {
   }
 }
 
+export function truncateString(str: string, length: number): string {
+  if (str.length <= length) return str;
+
+  const separator = "...";
+
+  const separatorLength = separator.length,
+    charsToShow = length - separatorLength,
+    frontChars = Math.ceil(charsToShow / 2),
+    backChars = Math.floor(charsToShow / 2);
+
+  return (
+    str.substring(0, frontChars + 1) +
+    separator +
+    str.substring(str.length - backChars, str.length)
+  );
+}
+
 export interface MeType {
   isLoggedIn: boolean;
   userInfo?: UserInfoType;
