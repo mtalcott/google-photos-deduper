@@ -117,7 +117,7 @@ function DeduperStepper() {
       steps[2].content = (
         <>
           {Object.entries(activeTask.meta.steps).map(([step, info]) => {
-            return <DeduperSubstep {...{ step, info }} />;
+            return <DeduperTaskStep {...{ step, info }} />;
           })}
         </>
       );
@@ -188,12 +188,12 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
   return <StepIcon {...{ active, completed, className }} icon={number} />;
 }
 
-function DeduperSubstep({ step, info }) {
-  let substepTitle = "";
+function DeduperTaskStep({ step, info }) {
+  let taskStepTitle = "";
   if (step === "fetch_media_items") {
-    substepTitle = "Gather photos and videos";
+    taskStepTitle = "Gather photos and videos";
   } else if (step === "process_duplicates") {
-    substepTitle = "Process duplicates";
+    taskStepTitle = "Process duplicates";
   }
   if (info.startedAt) {
     const start = Date.parse(info.startedAt);
@@ -208,7 +208,7 @@ function DeduperSubstep({ step, info }) {
           ) : (
             <CircularProgress size={"1em"} />
           )}{" "}
-          {substepTitle} ({count !== undefined && `${count} in `}
+          {taskStepTitle} ({count !== undefined && `${count} in `}
           {prettyDuration(duration)})
         </Typography>
       </>
