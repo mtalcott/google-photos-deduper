@@ -7,7 +7,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { useContext, useEffect, useState } from "react";
 import { TaskResultsContext } from "utils/TaskResultsContext";
 import IconButton from "@mui/material/IconButton";
-import Slide from "@mui/material/Slide";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";

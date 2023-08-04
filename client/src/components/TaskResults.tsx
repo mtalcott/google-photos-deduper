@@ -1,5 +1,5 @@
 import "./TaskResults.css";
-import { useState, useContext, createElement } from "react";
+import { useState, useContext } from "react";
 import { TaskResultsContext } from "utils/TaskResultsContext";
 import ChromeExtensionIntegration from "./ChromeExtensionIntegration";
 import Box from "@mui/material/Box";
