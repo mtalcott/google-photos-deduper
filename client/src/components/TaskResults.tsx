@@ -18,6 +18,8 @@ import { truncateString } from "utils";
 import AspectRatioIcon from "@mui/icons-material/AspectRatio";
 import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
+import CardActions from "@mui/material/CardActions";
+import Button from "@mui/material/Button";
 
 const styles = {
   valignMiddle: css({
@@ -167,7 +169,7 @@ function MediaItemCard({
           alt={mediaItem.filename}
         />
       </CardActionArea>
-      <CardContent>
+      <CardContent sx={{ pb: 0 }}>
         <MediaItemCardField
           field="similarity"
           {...{ mediaItem, isOriginal, originalMediaItem }}
@@ -193,6 +195,13 @@ function MediaItemCard({
           </Typography>
         )}
       </CardContent>
+      {!isOriginal && (
+        <CardActions>
+          <Button size="small" color="primary">
+            Delete
+          </Button>
+        </CardActions>
+      )}
     </Card>
   );
 }
