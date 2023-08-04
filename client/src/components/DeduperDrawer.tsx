@@ -117,7 +117,7 @@ function DeduperStepper() {
       steps[2].content = (
         <>
           {Object.entries(activeTask.meta.steps).map(([step, info]) => {
-            return <DeduperTaskStep {...{ step, info }} />;
+            return <DeduperTaskStep key={step} {...{ step, info }} />;
           })}
         </>
       );
@@ -171,7 +171,9 @@ function DeduperStepContent(props: StepType) {
         </StepLabel>
       </Button>
       <StepContent TransitionComponent={Grow}>
-        <Typography variant="body2">{children}</Typography>
+        <Typography variant="body2" component="div">
+          {children}
+        </Typography>
       </StepContent>
     </DeduperStepContext.Provider>
   );
