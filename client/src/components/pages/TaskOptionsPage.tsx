@@ -4,18 +4,21 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
 
 export default function TaskOptionsPage() {
   const navigate = useNavigate();
-  const { reloadActiveTask } = useContext(AppContext);
+  const { activeTask, reloadActiveTask } = useContext(AppContext);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     // Prevent the browser from reloading the page
     e.preventDefault();
+
+    setIsSubmitting(true);
 
     const form = e.target;
     const formData = new FormData(form);
@@ -26,6 +29,7 @@ export default function TaskOptionsPage() {
     });
 
     if (response.ok) {
+      setIsSubmitting(false);
       reloadActiveTask();
       navigate("/active_task");
     }
@@ -48,8 +52,8 @@ export default function TaskOptionsPage() {
           </FormGroup>
         </p>
         <p>
-          <Button type="submit" variant="contained">
-            Start
+          <Button type="submit" variant="contained" disabled={isSubmitting}>
+            {activeTask ? "Restart" : "Start"}
           </Button>
         </p>
       </form>
