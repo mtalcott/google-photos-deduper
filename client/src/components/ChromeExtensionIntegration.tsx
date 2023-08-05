@@ -17,7 +17,7 @@ import Link from "@mui/material/Link";
 
 const styles = {
   fabContainer: css({
-    position: "absolute",
+    position: "fixed",
     bottom: 0,
     right: 0,
     padding: "16px",
