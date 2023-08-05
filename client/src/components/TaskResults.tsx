@@ -72,30 +72,6 @@ export default function TaskResults({ results }) {
           ></ResultRow>
         ))}
       </Box>
-      {/* <table className="results">
-        <thead>
-          <tr>
-            <th>Group</th>
-            <th>Attribute</th>
-            <th>Original</th>
-            <th>Duplicates</th>
-          </tr>
-        </thead>
-        <tbody>
-          {results.groups.map((group) => (
-            <ResultRow
-              key={group.id}
-              {...{
-                group,
-                selectedGroups,
-                setSelectedGroups,
-                selectedOriginals,
-                setSelectedOriginals,
-              }}
-            ></ResultRow>
-          ))}
-        </tbody>
-      </table> */}
       <ChromeExtensionIntegration />
     </TaskResultsContext.Provider>
   );
