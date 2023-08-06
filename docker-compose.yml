@@ -80,9 +80,10 @@ services:
     environment:
       - VITE_SERVER_HOST=http://localhost
     volumes:
-      - /app/node_modules
+      - client-node-modules:/app/node_modules
       - ./client:/app
     ports:
       - "3000:3000"
 volumes:
   image-volume:
+  client-node-modules:
