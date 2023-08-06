@@ -63,6 +63,7 @@ export default function TaskResults({ results }) {
       }}
     >
       <Box sx={{ flexGrow: 1 }}>
+        <SelectAll />
         {results.groups.map((group) => (
           <ResultRow
             key={group.id}
@@ -226,6 +227,39 @@ function MediaItemCardField({
       <Tooltip title={tooltip} placement="right" arrow>
         <Typography variant="body2">{text}</Typography>
       </Tooltip>
+    </Box>
+  );
+}
+
+function SelectAll() {
+  const { results, selectedGroups, setSelectedGroups } =
+    useContext(TaskResultsContext);
+
+  const selectedGroupsCount =
+    Object.values(selectedGroups).filter(Boolean).length;
+  const allGroupsSelected = selectedGroupsCount === results.groups.length;
+  const noGroupsSelected = selectedGroupsCount === 0;
+
+  const handleCheckboxChange = (event) => {
+    const val = noGroupsSelected ? true : false;
+    const groups = Object.fromEntries(results.groups.map((g) => [g.id, val]));
+    setSelectedGroups(groups);
+  };
+
+  return (
+    <Box sx={{ pt: 1 }}>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={allGroupsSelected}
+            indeterminate={!allGroupsSelected && !noGroupsSelected}
+            onChange={handleCheckboxChange}
+            name="selectAll"
+          />
+        }
+        sx={{ ml: 0 }}
+        label="Select all"
+      />
     </Box>
   );
 }
