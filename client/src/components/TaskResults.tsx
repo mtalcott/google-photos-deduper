@@ -147,38 +147,33 @@ function MediaItemCard({
         />
       </CardActionArea>
       <CardContent sx={{ pb: 0 }}>
-        <MediaItemCardField
-          field="similarity"
-          {...{ mediaItem, isOriginal, originalMediaItem }}
-        />
-        <MediaItemCardField
-          field="filename"
-          {...{ mediaItem, isOriginal, originalMediaItem }}
-        />
-        <MediaItemCardField
-          field="dimensions"
-          {...{ mediaItem, isOriginal, originalMediaItem }}
-        />
-        {showOriginalSelector && (
-          <Typography variant="body2" gutterBottom>
-            <FormControlLabel
-              value={mediaItem.id}
-              control={<Radio size="small" />}
-              label="Original"
-              checked={isOriginal}
-              onChange={handleSelectedOriginalChange}
-              disableTypography={true}
-            />
-          </Typography>
-        )}
+        <Stack spacing={1}>
+          <MediaItemCardField
+            field="similarity"
+            {...{ mediaItem, isOriginal, originalMediaItem }}
+          />
+          <MediaItemCardField
+            field="filename"
+            {...{ mediaItem, isOriginal, originalMediaItem }}
+          />
+          <MediaItemCardField
+            field="dimensions"
+            {...{ mediaItem, isOriginal, originalMediaItem }}
+          />
+          {showOriginalSelector && (
+            <Typography variant="body2">
+              <FormControlLabel
+                value={mediaItem.id}
+                control={<Radio size="small" disableRipple sx={{ py: 0 }} />}
+                label="Original"
+                checked={isOriginal}
+                onChange={handleSelectedOriginalChange}
+                disableTypography={true}
+              />
+            </Typography>
+          )}
+        </Stack>
       </CardContent>
-      {!isOriginal && (
-        <CardActions>
-          <Button size="small" color="primary">
-            Delete
-          </Button>
-        </CardActions>
-      )}
     </Card>
   );
 }
@@ -222,7 +217,7 @@ function MediaItemCardField({
   }
 
   return (
-    <Box css={styles.valignMiddle} sx={{ mb: 1 }}>
+    <Box css={styles.valignMiddle}>
       <IconComponent css={styles.fieldIcon} />
       <Tooltip title={tooltip} placement="right" arrow>
         <Typography variant="body2">{text}</Typography>
