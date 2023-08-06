@@ -18,8 +18,8 @@ import { truncateString } from "utils";
 import AspectRatioIcon from "@mui/icons-material/AspectRatio";
 import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
-import CardActions from "@mui/material/CardActions";
-import Button from "@mui/material/Button";
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeList as List } from "react-window";
 
 const styles = {
   valignMiddle: css({
@@ -62,23 +62,32 @@ export default function TaskResults({ results }) {
         setSelectedOriginals,
       }}
     >
-      <Box sx={{ flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <SelectAll />
-        {results.groups.map((group) => (
-          <ResultRow
-            key={group.id}
-            {...{
-              group,
-            }}
-          ></ResultRow>
-        ))}
+        <Box sx={{ flexGrow: 1 }}>
+          <AutoSizer>
+            {({ height, width }) => (
+              <List
+                className="react-window-list"
+                height={height}
+                width={width}
+                itemCount={results.groups.length}
+                itemSize={276}
+              >
+                {({ index, style }) => (
+                  <ResultRow group={results.groups[index]} {...{ style }} />
+                )}
+              </List>
+            )}
+          </AutoSizer>
+        </Box>
+        <ChromeExtensionIntegration />
       </Box>
-      <ChromeExtensionIntegration />
     </TaskResultsContext.Provider>
   );
 }
 
-function ResultRow({ group }) {
+function ResultRow({ group, style }) {
   const { selectedGroups, setSelectedGroups, setSelectedOriginals } =
     useContext(TaskResultsContext);
   const handleGroupCheckboxChange = (event) => {
@@ -95,28 +104,26 @@ function ResultRow({ group }) {
   };
 
   return (
-    <>
-      <Stack direction="row" spacing={2} sx={{ py: 2 }}>
-        <Box css={styles.valignMiddle}>
-          <Checkbox
-            checked={selectedGroups[group.id]}
-            name="groupSelected"
-            onChange={handleGroupCheckboxChange}
-          />
-        </Box>
-        {group.mediaItems.map((mediaItem) => (
-          <MediaItemCard
-            key={mediaItem.id}
-            showOriginalSelector={!!selectedGroups[group.id]}
-            {...{
-              group,
-              mediaItem,
-              handleSelectedOriginalChange,
-            }}
-          />
-        ))}
-      </Stack>
-    </>
+    <Stack direction="row" spacing={2} sx={{ py: 2 }} style={style}>
+      <Box css={styles.valignMiddle}>
+        <Checkbox
+          checked={selectedGroups[group.id]}
+          name="groupSelected"
+          onChange={handleGroupCheckboxChange}
+        />
+      </Box>
+      {group.mediaItems.map((mediaItem) => (
+        <MediaItemCard
+          key={mediaItem.id}
+          showOriginalSelector={!!selectedGroups[group.id]}
+          {...{
+            group,
+            mediaItem,
+            handleSelectedOriginalChange,
+          }}
+        />
+      ))}
+    </Stack>
   );
 }
 

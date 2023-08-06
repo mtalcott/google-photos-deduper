@@ -25,16 +25,16 @@ export default function ActiveTaskPage() {
     <>
       {activeTask?.meta?.logMessage && (
         <SnackbarContent
-          sx={{
-            my: 2,
-          }}
+          sx={{ my: 2 }}
           message={<pre css={styles.pre}>{activeTask.meta.logMessage}</pre>}
         />
       )}
       {activeTask?.status === "SUCCESS" && (
-        <Button to="/active_task/results" variant="contained">
-          View Results
-        </Button>
+        <p>
+          <Button to="/active_task/results" variant="contained">
+            View Results
+          </Button>
+        </p>
       )}
       {activeTask?.status === "FAILURE" && (
         <Alert severity="error" sx={{ mt: 1 }}>

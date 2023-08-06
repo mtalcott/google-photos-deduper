@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { AppContext } from "utils/AppContext";
 import Button from "@mui/material/Button";
+import { Typography } from "@mui/material";
 
 export default function HomePage() {
   const { user, isLoggedIn, activeTask } = useContext(AppContext);
@@ -27,7 +28,9 @@ function UnauthedHome() {
 function AuthedHome({ name, hasActiveTask }) {
   return (
     <>
-      <p>Welcome, {name}</p>
+      <Typography variant="h5" component="h1">
+        Welcome, {name}!
+      </Typography>
       <p>
         {hasActiveTask ? (
           <Button variant="contained" size="large" to="/active_task">

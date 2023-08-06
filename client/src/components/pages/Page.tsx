@@ -17,7 +17,10 @@ export default function Page({ title, children }: PageProps) {
 
   return (
     <Grow in key={title}>
-      <Box>
+      <Box
+        className="page"
+        sx={{ height: 1, width: 1, display: "flex", flexDirection: "column" }}
+      >
         <Typography variant="h4" component="h1">
           {title}
         </Typography>
