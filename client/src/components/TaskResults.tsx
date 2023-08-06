@@ -1,7 +1,7 @@
 import "./TaskResults.css";
 import { useState, useContext } from "react";
 import { TaskResultsContext } from "utils/TaskResultsContext";
-import ChromeExtensionIntegration from "./ChromeExtensionIntegration";
+import TaskResultsActionBar from "components/TaskResultsActionBar";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -81,7 +81,7 @@ export default function TaskResults({ results }) {
             )}
           </AutoSizer>
         </Box>
-        <ChromeExtensionIntegration />
+        <TaskResultsActionBar />
       </Box>
     </TaskResultsContext.Provider>
   );

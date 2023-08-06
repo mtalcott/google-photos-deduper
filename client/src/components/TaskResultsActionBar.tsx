@@ -17,16 +17,19 @@ import Link from "@mui/material/Link";
 
 const styles = {
   fabContainer: css({
-    position: "fixed",
+    position: "sticky",
     bottom: 0,
     right: 0,
     padding: "16px",
+    paddingRight: 0,
     display: "flex",
+    flexDirection: "row",
+    justifyContent: "flex-end",
     alignItems: "center",
   }),
 };
 
-export default function ChromeExtensionIntegration() {
+export default function TaskResultsActionBar() {
   const [isChromeExtensionFound, setIsChromeExtensionFound] = useState(false);
   useEffect(() => {
     let listener = window.addEventListener("message", (event) => {
