@@ -1,22 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Google Photos Deduper",
-  "version": "0.1",
+  "version": "0.2.0",
   "description": "See https://github.com/mtalcott/google-photos-deduper",
   "permissions": ["activeTab", "tabs"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "action": {
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "js": ["scripts/app_content.js"],
+      "js": ["src/scripts/app_content.js"],
       "matches": ["*://localhost/*"]
     },
     {
-      "js": ["scripts/google_photos_content.js"],
+      "js": ["src/scripts/google_photos_content.js"],
       "matches": ["https://photos.google.com/*"]
     }
   ]
