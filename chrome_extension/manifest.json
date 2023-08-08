@@ -5,18 +5,18 @@
   "description": "See https://github.com/mtalcott/google-photos-deduper",
   "permissions": ["activeTab", "tabs"],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "src/service_worker.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "src/popup.html"
   },
   "content_scripts": [
     {
-      "js": ["src/scripts/app_content.js"],
+      "js": ["src/scripts/app_content.ts"],
       "matches": ["*://localhost/*"]
     },
     {
-      "js": ["src/scripts/google_photos_content.js"],
+      "js": ["src/scripts/google_photos_content.ts"],
       "matches": ["https://photos.google.com/*"]
     }
   ]

@@ -24,32 +24,34 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message?.action === "startDeletionTask") {
     console.debug("background.js startDeletionTask", message);
 
-    for (mediaItem of message.duplicateMediaItems) {
+    for (const mediaItem of message.duplicateMediaItems) {
       // Wait until photosTab, created below, has finished loading, then send message
-      chrome.tabs.onUpdated.addListener(
-        async function listener(tabId, changeInfo, tab) {
-          if (
-            photosTab &&
-            tabId == photosTab.id &&
-            changeInfo.status === "complete"
-          ) {
-            // Remove the listener now so we don't send duplicate messages
-            chrome.tabs.onUpdated.removeListener(listener);
-            // Send deletePhoto action to photosTab
-            console.debug("sending deletePhoto action to photosTab");
+      chrome.tabs.onUpdated.addListener(async function listener(
+        tabId,
+        changeInfo,
+        tab
+      ) {
+        if (
+          photosTab &&
+          tabId == photosTab.id &&
+          changeInfo.status === "complete"
+        ) {
+          // Remove the listener now so we don't send duplicate messages
+          chrome.tabs.onUpdated.removeListener(listener);
+          // Send deletePhoto action to photosTab
+          console.debug("sending deletePhoto action to photosTab");
 
-            let result = await chrome.tabs.sendMessage(photosTab.id, {
-              action: "deletePhoto",
-            });
+          let result = await chrome.tabs.sendMessage(photosTab.id, {
+            action: "deletePhoto",
+          });
 
-            console.debug("result", result);
-            if (result?.success) {
-              // TODO: just reuse this tab instead of creating a new one every time
-              await chrome.tabs.remove(photosTab.id);
-            }
+          console.debug("result", result);
+          if (result?.success) {
+            // TODO: just reuse this tab instead of creating a new one every time
+            await chrome.tabs.remove(photosTab.id);
           }
-        },
-      );
+        }
+      });
 
       console.debug("Creating tab for", { mediaItem });
       let photosTab = await chrome.tabs.create({
