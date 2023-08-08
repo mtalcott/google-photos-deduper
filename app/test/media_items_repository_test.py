@@ -46,6 +46,28 @@ def test_create_or_update__create(collection, user_id, media_item, repo):
 
 
 @requires_mongodb
+def test_get_id_map__same_user_id(collection, user_id, media_item, repo):
+    """Should return a dict of id to media item for specified user_id"""
+    insert = collection.insert_one(media_item | {"userId": user_id})
+
+    result = repo.get_id_map(media_item["id"])
+    assert type(result) == dict
+    assert result[media_item["id"]].items() >= media_item.items()
+
+
+@requires_mongodb
+def test_get_id_map__different_user_id(collection, user_id, media_item, repo):
+    """Should exclude media items for a different user_id"""
+    insert1 = collection.insert_one(media_item | {"id": "id1", "userId": user_id})
+    insert2 = collection.insert_one(
+        media_item | {"id": "id2", "userId": "test-other-user-id"}
+    )
+
+    result = repo.get_id_map("id1", "id2")
+    assert "id2" not in result
+
+
+@requires_mongodb
 def test_create_or_update__update(collection, user_id, media_item, repo):
     """Should update existing document"""
     insert = collection.insert_one(

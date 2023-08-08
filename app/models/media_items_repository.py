@@ -32,8 +32,14 @@ class MediaItemsRepository:
         self.db = client[config.DATABASE]
         self.collection = self.db.media_items
 
-    def get(self, id: int):
-        pass
+    def get_id_map(self, *ids):
+        result = self.collection.find(
+            {
+                "id": {"$in": ids},
+                "userId": self.user_id,
+            }
+        )
+        return {item["id"]: item for item in result}
 
     def create_or_update(self, attributes: dict):
         attributes = {
