@@ -8,6 +8,7 @@ from app import config
 from app import server  # required for building URLs
 from app.lib.google_api_client import GoogleApiClient
 from app import FLASK_APP as flask_app
+from app.models.media_items_repository import MediaItemsRepository
 
 
 @flask_app.route("/auth/me")
@@ -115,13 +116,17 @@ def logout():
 
 
 def task_results_for_display(results):
+    repo = MediaItemsRepository(user_id=flask.session["user_id"])
+    media_item_ids = [mi["id"] for g in results["groups"] for mi in g["mediaItems"]]
+    media_items_id_map = repo.get_id_map(*media_item_ids)
+
     results_for_display = results.copy()
 
     result_groups = []
     for group in results["groups"]:
         g = {"id": group["id"], "mediaItems": []}
-        for media_item in group["mediaItems"]:
-            m = media_item_for_display(media_item)
+        for mi in group["mediaItems"]:
+            m = media_item_for_display(mi | media_items_id_map[mi["id"]])
             g["mediaItems"].append(m)
         result_groups.append(g)
 

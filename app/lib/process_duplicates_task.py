@@ -71,7 +71,9 @@ class ProcessDuplicatesTask:
         for group_index, media_item_indices in enumerate(clusters):
             raw_media_items = [media_items[i] for i in media_item_indices]
 
-            # These are already sorted by creationDate asc, so the original mediaItem is the lowest index
+            # The first item in the cluster is the one that is most similar to
+            # all the others. Use that as the "original" media item.
+            # https://github.com/UKPLab/sentence-transformers/blob/a458ce79c40fef93d5ecc66931b446ea65fdd017/sentence_transformers/util.py#L351C26-L351C95
             original_media_item_id = media_items[min(media_item_indices)]["id"]
 
             group_media_items = []
@@ -81,11 +83,10 @@ class ProcessDuplicatesTask:
             }
 
             for raw_media_item in raw_media_items:
-                # Remove _id as it's an ObjectId and is not JSON-serializable
-                media_item = {
-                    k: raw_media_item[k] for k in raw_media_item if k != "_id"
-                }
-                # Set is_original flag
+                # Just provide a list of media item IDs. The rest we can fetch
+                #   on demand from mongo to make sure we have the latest data.
+                media_item = {"id": raw_media_item["id"]}
+                # Set is_original flag on first
                 media_item["isOriginal"] = (
                     raw_media_item["id"] == original_media_item_id
                 )
