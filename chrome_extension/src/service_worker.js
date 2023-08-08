@@ -1,8 +1,6 @@
 // Chrome extension background worker
 
-// TODO: Get this from the manifest
-// https://developer.chrome.com/docs/extensions/reference/runtime/#method-getManifest
-const VERSION = "0.1";
+const VERSION = chrome.runtime.getManifest().version;
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.app !== "GooglePhotosDeduper") {
@@ -33,7 +31,7 @@ function handleHealthCheck(message, sender) {
   chrome.tabs.sendMessage(sender.tab.id, response);
 }
 
-function handleStartDeletionTask(message, sender, sendResponse) {
+function handleStartDeletionTask(message, sender) {
   console.debug("[service_worker] startDeletionTask", message);
 
   (async () => {
