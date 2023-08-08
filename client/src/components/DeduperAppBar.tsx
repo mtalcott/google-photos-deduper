@@ -40,16 +40,11 @@ export default function DeduperAppBar() {
       sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
     >
       <Toolbar>
-        <Link
-          to="/"
-          variant="h6"
-          color="inherit"
-          underline="none"
-          noWrap
-          sx={{ flexGrow: 1 }}
-        >
-          Google Photos Deduper
-        </Link>
+        <Box sx={{ flexGrow: 1 }}>
+          <Link to="/" variant="h6" color="inherit" underline="none" noWrap>
+            Google Photos Deduper
+          </Link>
+        </Box>
 
         {isLoggedIn && (
           <Box sx={{ alignItems: "right" }}>
