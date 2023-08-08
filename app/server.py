@@ -60,10 +60,10 @@ def create_task():
     assert user_id
 
     flask_app.logger.info(
-        f"Creating task for user_id {user_id} with options: {flask.request.form.to_dict()}"
+        f"Creating task for user_id {user_id} with options: {flask.request.json}"
     )
 
-    refresh_media_items = flask.request.form.get("refresh_media_items") == "true"
+    refresh_media_items = flask.request.json.get("refresh_media_items") == "true"
     result = tasks.process_duplicates.delay(
         user_id, refresh_media_items=refresh_media_items
     )

@@ -22,10 +22,14 @@ export default function TaskOptionsPage() {
 
     const form = e.target;
     const formData = new FormData(form);
+    const formJson = Object.fromEntries(formData.entries());
 
     const response = await fetch(appApiUrl("/api/task"), {
       method: "post",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formJson),
     });
 
     if (response.ok) {
