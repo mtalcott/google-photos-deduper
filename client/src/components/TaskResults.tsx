@@ -202,8 +202,10 @@ function MediaItemCardField({
     } else {
       const similarity =
         results?.similarityMap[mediaItem.id][originalMediaItem.id];
-      const similarityAsPercent = (similarity * 100).toFixed(2);
-      text = `Similarity: ${similarityAsPercent}%`;
+      const similarityAsPercent = similarity
+        ? `${(similarity * 100).toFixed(2)}%`
+        : "N/A";
+      text = `Similarity: ${similarityAsPercent}`;
     }
   } else if (field === "filename") {
     IconComponent = RenameIcon;
