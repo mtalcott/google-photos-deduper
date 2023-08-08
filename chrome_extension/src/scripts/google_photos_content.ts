@@ -1,55 +1,67 @@
 // Runs on Google Photos web app pages
 
-(async () => {
-  // console.info("google_photos_content.js loaded");
-
-  function waitForElement(selector) {
-    // TODO: Add timeout
-    return new Promise((resolve) => {
-      if (document.querySelector(selector)) {
-        return resolve(document.querySelector(selector));
-      }
-
-      const observer = new MutationObserver((mutations) => {
-        if (document.querySelector(selector)) {
-          resolve(document.querySelector(selector));
-          observer.disconnect();
-        }
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-    });
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.app !== "GooglePhotosDeduper") {
+    // Filter out messages not intended for our app
+    // TODO: more thorough vetting
+    return;
   }
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.info("google_photos_content.js onMessage", { message, sender });
+  console.info("[google_photos_content] message received", { message, sender });
 
-    if (message?.action === "deletePhoto") {
-      (async () => {
-        const trashButton = await waitForElement("[data-delete-origin] button");
-        console.info("trashButton", trashButton);
-        trashButton.click();
+  if (message?.action === "deletePhoto") {
+    handleDeletePhoto(message, sender);
+  }
+});
 
-        const confirmButton = await waitForElement("[jsshadow] [autofocus]");
-        console.info("confirmButton", confirmButton);
-        confirmButton.click();
+function handleDeletePhoto(message, sender) {
+  (async () => {
+    const trashButton = await waitForElement("[data-delete-origin] button");
+    console.info("trashButton", trashButton);
+    // trashButton.click();
 
-        const confirmationToaster = await waitForElement(
-          '[role="status"][aria-live="polite"]',
-        );
-        console.info("confirmationToaster", confirmationToaster);
+    // const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+    // console.info("confirmButton", confirmButton);
+    // confirmButton.click();
 
-        console.info("success, sending response");
-        sendResponse({ success: true });
-      })();
+    // const confirmationToaster = await waitForElement(
+    //   '[role="status"][aria-live="polite"]',
+    // );
+    // console.info("confirmationToaster", confirmationToaster);
 
-      // Function becomes invalid when the event listener returns, unless you return true from the event listener to indicate you wish to send a response asynchronously (this will keep the message channel open to the other end until sendResponse is called).
-      return true;
+    const resultMessage = {
+      app: "GooglePhotosDeduper",
+      action: "deletePhoto.result",
+      success: true,
+      userUrl: window.location.href,
+      deletedAt: new Date(),
+      originalMessage: message,
+    };
+    console.info(
+      "[google_photos_content] success, sending response to chrome runtime",
+      resultMessage
+    );
+    chrome.runtime.sendMessage(resultMessage);
+  })();
+}
+
+function waitForElement(selector) {
+  // TODO: Add timeout
+  return new Promise((resolve) => {
+    if (document.querySelector(selector)) {
+      return resolve(document.querySelector(selector));
     }
-  });
 
-  // chrome.runtime.sendMessage("google_photos_content.js in photosTab ready!");
-})();
+    const observer = new MutationObserver((mutations) => {
+      if (document.querySelector(selector)) {
+        resolve(document.querySelector(selector));
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  });
+}

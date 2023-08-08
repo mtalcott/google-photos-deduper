@@ -1,29 +1,43 @@
-// Runs on _this_ app's pages
+// Runs on GooglePhotosDeduper app's pages
 
-(async () => {
-  // Listen to window messages and pass them on to the chrome runtime
-  window.addEventListener("message", async (event) => {
-    if (
-      event.data?.app !== "GooglePhotosDeduper" || // Filter out messages not intended for our app
-      event.data?.action === "response" // Filter out our own responses posted here
-    ) {
-      // TODO: more thorough vetting
-      return;
-    }
+// Listen to window messages and pass them on to the chrome runtime
+window.addEventListener("message", (event) => {
+  if (
+    // Filter out messages not intended for our app
+    event.data?.app !== "GooglePhotosDeduper"
+  ) {
+    // TODO: more thorough vetting?
+    return;
+  }
+
+  if (["healthCheck", "startDeletionTask"].includes(event.data?.action)) {
     console.debug(
-      "message received in app_content, passing on to chrome runtime",
-      event.data,
+      "[app_content] window message received, posting to chrome runtime",
+      event.data
     );
-    const response = await chrome.runtime.sendMessage(event.data);
-    console.debug("message responded in app_content", {
-      response,
-      eventData: event.data,
-    });
-    window.postMessage({
-      app: "GooglePhotosDeduper",
-      action: "response",
-      originalMessage: event.data,
-      response,
-    });
+
+    chrome.runtime.sendMessage(event.data);
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  console.debug("[app_content] message received from chrome runtime", {
+    message,
+    sender,
   });
-})();
+  if (
+    // Filter out messages not intended for our app
+    message?.app !== "GooglePhotosDeduper"
+  ) {
+    // TODO: more thorough vetting?
+    return;
+  }
+
+  if (["healthCheck.result", "deletePhoto.result"].includes(message.action)) {
+    console.debug(
+      "[app_content] message received from chrome runtime, posting to window",
+      { message, sender }
+    );
+    window.postMessage(message);
+  }
+});

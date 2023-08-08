@@ -35,9 +35,8 @@ export default function TaskResultsActionBar() {
     let listener = window.addEventListener("message", (event) => {
       if (
         event.data?.app === "GooglePhotosDeduper" &&
-        event.data?.action === "response" &&
-        event.data?.originalMessage?.action === "healthCheck" &&
-        event.data?.response?.success
+        event.data?.action === "healthCheck.result" &&
+        event.data?.success
       ) {
         setIsChromeExtensionFound(true);
       }
