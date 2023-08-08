@@ -202,7 +202,7 @@ function MediaItemCardField({
     } else {
       const similarity =
         results?.similarityMap[mediaItem.id][originalMediaItem.id];
-      const similarityAsPercent = (similarity * 100).toFixed(4);
+      const similarityAsPercent = (similarity * 100).toFixed(2);
       text = `Similarity: ${similarityAsPercent}%`;
     }
   } else if (field === "filename") {
