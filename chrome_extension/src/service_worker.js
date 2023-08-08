@@ -15,8 +15,6 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     handleHealthCheck(message, sender);
   } else if (message?.action === "startDeletionTask") {
     handleStartDeletionTask(message, sender);
-  } else if (message?.action === "deletePhoto.result") {
-    handleDeletePhotoResult(message, sender);
   }
 });
 
@@ -35,51 +33,79 @@ function handleStartDeletionTask(message, sender) {
   console.debug("[service_worker] startDeletionTask", message);
 
   (async () => {
+    let photosTab = await chrome.tabs.create({ active: true });
+
     for (const mediaItem of message.duplicateMediaItems) {
-      // Wait until photosTab, created below, has finished loading, then send message
-      chrome.tabs.onUpdated.addListener(async function listener(
-        tabId,
-        changeInfo,
-        tab
-      ) {
-        if (tabId == photosTab?.id && changeInfo.status === "complete") {
-          // Remove the listener now so we don't send duplicate messages
-          chrome.tabs.onUpdated.removeListener(listener);
-          // Send deletePhoto action to photosTab
-          console.debug(
-            "[service_worker] sending deletePhoto action to photosTab"
-          );
-
-          chrome.tabs.sendMessage(photosTab.id, {
-            app: "GooglePhotosDeduper",
-            action: "deletePhoto",
-            photoId: mediaItem.id,
-            senderTabId: sender.tab.id,
-          });
-        }
-      });
-
-      console.debug("[service_worker] Creating tab for", { mediaItem });
-      let photosTab = await chrome.tabs.create({
-        url: mediaItem.productUrl,
-        active: true,
-      });
+      await navigateAndDelete(photosTab, mediaItem, sender);
     }
+
+    chrome.tabs.remove(photosTab.id);
   })();
+
+  const response = {
+    app: "GooglePhotosDeduper",
+    action: "startDeletionTask.result",
+    success: true,
+  };
+  console.debug(
+    "[service_worker] sending startDeletionTask response",
+    response
+  );
+  chrome.tabs.sendMessage(sender.tab.id, response);
 }
 
-function handleDeletePhotoResult(message, sender) {
+async function navigateAndDelete(tab, mediaItem, sender) {
+  // Navigate to the photo in Google Photos
+  await chrome.tabs.update(tab.id, { url: mediaItem.productUrl });
+
+  // Wait for the page to load
+  await new Promise((resolve) => {
+    chrome.tabs.onUpdated.addListener(function listener(
+      tabId,
+      changeInfo,
+      tab
+    ) {
+      if (tabId === tab.id && changeInfo.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    });
+  });
+
+  console.debug("[service_worker] sending deletePhoto action to photosTab");
+
+  chrome.tabs.sendMessage(tab.id, {
+    app: "GooglePhotosDeduper",
+    action: "deletePhoto",
+    mediaItemId: mediaItem.id,
+    senderTabId: sender.tab.id,
+  });
+
+  // Wait for a result message
+  const result = await new Promise((resolve) => {
+    chrome.runtime.onMessage.addListener(function listener(message, sender) {
+      if (
+        message?.app === "GooglePhotosDeduper" &&
+        message?.action === "deletePhoto.result" &&
+        message?.mediaItemId === mediaItem.id
+      ) {
+        console.debug(
+          "[service_worker] received deletePhoto.result message",
+          message
+        );
+        chrome.runtime.onMessage.removeListener(listener);
+        resolve(message);
+      }
+    });
+  });
+
   console.debug(
-    "[service_worker] handleDeletePhotoResult forwarding result to original tab",
-    { message, sender }
+    "[service_worker] received deletePhoto.result, forwarding result to original tab",
+    result
   );
 
-  chrome.tabs.sendMessage(message.originalMessage.senderTabId, message);
-
-  if (message.success) {
-    // TODO: just reuse this tab instead of creating a new one every time
-    chrome.tabs.remove(sender.tab.id);
-  }
+  // Forward the result to the original tab
+  chrome.tabs.sendMessage(sender.tab.id, result);
 }
 
 // photosTab = await chrome.tabs.create({active: false});

@@ -21,10 +21,6 @@ window.addEventListener("message", (event) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
-  console.debug("[app_content] message received from chrome runtime", {
-    message,
-    sender,
-  });
   if (
     // Filter out messages not intended for our app
     message?.app !== "GooglePhotosDeduper"
@@ -33,7 +29,13 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
 
-  if (["healthCheck.result", "deletePhoto.result"].includes(message.action)) {
+  if (
+    [
+      "healthCheck.result",
+      "startDeletionTask.result",
+      "deletePhoto.result",
+    ].includes(message.action)
+  ) {
     console.debug(
       "[app_content] message received from chrome runtime, posting to window",
       { message, sender }

@@ -35,6 +35,7 @@ function handleDeletePhoto(message, sender) {
       success: true,
       userUrl: window.location.href,
       deletedAt: new Date(),
+      mediaItemId: message.mediaItemId,
       originalMessage: message,
     };
     console.info(

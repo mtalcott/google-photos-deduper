@@ -174,7 +174,9 @@ async function processDuplicates({
     }, [])
     .map((mediaItem) => {
       return {
-        // We only need the productUrls to open the page with the Chrome extension
+        // We only need the productUrls to open the page with the Chrome
+        // extension and the mediaItem.id to uniquely identify the photo
+        id: mediaItem.id,
         productUrl: mediaItem.productUrl,
       };
     });
