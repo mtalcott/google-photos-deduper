@@ -9,7 +9,7 @@ export default function TaskResultsPage() {
   const { data, isLoading } = useFetch(appApiUrl("/api/active_task/results"));
   return (
     <>
-      {isLoading && <CircularProgress size={"1rem"} />}
+      {isLoading && <CircularProgress size={"2rem"} sx={{ mt: 2 }} />}
       {/* <Link to="/task_options">Start over</Link> */}
       {data?.results && <TaskResults results={data.results} />}
     </>
