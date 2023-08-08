@@ -16,7 +16,7 @@ flask-cors = "*"
 celery = {extras = [ "redis",]}
 tqdm = "*"
 install = "*"
-sentence-transformers = {editable = true, ref = "d8982c9", git = "https://github.com/UKPLab/sentence-transformers.git"}
+sentence-transformers = {ref = "d8982c9", git = "https://github.com/UKPLab/sentence-transformers.git"}
 
 [dev-packages]
 debugpy = "*"
