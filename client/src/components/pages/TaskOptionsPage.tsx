@@ -37,25 +37,26 @@ export default function TaskOptionsPage() {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <p>
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  defaultChecked
-                  name="refresh_media_items"
-                  value="true"
-                />
-              }
-              label="Refresh media items"
-            />
-          </FormGroup>
-        </p>
-        <p>
-          <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {activeTask ? "Restart" : "Start"}
-          </Button>
-        </p>
+        <FormGroup>
+          <FormControlLabel
+            control={
+              <Checkbox
+                defaultChecked
+                name="refresh_media_items"
+                value="true"
+              />
+            }
+            label="Refresh media items"
+          />
+        </FormGroup>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={isSubmitting}
+          sx={{ mt: 2 }}
+        >
+          {activeTask ? "Restart" : "Start"}
+        </Button>
       </form>
     </>
   );
