@@ -105,9 +105,9 @@ export default function TaskResultsActionBar() {
           <DialogTitle>Deleting duplicates</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Clicking the button will open up a new tab and delete the selected
-              duplicate photos through the Google Photos web app. Deleted photos
-              can be{" "}
+              Clicking the button will open up a new window and delete the
+              selected duplicate photos through the Google Photos web app.
+              Deleted photos can be{" "}
               <Link
                 target="_blank"
                 rel="noopener noreferrer"

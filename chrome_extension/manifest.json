@@ -3,7 +3,7 @@
   "name": "Google Photos Deduper",
   "version": "0.2.0",
   "description": "See https://github.com/mtalcott/google-photos-deduper",
-  "permissions": ["activeTab", "tabs"],
+  "permissions": ["activeTab", "windows", "tabs"],
   "background": {
     "service_worker": "src/service_worker.js"
   },

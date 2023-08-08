@@ -33,13 +33,18 @@ function handleStartDeletionTask(message, sender) {
   console.debug("[service_worker] startDeletionTask", message);
 
   (async () => {
-    let photosTab = await chrome.tabs.create({ active: true });
+    // Open a new window to delete photos in
+    const window = await chrome.windows.create({
+      focused: true,
+      incognito: sender.tab.incognito,
+    });
+    const tab = window.tabs[0];
 
     for (const mediaItem of message.duplicateMediaItems) {
-      await navigateAndDelete(photosTab, mediaItem, sender);
+      await navigateAndDelete(tab, mediaItem, sender);
     }
 
-    chrome.tabs.remove(photosTab.id);
+    await chrome.windows.remove(window.id);
   })();
 
   const response = {
