@@ -11,7 +11,7 @@ class MediaItemsImageStore:
     to move to a cloud storage provider like S3.
     """
 
-    def __init__(self, resolution=100):
+    def __init__(self, resolution=250):
         self.resolution = resolution
 
     def store_image(self, media_item) -> str:
@@ -44,7 +44,7 @@ class MediaItemsImageStore:
 
     def get_storage_filename(self, media_item) -> str:
         # These are all JPEG images (baseUrl for movies is a thumbnail)
-        return f"{media_item['id']}.jpg"
+        return f"{media_item['id']}-{self.resolution}.jpg"
 
     def _get_storage_path(self, media_item) -> str:
         return os.path.join(
