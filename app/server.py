@@ -128,31 +128,29 @@ def logout():
 
 def task_results_for_display(results):
     repo = MediaItemsRepository(user_id=flask.session["user_id"])
-    media_item_ids = [mi["id"] for g in results["groups"] for mi in g["mediaItems"]]
+    media_item_ids = [id for g in results["groups"] for id in g["mediaItemIds"]]
     media_items_id_map = repo.get_id_map(*media_item_ids)
 
-    results_for_display = results.copy()
+    results_for_display = {}
+    results_for_display["groups"] = {g["id"]: g for g in results["groups"]}
+    results_for_display["mediaItems"] = {
+        id: media_item_for_display(media_items_id_map[id]) for id in media_item_ids
+    }
+    results_for_display["similarityMap"] = results["similarityMap"]
 
-    result_groups = []
-    for group in results["groups"]:
-        g = {"id": group["id"], "mediaItems": []}
-        for mi in group["mediaItems"]:
-            m = media_item_for_display(mi | media_items_id_map[mi["id"]])
-            g["mediaItems"].append(m)
-        result_groups.append(g)
-
-    return results_for_display | {"groups": result_groups}
+    return results_for_display
 
 
 def media_item_for_display(media_item):
     m = {
-        k: media_item[k]
+        k: media_item.get(k, None)
         for k in (
             "id",
-            "isOriginal",
             "productUrl",
             "filename",
             "mimeType",
+            "deletedAt",
+            "userUrl",
         )
     }
 

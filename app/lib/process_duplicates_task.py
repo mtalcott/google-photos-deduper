@@ -69,31 +69,20 @@ class ProcessDuplicatesTask:
         }
 
         for group_index, media_item_indices in enumerate(clusters):
-            raw_media_items = [media_items[i] for i in media_item_indices]
+            group_media_items = [media_items[i] for i in media_item_indices]
 
             # The first item in the cluster is the one that is most similar to
             # all the others. Use that as the "original" media item.
             # https://github.com/UKPLab/sentence-transformers/blob/a458ce79c40fef93d5ecc66931b446ea65fdd017/sentence_transformers/util.py#L351C26-L351C95
             original_media_item_id = media_items[min(media_item_indices)]["id"]
 
-            group_media_items = []
-            group = {
-                "id": group_index,
-                "mediaItems": group_media_items,
-            }
-
-            for raw_media_item in raw_media_items:
-                # Just provide a list of media item IDs. The rest we can fetch
-                #   on demand from mongo to make sure we have the latest data.
-                media_item = {"id": raw_media_item["id"]}
-                # Set is_original flag on first
-                media_item["isOriginal"] = (
-                    raw_media_item["id"] == original_media_item_id
-                )
-
-                group_media_items.append(media_item)
-
-            result["groups"].append(group)
+            result["groups"].append(
+                {
+                    "id": str(group_index),
+                    "mediaItemIds": [m["id"] for m in group_media_items],
+                    "originalMediaItemId": original_media_item_id,
+                }
+            )
 
         self.complete_step(Steps.PROCESS_DUPLICATES, count=len(result["groups"]))
 
