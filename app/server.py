@@ -109,6 +109,17 @@ def get_active_task_results():
     return flask.jsonify(response)
 
 
+@flask_app.route("/api/media_item/<id>", methods=["POST"])
+def update_media_item(id):
+    repo = MediaItemsRepository(user_id=flask.session["user_id"])
+    media_item = repo.update(id, flask.request.json)
+
+    return flask.jsonify(
+        success=True,
+        media_item=media_item_for_display(media_item),
+    )
+
+
 @flask_app.route("/api/logout", methods=["POST"])
 def logout():
     flask.session.clear()

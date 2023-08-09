@@ -20,6 +20,8 @@ class MediaItemsRepository:
         "productUrl",
         "baseUrl",
         "storageFilename",  # Locally stored filename per MediaItemsImageStore
+        "deletedAt",  # When the media item was deleted by our app
+        "userUrl",  # User-facing URL of the media item. productUrl is generated for our app and eventually expires.
     ]
 
     def __init__(self, user_id: str):
@@ -42,18 +44,28 @@ class MediaItemsRepository:
         return {item["id"]: item for item in result}
 
     def create_or_update(self, attributes: dict):
-        attributes = {
+        attr = {
             k: v
             for (k, v) in attributes.items()
             if k in MediaItemsRepository.attribute_names
         }
-        attributes |= {"userId": self.user_id}
+        attr |= {"userId": self.user_id}
 
         return self.collection.update_one(
-            {"id": attributes["id"], "userId": self.user_id},
-            {"$set": attributes},
+            {"id": attr["id"], "userId": self.user_id},
+            {"$set": attr},
             upsert=True,
         )
+
+    def update(self, id: str, attributes: dict):
+        attribute_names = [n for n in MediaItemsRepository.attribute_names if n != "id"]
+        attr = {k: v for (k, v) in attributes.items() if k in attribute_names}
+        self.collection.update_one(
+            {"id": id, "userId": self.user_id},
+            {"$set": attr},
+        )
+
+        return self.collection.find_one({"id": id, "userId": self.user_id})
 
     def delete_all(self):
         return self.collection.delete_many({"userId": self.user_id})
