@@ -14,6 +14,8 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
+import LinearProgress from "@mui/material/LinearProgress";
+import Typography from "@mui/material/Typography";
 
 const styles = {
   fabContainer: css({
@@ -46,16 +48,28 @@ export default function TaskResultsActionBar() {
     };
   }, []);
   useEffect(() => {
-    // (async () => {
     pingCheckChromeExtension();
-    // })();
   }, []);
 
   const { results, selectedGroups, selectedOriginals } =
     useContext(TaskResultsContext);
   const selectedCount = Object.values(selectedGroups).filter((v) => v).length;
 
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [duplicatesProcessing, setDuplicatesProcessing] = useState({});
+  useEffect(() => {
+    let listener = window.addEventListener("message", (event) => {
+      if (
+        event.data?.app === "GooglePhotosDeduper" &&
+        event.data?.action === "deletePhoto.result" &&
+        event.data?.success
+      ) {
+        const { userUrl, deletedAt, mediaItemId, originalMessage } = event.data;
+      }
+    });
+    return () => {
+      window.removeEventListener("message", listener);
+    };
+  }, []);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const handleDialogOpen = () => {
@@ -71,7 +85,7 @@ export default function TaskResultsActionBar() {
       results,
       selectedGroups,
       selectedOriginals,
-      setIsProcessing,
+      setDuplicatesProcessing,
     });
   };
 
@@ -91,10 +105,15 @@ export default function TaskResultsActionBar() {
           <Fab
             variant="extended"
             color="primary"
-            disabled={!isChromeExtensionFound || selectedCount <= 0}
+            disabled={
+              !isChromeExtensionFound ||
+              selectedCount <= 0 ||
+              duplicatesProcessing.length > 0
+            }
             onClick={handleProcessDuplicates}
           >
             <DeleteIcon sx={{ mr: 1 }} />
+            {/* TODO: "Delete X duplicates" should count actual dupes, not groups */}
             Delete {selectedCount} duplicate
             {selectedCount !== 1 && "s"}
           </Fab>
@@ -143,6 +162,9 @@ export default function TaskResultsActionBar() {
           </DialogActions>
         </Dialog>
       )}
+      <DuplicatesProcessingDialog
+        {...{ duplicatesProcessing, setDuplicatesProcessing }}
+      />
     </>
   );
 }
@@ -158,7 +180,7 @@ async function processDuplicates({
   results,
   selectedGroups,
   selectedOriginals,
-  setIsProcessing,
+  setDuplicatesProcessing,
 }) {
   const selectedDuplicates = results.groups
     .reduce((acc, group) => {
@@ -181,10 +203,55 @@ async function processDuplicates({
       };
     });
 
+  setDuplicatesProcessing(selectedDuplicates);
+
   console.debug("processDuplicates", selectedDuplicates);
   window.postMessage({
     app: "GooglePhotosDeduper",
     action: "startDeletionTask",
     duplicateMediaItems: selectedDuplicates,
   });
+}
+
+function DuplicatesProcessingDialog({
+  duplicatesProcessing,
+  setDuplicatesProcessing,
+}) {
+  const isProcessing = duplicatesProcessing.length > 0;
+  const numCompleted = Object.entries(duplicatesProcessing).filter(
+    (id, d) => d.deletedAt
+  ).length;
+  const numTotal = duplicatesProcessing.length;
+  const percent = numTotal > 0 ? (numCompleted / numTotal) * 100 : 0;
+
+  const cancelDuplicatesProcessing = () => {
+    // TODO: Cancel the current operation
+    // setDuplicatesProcessing([]);
+  };
+
+  // TODO: clear on done
+
+  return (
+    <Dialog
+      open={isProcessing}
+      onClose={cancelDuplicatesProcessing}
+      fullWidth
+      maxWidth="sm"
+    >
+      <DialogTitle>Deleting duplicates...</DialogTitle>
+      <DialogContent>
+        <LinearProgress
+          variant={numCompleted > 0 ? "determinate" : "indeterminate"}
+          value={percent}
+          sx={{ mb: 2 }}
+        />
+        <DialogContentText>
+          Deleted {numCompleted} of {numTotal} duplicates.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={cancelDuplicatesProcessing}>Cancel</Button>
+      </DialogActions>
+    </Dialog>
+  );
 }
