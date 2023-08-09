@@ -44,6 +44,12 @@ export function truncateString(str: string, length: number): string {
   );
 }
 
+export interface MeResponseType {
+  logged_in: boolean;
+  user_info: UserInfoType;
+  has_active_task: boolean;
+}
+
 export interface MeType {
   isLoggedIn: boolean;
   userInfo?: UserInfoType;
@@ -60,3 +66,19 @@ export interface UserInfoType {
   picture: string;
   verified_email: boolean;
 }
+
+export interface ActiveTaskType {
+  status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
+  meta?: {
+    logMessage?: string;
+    steps?: {
+      [step: string]: {
+        startedAt: string;
+        completedAt?: string;
+        count?: number;
+      };
+    };
+  };
+}
+
+export interface TaskResultsType {}

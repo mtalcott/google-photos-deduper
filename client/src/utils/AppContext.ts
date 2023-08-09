@@ -6,9 +6,10 @@ interface ActiveTaskType {
   // TODO: progress
 }
 
-interface AppContextType {
+export interface AppContextType {
   isLoggedIn: boolean;
   user?: UserInfoType;
+  hasActiveTask: boolean;
   activeTask?: ActiveTaskType;
   reloadActiveTask: () => void;
 }
@@ -17,5 +18,6 @@ export const AppContext = createContext<AppContextType>({
   isLoggedIn: false,
   user: undefined,
   activeTask: undefined,
+  hasActiveTask: false,
   reloadActiveTask: () => {},
 });
