@@ -105,15 +105,7 @@ interface ResultRowProps {
 }
 
 function ResultRow({ group, style }: ResultRowProps) {
-  const { results, dispatch } = useContext(TaskResultsContext);
-  const areDuplicatesPresent =
-    group.mediaItemIds.filter(
-      (mediaItemId) =>
-        // Filter out the original
-        group.originalMediaItemId !== mediaItemId &&
-        // Filter out mediaItems that have already been deleted
-        !results.mediaItems[mediaItemId].deletedAt
-    ).length > 0;
+  const { dispatch } = useContext(TaskResultsContext);
   const handleGroupCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
     dispatch({
       type: "setGroupSelected",
@@ -134,20 +126,19 @@ function ResultRow({ group, style }: ResultRowProps) {
   return (
     <Stack direction="row" spacing={2} sx={{ py: 2 }} style={style}>
       <Box css={styles.valignMiddle}>
-        {areDuplicatesPresent ? (
+        {group.hasDuplicates ? (
           <Checkbox
             checked={group.isSelected}
             name="groupSelected"
             onChange={handleGroupCheckboxChange}
           />
         ) : (
-          <Checkbox disabled />
+          <Checkbox disabled sx={{ opacity: 0 }} />
         )}
       </Box>
       {group.mediaItemIds.map((mediaItemId) => (
         <MediaItemCard
           key={mediaItemId}
-          isGroupSelected={areDuplicatesPresent && group.isSelected}
           {...{
             group,
             mediaItemId,
@@ -162,14 +153,12 @@ function ResultRow({ group, style }: ResultRowProps) {
 interface MediaItemCardProps {
   group: TaskResultsGroupType;
   mediaItemId: string;
-  isGroupSelected: boolean;
   handleSelectedOriginalChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
 function MediaItemCard({
   group,
   mediaItemId,
-  isGroupSelected,
   handleSelectedOriginalChange,
 }: MediaItemCardProps) {
   const { results } = useContext(TaskResultsContext);
@@ -217,7 +206,7 @@ function MediaItemCard({
               {...{ mediaItem, isOriginal, originalMediaItem }}
             />
           ) : (
-            isGroupSelected && (
+            group.isSelected && (
               <Typography variant="body2">
                 <FormControlLabel
                   value={mediaItem.id}
@@ -306,7 +295,8 @@ function SelectAll() {
     (g) => g.isSelected
   ).length;
   const allGroupsSelected =
-    selectedGroupsCount === Object.keys(results.groups).length;
+    selectedGroupsCount ===
+    Object.values(results.groups).filter((g) => g.hasDuplicates).length;
   const noGroupsSelected = selectedGroupsCount === 0;
 
   const handleCheckboxChange = () => {

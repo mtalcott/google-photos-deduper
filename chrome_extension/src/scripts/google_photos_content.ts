@@ -18,10 +18,10 @@ function handleDeletePhoto(message, sender) {
   (async () => {
     const trashButton = await waitForElement("[data-delete-origin] button");
     console.info("trashButton", trashButton);
-    // trashButton.click();
+    trashButton.click();
 
-    // const confirmButton = await waitForElement("[jsshadow] [autofocus]");
-    // console.info("confirmButton", confirmButton);
+    const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+    console.info("confirmButton", confirmButton);
     // confirmButton.click();
 
     // const confirmationToaster = await waitForElement(

@@ -39,6 +39,7 @@ export interface TaskResultsGroupType {
   id: string;
   mediaItemIds: string[];
   originalMediaItemId: string;
+  hasDuplicates: boolean;
   isSelected: boolean;
 }
 

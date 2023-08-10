@@ -1,5 +1,9 @@
 import { useReducer } from "react";
-import { MediaItemType, TaskResultsType } from "utils/types";
+import {
+  MediaItemType,
+  TaskResultsGroupType,
+  TaskResultsType,
+} from "utils/types";
 
 export type TaskResultsActionType =
   | {
@@ -38,7 +42,10 @@ function taskResultsReducer(
       ...state,
       groups: {
         ...state.groups,
-        [action.groupId]: { ...group, isSelected: action.isSelected },
+        [action.groupId]: {
+          ...group,
+          isSelected: group.hasDuplicates && action.isSelected,
+        },
       },
     };
   }
@@ -48,7 +55,7 @@ function taskResultsReducer(
       groups: Object.fromEntries(
         Object.entries(state.groups).map(([groupId, group]) => [
           groupId,
-          { ...group, isSelected: action.isSelected },
+          { ...group, isSelected: group.hasDuplicates && action.isSelected },
         ])
       ),
     };
@@ -63,18 +70,60 @@ function taskResultsReducer(
     };
   } else if (action.type === "setMediaItem") {
     const mediaItem = state.mediaItems[action.mediaItemId];
-    return {
+    const newState = {
       ...state,
       mediaItems: {
         ...state.mediaItems,
         [action.mediaItemId]: { ...mediaItem, ...action.attributes },
       },
     };
+    // Also update hasDuplicates on groups. Only need the group that contains
+    //   this mediaItem, but we have no reverse lookup from mediaItem to
+    //   group, so update all groups.
+    newState.groups = Object.fromEntries(
+      Object.entries(state.groups).map(([groupId, group]) => {
+        const hasDuplicates = groupHasDuplicates(group, newState);
+        return [
+          groupId,
+          {
+            ...group,
+            hasDuplicates: hasDuplicates,
+            isSelected: group.isSelected && hasDuplicates,
+          },
+        ];
+      })
+    );
+    return newState;
   } else {
     throw new Error(`Unregognized action type: ${action.type}`);
   }
 }
 
+function groupHasDuplicates(
+  group: TaskResultsGroupType,
+  results: TaskResultsType
+): boolean {
+  return (
+    group.mediaItemIds.filter(
+      (mediaItemId) =>
+        // Filter out the original
+        group.originalMediaItemId !== mediaItemId &&
+        // Filter out mediaItems that have already been deleted
+        !results.mediaItems[mediaItemId].deletedAt
+    ).length > 0
+  );
+}
+
 export function useTaskResultsReducer(initialState: TaskResultsType) {
-  return useReducer(taskResultsReducer, initialState);
+  // Set initial hasDuplicates on groups
+  const state = {
+    ...initialState,
+    groups: Object.fromEntries(
+      Object.entries(initialState.groups).map(([groupId, group]) => [
+        groupId,
+        { ...group, hasDuplicates: groupHasDuplicates(group, initialState) },
+      ])
+    ),
+  };
+  return useReducer(taskResultsReducer, state);
 }

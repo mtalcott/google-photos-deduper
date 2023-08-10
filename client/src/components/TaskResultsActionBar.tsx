@@ -240,6 +240,10 @@ function DuplicatesProcessingDialog({
     setMediaItemIdsPendingDeletion(new Set());
   };
 
+  const dismissModal = () => {
+    setMediaItemIdsPendingDeletion(new Set());
+  };
+
   return (
     <Dialog
       open={mediaItemIdsPendingDeletion.size > 0}
@@ -260,9 +264,13 @@ function DuplicatesProcessingDialog({
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={cancelDuplicatesProcessing}>
-          {numCompleted == numTotal ? "Dismiss" : "Cancel"}
-        </Button>
+        {numCompleted === numTotal ? (
+          <Button onClick={dismissModal}>Dismiss</Button>
+        ) : (
+          <Button disabled onClick={cancelDuplicatesProcessing}>
+            Cancel
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );
