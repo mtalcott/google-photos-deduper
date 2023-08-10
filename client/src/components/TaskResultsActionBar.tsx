@@ -15,7 +15,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import LinearProgress from "@mui/material/LinearProgress";
-import Typography from "@mui/material/Typography";
+import { TaskResultsType } from "utils/types";
 
 const styles = {
   fabContainer: css({
@@ -33,8 +33,13 @@ const styles = {
 
 export default function TaskResultsActionBar() {
   const [isChromeExtensionFound, setIsChromeExtensionFound] = useState(false);
+  const { results, dispatch, selectedMediaItemIds } =
+    useContext(TaskResultsContext);
+  const [mediaItemIdsPendingDeletion, setMediaItemIdsPendingDeletion] =
+    useState(new Set<string>());
+
   useEffect(() => {
-    let listener = window.addEventListener("message", (event) => {
+    const listener = (event: MessageEvent) => {
       if (
         event.data?.app === "GooglePhotosDeduper" &&
         event.data?.action === "healthCheck.result" &&
@@ -42,7 +47,8 @@ export default function TaskResultsActionBar() {
       ) {
         setIsChromeExtensionFound(true);
       }
-    });
+    };
+    window.addEventListener("message", listener);
     return () => {
       window.removeEventListener("message", listener);
     };
@@ -51,21 +57,25 @@ export default function TaskResultsActionBar() {
     pingCheckChromeExtension();
   }, []);
 
-  const { results, selectedGroups, selectedOriginals } =
-    useContext(TaskResultsContext);
-  const selectedCount = Object.values(selectedGroups).filter((v) => v).length;
-
-  const [duplicatesProcessing, setDuplicatesProcessing] = useState({});
   useEffect(() => {
-    let listener = window.addEventListener("message", (event) => {
+    const listener = (event: MessageEvent) => {
       if (
         event.data?.app === "GooglePhotosDeduper" &&
         event.data?.action === "deletePhoto.result" &&
         event.data?.success
       ) {
-        const { userUrl, deletedAt, mediaItemId, originalMessage } = event.data;
+        const { userUrl, deletedAt, mediaItemId } = event.data;
+        dispatch({
+          type: "setMediaItem",
+          mediaItemId: mediaItemId,
+          attributes: {
+            userUrl,
+            deletedAt,
+          },
+        });
       }
-    });
+    };
+    window.addEventListener("message", listener);
     return () => {
       window.removeEventListener("message", listener);
     };
@@ -83,9 +93,8 @@ export default function TaskResultsActionBar() {
   const handleProcessDuplicates = () => {
     processDuplicates({
       results,
-      selectedGroups,
-      selectedOriginals,
-      setDuplicatesProcessing,
+      selectedMediaItemIds,
+      setMediaItemIdsPendingDeletion,
     });
   };
 
@@ -107,15 +116,14 @@ export default function TaskResultsActionBar() {
             color="primary"
             disabled={
               !isChromeExtensionFound ||
-              selectedCount <= 0 ||
-              duplicatesProcessing.length > 0
+              selectedMediaItemIds.size <= 0 ||
+              mediaItemIdsPendingDeletion.size > 0
             }
             onClick={handleProcessDuplicates}
           >
             <DeleteIcon sx={{ mr: 1 }} />
-            {/* TODO: "Delete X duplicates" should count actual dupes, not groups */}
-            Delete {selectedCount} duplicate
-            {selectedCount !== 1 && "s"}
+            Delete {selectedMediaItemIds.size} duplicate
+            {selectedMediaItemIds.size !== 1 && "s"}
           </Fab>
         </Grow>
       </Box>
@@ -163,7 +171,10 @@ export default function TaskResultsActionBar() {
         </Dialog>
       )}
       <DuplicatesProcessingDialog
-        {...{ duplicatesProcessing, setDuplicatesProcessing }}
+        {...{
+          mediaItemIdsPendingDeletion,
+          setMediaItemIdsPendingDeletion,
+        }}
       />
     </>
   );
@@ -176,65 +187,64 @@ async function pingCheckChromeExtension() {
   });
 }
 
+interface ProcessDuplicatesArgs {
+  results: TaskResultsType;
+  selectedMediaItemIds: Set<string>;
+  setMediaItemIdsPendingDeletion: (mediaItemIds: Set<string>) => void;
+}
+
 async function processDuplicates({
   results,
-  selectedGroups,
-  selectedOriginals,
-  setDuplicatesProcessing,
-}) {
-  const selectedDuplicates = results.groups
-    .reduce((acc, group) => {
-      if (selectedGroups[group.id]) {
-        const groupDuplicates = group.mediaItems.filter((mediaItem) => {
-          // Select all duplicates except the selected original
-          return selectedOriginals[group.id] !== mediaItem.id;
-        });
-
-        acc.push(...groupDuplicates);
-      }
-      return acc;
-    }, [])
-    .map((mediaItem) => {
+  selectedMediaItemIds,
+  setMediaItemIdsPendingDeletion,
+}: ProcessDuplicatesArgs) {
+  const selectedMediaItems = Array.from(selectedMediaItemIds.values()).map(
+    (mediaItemId) => {
+      const mediaItem = results.mediaItems[mediaItemId];
       return {
         // We only need the productUrls to open the page with the Chrome
         // extension and the mediaItem.id to uniquely identify the photo
         id: mediaItem.id,
         productUrl: mediaItem.productUrl,
       };
-    });
+    }
+  );
 
-  setDuplicatesProcessing(selectedDuplicates);
+  setMediaItemIdsPendingDeletion(selectedMediaItemIds);
 
-  console.debug("processDuplicates", selectedDuplicates);
   window.postMessage({
     app: "GooglePhotosDeduper",
     action: "startDeletionTask",
-    duplicateMediaItems: selectedDuplicates,
+    duplicateMediaItems: selectedMediaItems,
   });
 }
 
+interface DuplicatesProcessingDialogProps {
+  mediaItemIdsPendingDeletion: Set<string>;
+  setMediaItemIdsPendingDeletion: (mediaItemIds: Set<string>) => void;
+}
+
 function DuplicatesProcessingDialog({
-  duplicatesProcessing,
-  setDuplicatesProcessing,
-}) {
-  const isProcessing = duplicatesProcessing.length > 0;
-  const numCompleted = Object.entries(duplicatesProcessing).filter(
-    (id, d) => d.deletedAt
-  ).length;
-  const numTotal = duplicatesProcessing.length;
+  mediaItemIdsPendingDeletion,
+  setMediaItemIdsPendingDeletion,
+}: DuplicatesProcessingDialogProps) {
+  const { results } = useContext(TaskResultsContext);
+  const numCompleted = Array.from(mediaItemIdsPendingDeletion.values())
+    .map((mediaItemId) => results.mediaItems[mediaItemId])
+    .filter((mediaItem) => mediaItem.deletedAt).length;
+  const numTotal = mediaItemIdsPendingDeletion.size;
   const percent = numTotal > 0 ? (numCompleted / numTotal) * 100 : 0;
 
   const cancelDuplicatesProcessing = () => {
     // TODO: Cancel the current operation
-    // setDuplicatesProcessing([]);
+    setMediaItemIdsPendingDeletion(new Set());
   };
-
-  // TODO: clear on done
 
   return (
     <Dialog
-      open={isProcessing}
-      onClose={cancelDuplicatesProcessing}
+      open={mediaItemIdsPendingDeletion.size > 0}
+      // Intentionally prevent close via backdrop clicks, escape key
+      onClose={() => {}}
       fullWidth
       maxWidth="sm"
     >
@@ -250,7 +260,9 @@ function DuplicatesProcessingDialog({
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={cancelDuplicatesProcessing}>Cancel</Button>
+        <Button onClick={cancelDuplicatesProcessing}>
+          {numCompleted == numTotal ? "Dismiss" : "Cancel"}
+        </Button>
       </DialogActions>
     </Dialog>
   );

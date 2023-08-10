@@ -16,7 +16,8 @@ import {
 import Link, { LinkProps } from "@mui/material/Link";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useFetch } from "utils/useFetch";
-import { ActiveTaskType, MeResponseType, appApiUrl, fetchAppJson } from "utils";
+import { appApiUrl, fetchAppJson } from "utils";
+import { ActiveTaskType, MeResponseType } from "utils/MeResponseType";
 import { AppContext, AppContextType } from "utils/AppContext";
 import DeduperAppBar from "components/DeduperAppBar";
 import DeduperDrawer from "components/DeduperDrawer";

@@ -1,5 +1,5 @@
 import "./TaskResults.css";
-import { useState, useContext } from "react";
+import { ChangeEvent, useContext } from "react";
 import { TaskResultsContext } from "utils/TaskResultsContext";
 import TaskResultsActionBar from "components/TaskResultsActionBar";
 import Box from "@mui/material/Box";
@@ -20,6 +20,12 @@ import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList as List } from "react-window";
+import {
+  MediaItemType,
+  TaskResultsGroupType,
+  TaskResultsType,
+} from "utils/types";
+import { useTaskResultsReducer } from "utils/useTaskResultsReducer";
 
 const styles = {
   valignMiddle: css({
@@ -32,34 +38,35 @@ const styles = {
   }),
 };
 
-export default function TaskResults({ results }) {
-  const [selectedGroups, setSelectedGroups] = useState(() =>
-    // Initialize selected groups with an object with every {<id>: true}
-    Object.fromEntries(results.groups.map((g) => [g.id, true]))
-  );
-  const [selectedOriginals, setSelectedOriginals] = useState(() =>
-    Object.fromEntries(
-      results.groups.map((g) => [
-        // Key: group ID
-        g.id,
-        // Value: selected original media item ID
-        g.mediaItems.find((mi) => mi.isOriginal).id,
-      ])
-    )
-  );
+interface TaskResultsProps {
+  results: TaskResultsType;
+}
 
-  if (!results) {
-    return null;
-  }
+export default function TaskResults(props: TaskResultsProps) {
+  const [results, dispatch] = useTaskResultsReducer(props.results);
+  const groups = Object.values(results.groups);
+  const selectedMediaItemIds = Object.values(results.groups).reduce(
+    (acc, group) => {
+      if (group.isSelected) {
+        group.mediaItemIds
+          .filter((mediaItemId) => {
+            // Select all duplicates except the selected original
+            return group.originalMediaItemId !== mediaItemId;
+          })
+          .forEach((mediaItemId) => acc.add(mediaItemId));
+      }
+
+      return acc;
+    },
+    new Set<string>()
+  );
 
   return (
     <TaskResultsContext.Provider
       value={{
         results,
-        selectedGroups,
-        setSelectedGroups,
-        selectedOriginals,
-        setSelectedOriginals,
+        dispatch,
+        selectedMediaItemIds,
       }}
     >
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
@@ -71,11 +78,11 @@ export default function TaskResults({ results }) {
                 className="react-window-list"
                 height={height}
                 width={width}
-                itemCount={results.groups.length}
+                itemCount={groups.length}
                 itemSize={276}
               >
                 {({ index, style }) => (
-                  <ResultRow group={results.groups[index]} {...{ style }} />
+                  <ResultRow group={groups[index]} {...{ style }} />
                 )}
               </List>
             )}
@@ -87,38 +94,46 @@ export default function TaskResults({ results }) {
   );
 }
 
-function ResultRow({ group, style }) {
-  const { selectedGroups, setSelectedGroups, setSelectedOriginals } =
-    useContext(TaskResultsContext);
-  const handleGroupCheckboxChange = (event) => {
-    setSelectedGroups((prev) => ({
-      ...prev,
-      [group.id]: event.target.checked,
-    }));
+interface ResultRowProps {
+  group: TaskResultsGroupType;
+  style: React.CSSProperties;
+}
+
+function ResultRow({ group, style }: ResultRowProps) {
+  const { dispatch } = useContext(TaskResultsContext);
+  const handleGroupCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
+    dispatch({
+      type: "setGroupSelected",
+      groupId: group.id,
+      isSelected: event.target.checked,
+    });
   };
-  const handleSelectedOriginalChange = (event) => {
-    setSelectedOriginals((prev) => ({
-      ...prev,
-      [group.id]: event.target.value,
-    }));
+  const handleSelectedOriginalChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    dispatch({
+      type: "setOriginalMediaItemId",
+      groupId: group.id,
+      mediaItemId: event.target.value,
+    });
   };
 
   return (
     <Stack direction="row" spacing={2} sx={{ py: 2 }} style={style}>
       <Box css={styles.valignMiddle}>
         <Checkbox
-          checked={selectedGroups[group.id]}
+          checked={group.isSelected}
           name="groupSelected"
           onChange={handleGroupCheckboxChange}
         />
       </Box>
-      {group.mediaItems.map((mediaItem) => (
+      {group.mediaItemIds.map((mediaItemId) => (
         <MediaItemCard
-          key={mediaItem.id}
-          showOriginalSelector={!!selectedGroups[group.id]}
+          key={mediaItemId}
+          showOriginalSelector={group.isSelected}
           {...{
             group,
-            mediaItem,
+            mediaItemId,
             handleSelectedOriginalChange,
           }}
         />
@@ -127,17 +142,23 @@ function ResultRow({ group, style }) {
   );
 }
 
+interface MediaItemCardProps {
+  group: TaskResultsGroupType;
+  mediaItemId: string;
+  showOriginalSelector: boolean;
+  handleSelectedOriginalChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}
+
 function MediaItemCard({
   group,
-  mediaItem,
+  mediaItemId,
   showOriginalSelector,
   handleSelectedOriginalChange,
-}) {
-  const { selectedOriginals } = useContext(TaskResultsContext);
-  const originalMediaItem = group.mediaItems.find(
-    (m) => selectedOriginals[group.id] === m.id
-  );
-  const isOriginal = mediaItem.id === originalMediaItem.id;
+}: MediaItemCardProps) {
+  const { results } = useContext(TaskResultsContext);
+  const mediaItem = results.mediaItems[mediaItemId];
+  const isOriginal = mediaItem.id === group.originalMediaItemId;
+  const originalMediaItem = results.mediaItems[group.originalMediaItemId];
 
   return (
     <Card sx={{ width: 240 }} key={mediaItem.id}>
@@ -185,12 +206,19 @@ function MediaItemCard({
   );
 }
 
+interface MediaItemCardFieldProps {
+  field: "similarity" | "filename" | "dimensions";
+  mediaItem: MediaItemType;
+  isOriginal: boolean;
+  originalMediaItem: MediaItemType;
+}
+
 function MediaItemCardField({
   field,
   mediaItem,
   isOriginal,
   originalMediaItem,
-}) {
+}: MediaItemCardFieldProps) {
   const { results } = useContext(TaskResultsContext);
   let IconComponent = CompareIcon;
   let tooltip = null;
@@ -236,18 +264,20 @@ function MediaItemCardField({
 }
 
 function SelectAll() {
-  const { results, selectedGroups, setSelectedGroups } =
-    useContext(TaskResultsContext);
+  const { results, dispatch } = useContext(TaskResultsContext);
 
-  const selectedGroupsCount =
-    Object.values(selectedGroups).filter(Boolean).length;
-  const allGroupsSelected = selectedGroupsCount === results.groups.length;
+  const selectedGroupsCount = Object.values(results.groups).filter(
+    (g) => g.isSelected
+  ).length;
+  const allGroupsSelected =
+    selectedGroupsCount === Object.keys(results.groups).length;
   const noGroupsSelected = selectedGroupsCount === 0;
 
-  const handleCheckboxChange = (event) => {
-    const val = noGroupsSelected ? true : false;
-    const groups = Object.fromEntries(results.groups.map((g) => [g.id, val]));
-    setSelectedGroups(groups);
+  const handleCheckboxChange = () => {
+    dispatch({
+      type: "setAllGroupsSelected",
+      isSelected: noGroupsSelected ? true : false,
+    });
   };
 
   return (

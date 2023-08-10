@@ -3,7 +3,7 @@ import { useEffect, useReducer, useRef } from "react";
 interface State<T> {
   data?: T;
   error?: Error;
-  isLoading: Boolean;
+  isLoading: boolean;
 }
 
 // discriminated union type
@@ -14,7 +14,7 @@ type Action<T> =
 
 export function useFetch<T = unknown>(
   url: string,
-  options?: RequestInit,
+  options?: RequestInit
 ): State<T> {
   // Used to prevent state update if the component is unmounted
   const cancelRequest = useRef<boolean>(false);

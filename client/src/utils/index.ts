@@ -7,12 +7,13 @@ export function appApiUrl(path: string): string {
   return `${SERVER_HOST}${path}`;
 }
 
-export async function fetchAppJson(path: string): Promise<any> {
+export async function fetchAppJson<T = unknown>(path: string): Promise<T> {
   const response = await fetch(appApiUrl(path));
   const json = await response.json();
   if (response.ok) {
     return json;
   }
+  throw new Error(`Error fetching data from ${path}`);
 }
 
 export function prettyDuration(seconds: number): string {
@@ -43,42 +44,3 @@ export function truncateString(str: string, length: number): string {
     str.substring(str.length - backChars, str.length)
   );
 }
-
-export interface MeResponseType {
-  logged_in: boolean;
-  user_info: UserInfoType;
-  has_active_task: boolean;
-}
-
-export interface MeType {
-  isLoggedIn: boolean;
-  userInfo?: UserInfoType;
-  hasActiveTask: boolean;
-}
-
-export interface UserInfoType {
-  email: string;
-  family_name: string;
-  given_name: string;
-  id: string;
-  locale: string;
-  name: string;
-  picture: string;
-  verified_email: boolean;
-}
-
-export interface ActiveTaskType {
-  status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
-  meta?: {
-    logMessage?: string;
-    steps?: {
-      [step: string]: {
-        startedAt: string;
-        completedAt?: string;
-        count?: number;
-      };
-    };
-  };
-}
-
-export interface TaskResultsType {}

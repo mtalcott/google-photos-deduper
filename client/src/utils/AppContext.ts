@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { UserInfoType } from "utils";
+import { UserInfoType } from "./types";
 
 interface ActiveTaskType {
   status: "PENDING" | "PROGRESS" | "FAILURE" | "SUCCESS";

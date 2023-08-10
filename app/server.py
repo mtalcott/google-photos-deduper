@@ -104,7 +104,7 @@ def get_active_task_results():
     if result.status == "SUCCESS":
         # If the task has completed successfully, return results
         results = task_results_for_display(result.info["results"])
-        response |= {"results": results}
+        response |= results
 
     return flask.jsonify(response)
 
