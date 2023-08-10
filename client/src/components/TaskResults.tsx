@@ -18,6 +18,7 @@ import { truncateString } from "utils";
 import AspectRatioIcon from "@mui/icons-material/AspectRatio";
 import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
+import CheckCircleOutlineTwoToneIcon from "@mui/icons-material/CheckCircleOutlineTwoTone";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList as List } from "react-window";
 import {
@@ -50,8 +51,12 @@ export default function TaskResults(props: TaskResultsProps) {
       if (group.isSelected) {
         group.mediaItemIds
           .filter((mediaItemId) => {
-            // Select all duplicates except the selected original
-            return group.originalMediaItemId !== mediaItemId;
+            return (
+              // Select all mediaItems except the original
+              group.originalMediaItemId !== mediaItemId &&
+              // Filter out mediaItems that have already been deleted
+              !results.mediaItems[mediaItemId].deletedAt
+            );
           })
           .forEach((mediaItemId) => acc.add(mediaItemId));
       }
@@ -100,7 +105,15 @@ interface ResultRowProps {
 }
 
 function ResultRow({ group, style }: ResultRowProps) {
-  const { dispatch } = useContext(TaskResultsContext);
+  const { results, dispatch } = useContext(TaskResultsContext);
+  const areDuplicatesPresent =
+    group.mediaItemIds.filter(
+      (mediaItemId) =>
+        // Filter out the original
+        group.originalMediaItemId !== mediaItemId &&
+        // Filter out mediaItems that have already been deleted
+        !results.mediaItems[mediaItemId].deletedAt
+    ).length > 0;
   const handleGroupCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
     dispatch({
       type: "setGroupSelected",
@@ -121,16 +134,20 @@ function ResultRow({ group, style }: ResultRowProps) {
   return (
     <Stack direction="row" spacing={2} sx={{ py: 2 }} style={style}>
       <Box css={styles.valignMiddle}>
-        <Checkbox
-          checked={group.isSelected}
-          name="groupSelected"
-          onChange={handleGroupCheckboxChange}
-        />
+        {areDuplicatesPresent ? (
+          <Checkbox
+            checked={group.isSelected}
+            name="groupSelected"
+            onChange={handleGroupCheckboxChange}
+          />
+        ) : (
+          <Checkbox disabled />
+        )}
       </Box>
       {group.mediaItemIds.map((mediaItemId) => (
         <MediaItemCard
           key={mediaItemId}
-          showOriginalSelector={group.isSelected}
+          isGroupSelected={areDuplicatesPresent && group.isSelected}
           {...{
             group,
             mediaItemId,
@@ -145,14 +162,14 @@ function ResultRow({ group, style }: ResultRowProps) {
 interface MediaItemCardProps {
   group: TaskResultsGroupType;
   mediaItemId: string;
-  showOriginalSelector: boolean;
+  isGroupSelected: boolean;
   handleSelectedOriginalChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
 function MediaItemCard({
   group,
   mediaItemId,
-  showOriginalSelector,
+  isGroupSelected,
   handleSelectedOriginalChange,
 }: MediaItemCardProps) {
   const { results } = useContext(TaskResultsContext);
@@ -161,7 +178,13 @@ function MediaItemCard({
   const originalMediaItem = results.mediaItems[group.originalMediaItemId];
 
   return (
-    <Card sx={{ width: 240 }} key={mediaItem.id}>
+    <Card
+      sx={{
+        width: 240,
+        opacity: mediaItem.deletedAt ? 0.6 : 1,
+      }}
+      key={mediaItem.id}
+    >
       <CardActionArea
         href={mediaItem.productUrl}
         target="_blank"
@@ -188,17 +211,24 @@ function MediaItemCard({
             field="dimensions"
             {...{ mediaItem, isOriginal, originalMediaItem }}
           />
-          {showOriginalSelector && (
-            <Typography variant="body2">
-              <FormControlLabel
-                value={mediaItem.id}
-                control={<Radio size="small" disableRipple sx={{ py: 0 }} />}
-                label="Original"
-                checked={isOriginal}
-                onChange={handleSelectedOriginalChange}
-                disableTypography={true}
-              />
-            </Typography>
+          {mediaItem.deletedAt ? (
+            <MediaItemCardField
+              field="deletedAt"
+              {...{ mediaItem, isOriginal, originalMediaItem }}
+            />
+          ) : (
+            isGroupSelected && (
+              <Typography variant="body2">
+                <FormControlLabel
+                  value={mediaItem.id}
+                  control={<Radio size="small" disableRipple sx={{ py: 0 }} />}
+                  label="Original"
+                  checked={isOriginal}
+                  onChange={handleSelectedOriginalChange}
+                  disableTypography={true}
+                />
+              </Typography>
+            )
           )}
         </Stack>
       </CardContent>
@@ -207,7 +237,7 @@ function MediaItemCard({
 }
 
 interface MediaItemCardFieldProps {
-  field: "similarity" | "filename" | "dimensions";
+  field: "similarity" | "filename" | "dimensions" | "deletedAt";
   mediaItem: MediaItemType;
   isOriginal: boolean;
   originalMediaItem: MediaItemType;
@@ -221,6 +251,7 @@ function MediaItemCardField({
 }: MediaItemCardFieldProps) {
   const { results } = useContext(TaskResultsContext);
   let IconComponent = CompareIcon;
+  let color = "text.primary";
   let tooltip = null;
   let text = "";
 
@@ -251,10 +282,15 @@ function MediaItemCardField({
     } else {
       text = "Same dimensions";
     }
+  } else if (field === "deletedAt") {
+    IconComponent = CheckCircleOutlineTwoToneIcon;
+    color = "success.main";
+    tooltip = new Date(mediaItem.deletedAt!).toLocaleString();
+    text = "Deleted";
   }
 
   return (
-    <Box css={styles.valignMiddle}>
+    <Box css={styles.valignMiddle} sx={{ color }}>
       <IconComponent css={styles.fieldIcon} />
       <Tooltip title={tooltip} placement="right" arrow>
         <Typography variant="body2">{text}</Typography>

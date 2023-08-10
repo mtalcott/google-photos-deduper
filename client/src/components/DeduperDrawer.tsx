@@ -14,7 +14,6 @@ import ErrorIcon from "@mui/icons-material/Error";
 import { AppContext } from "utils/AppContext";
 import { useMatch } from "react-router-dom";
 import { prettyDuration } from "utils";
-import { Reddit } from "@mui/icons-material";
 
 const drawerWidth = 240;
 
@@ -157,7 +156,7 @@ function DeduperStepper() {
   );
 }
 
-function DeduperStepContent(props: StepType) {
+function DeduperStepContent(props: StepType & { children?: React.ReactNode }) {
   const { label, link, isEnabled, children } = props;
 
   const isActive = useMatch(link?.href);

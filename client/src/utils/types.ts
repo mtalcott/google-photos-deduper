@@ -21,20 +21,6 @@ export interface UserInfoType {
   verified_email: boolean;
 }
 
-export interface ActiveTaskType {
-  status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
-  meta?: {
-    logMessage?: string;
-    steps?: {
-      [step: string]: {
-        startedAt: string;
-        completedAt?: string;
-        count?: number;
-      };
-    };
-  };
-}
-
 export interface TaskResultsType {
   groups: {
     [groupId: string]: TaskResultsGroupType;

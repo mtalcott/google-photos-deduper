@@ -1,9 +1,18 @@
 import { createContext } from "react";
 import { UserInfoType } from "./types";
 
-interface ActiveTaskType {
-  status: "PENDING" | "PROGRESS" | "FAILURE" | "SUCCESS";
-  // TODO: progress
+export interface ActiveTaskType {
+  status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
+  meta?: {
+    logMessage?: string;
+    steps?: {
+      [step: string]: {
+        startedAt: string;
+        completedAt?: string;
+        count?: number;
+      };
+    };
+  };
 }
 
 export interface AppContextType {
