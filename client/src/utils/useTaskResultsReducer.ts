@@ -35,7 +35,6 @@ function taskResultsReducer(
   state: TaskResultsType,
   action: TaskResultsActionType
 ) {
-  console.log("taskResultsReducer", { state, action });
   if (action.type === "setGroupSelected") {
     const group = state.groups[action.groupId];
     return {
@@ -116,7 +115,7 @@ function groupHasDuplicates(
 
 export function useTaskResultsReducer(initialState: TaskResultsType) {
   // Set initial hasDuplicates on groups
-  const state = {
+  const state: TaskResultsType = {
     ...initialState,
     groups: Object.fromEntries(
       Object.entries(initialState.groups).map(([groupId, group]) => [

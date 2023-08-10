@@ -109,7 +109,7 @@ def get_active_task_results():
     return flask.jsonify(response)
 
 
-@flask_app.route("/api/media_item/<id>", methods=["POST"])
+@flask_app.route("/api/media_items/<id>", methods=["POST"])
 def update_media_item(id):
     repo = MediaItemsRepository(user_id=flask.session["user_id"])
     media_item = repo.update(id, flask.request.json)

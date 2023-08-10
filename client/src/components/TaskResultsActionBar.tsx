@@ -16,6 +16,7 @@ import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import LinearProgress from "@mui/material/LinearProgress";
 import { TaskResultsType } from "utils/types";
+import { appApiUrl } from "utils";
 
 const styles = {
   fabContainer: css({
@@ -58,21 +59,32 @@ export default function TaskResultsActionBar() {
   }, []);
 
   useEffect(() => {
-    const listener = (event: MessageEvent) => {
+    const listener = async (event: MessageEvent) => {
       if (
         event.data?.app === "GooglePhotosDeduper" &&
         event.data?.action === "deletePhoto.result" &&
         event.data?.success
       ) {
         const { userUrl, deletedAt, mediaItemId } = event.data;
-        dispatch({
-          type: "setMediaItem",
-          mediaItemId: mediaItemId,
-          attributes: {
-            userUrl,
-            deletedAt,
-          },
-        });
+        const response = await fetch(
+          appApiUrl(`/api/media_items/${mediaItemId}`),
+          {
+            method: "post",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ userUrl, deletedAt }),
+          }
+        );
+
+        if (response.ok) {
+          const json = await response.json();
+          dispatch({
+            type: "setMediaItem",
+            mediaItemId: mediaItemId,
+            attributes: json.media_item,
+          });
+        }
       }
     };
     window.addEventListener("message", listener);
