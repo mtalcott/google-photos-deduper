@@ -1,3 +1,17 @@
+import {
+  StartDeletionTaskMessageType,
+  StartDeletionTaskResultMessageType,
+  DeletePhotoMessageType,
+  DeletePhotoResultMessageType,
+} from "../../../chrome_extension_message_types";
+
+export type {
+  StartDeletionTaskMessageType,
+  StartDeletionTaskResultMessageType,
+  DeletePhotoMessageType,
+  DeletePhotoResultMessageType,
+};
+
 export interface MeResponseType {
   logged_in: boolean;
   user_info: UserInfoType;

@@ -1,61 +1,88 @@
 // Runs on Google Photos web app pages
 
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message?.app !== "GooglePhotosDeduper") {
-    // Filter out messages not intended for our app
-    // TODO: more thorough vetting
-    return;
+import { DeletePhotoMessageType, DeletePhotoResultMessageType } from "types";
+
+chrome.runtime.onMessage.addListener(
+  (message: DeletePhotoMessageType, sender) => {
+    if (message?.app !== "GooglePhotosDeduper") {
+      // Filter out messages not intended for our app
+      // TODO: more thorough vetting
+      return;
+    }
+
+    if (message?.action === "deletePhoto") {
+      handleDeletePhoto(message, sender);
+    }
   }
+);
 
-  console.info("[google_photos_content] message received", { message, sender });
-
-  if (message?.action === "deletePhoto") {
-    handleDeletePhoto(message, sender);
-  }
-});
-
-function handleDeletePhoto(message, sender) {
+function handleDeletePhoto(
+  message: DeletePhotoMessageType,
+  sender: chrome.runtime.MessageSender
+): void {
   (async () => {
-    const trashButton = await waitForElement("[data-delete-origin] button");
-    console.info("trashButton", trashButton);
-    trashButton.click();
-
-    const confirmButton = await waitForElement("[jsshadow] [autofocus]");
-    console.info("confirmButton", confirmButton);
-    // confirmButton.click();
-
-    // const confirmationToaster = await waitForElement(
-    //   '[role="status"][aria-live="polite"]',
-    // );
-    // console.info("confirmationToaster", confirmationToaster);
-
-    const resultMessage = {
+    const resultMessage: Partial<DeletePhotoResultMessageType> = {
       app: "GooglePhotosDeduper",
       action: "deletePhoto.result",
-      success: true,
-      userUrl: window.location.href,
-      deletedAt: new Date(),
       mediaItemId: message.mediaItemId,
       originalMessage: message,
     };
-    console.info(
-      "[google_photos_content] success, sending response to chrome runtime",
-      resultMessage
-    );
-    chrome.runtime.sendMessage(resultMessage);
+
+    try {
+      const trashButton = await waitForElement("[data-delete-origin] buttonz");
+      trashButton.click();
+    } catch (error) {
+      chrome.runtime.sendMessage({
+        ...resultMessage,
+        success: false,
+        error: "Trash button not found",
+      });
+    }
+
+    try {
+      const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+      // confirmButton.click();
+    } catch (error) {
+      chrome.runtime.sendMessage({
+        ...resultMessage,
+        success: false,
+        error: "Confirm button not found",
+      });
+    }
+
+    try {
+      const confirmationToaster = await waitForElement(
+        '[role="status"][aria-live="polite"]'
+      );
+    } catch (error) {
+      chrome.runtime.sendMessage({
+        ...resultMessage,
+        success: false,
+        error: "Confirmation toaster not found",
+      });
+    }
+
+    chrome.runtime.sendMessage({
+      ...resultMessage,
+      success: true,
+      userUrl: window.location.href,
+      deletedAt: new Date(),
+    });
   })();
 }
 
-function waitForElement(selector) {
-  // TODO: Add timeout
-  return new Promise((resolve) => {
+function waitForElement(
+  selector: string,
+  timeout: number = 5000
+): Promise<HTMLElement> {
+  const findElementPromise = new Promise<HTMLElement>((resolve) => {
     if (document.querySelector(selector)) {
-      return resolve(document.querySelector(selector));
+      return resolve(document.querySelector(selector) as HTMLElement);
     }
 
     const observer = new MutationObserver((mutations) => {
       if (document.querySelector(selector)) {
-        resolve(document.querySelector(selector));
+        resolve(document.querySelector(selector) as HTMLElement);
         observer.disconnect();
       }
     });
@@ -65,4 +92,20 @@ function waitForElement(selector) {
       subtree: true,
     });
   });
+
+  let timerId: number | undefined;
+  const timeoutPromise = new Promise(
+    (_resolve, reject) =>
+      (timerId = setTimeout(
+        () =>
+          reject(
+            `Timeout: selector \`${selector}\` not found after ${timeout}ms`
+          ),
+        timeout
+      ))
+  );
+
+  return Promise.race([findElementPromise, timeoutPromise]).finally(() =>
+    clearTimeout(timerId)
+  ) as Promise<HTMLElement>;
 }

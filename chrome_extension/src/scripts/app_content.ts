@@ -1,5 +1,13 @@
 // Runs on GooglePhotosDeduper app's pages
 
+import {
+  DeletePhotoResultMessageType,
+  HealthCheckMessageType,
+  HealthCheckResultMessageType,
+  StartDeletionTaskMessageType,
+  StartDeletionTaskResultMessageType,
+} from "types";
+
 // Listen to window messages and pass them on to the chrome runtime
 window.addEventListener("message", (event) => {
   if (
@@ -11,35 +19,36 @@ window.addEventListener("message", (event) => {
   }
 
   if (["healthCheck", "startDeletionTask"].includes(event.data?.action)) {
-    console.debug(
-      "[app_content] window message received, posting to chrome runtime",
-      event.data
-    );
-
-    chrome.runtime.sendMessage(event.data);
+    const message: HealthCheckMessageType | StartDeletionTaskMessageType =
+      event.data;
+    chrome.runtime.sendMessage(message);
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (
-    // Filter out messages not intended for our app
-    message?.app !== "GooglePhotosDeduper"
-  ) {
-    // TODO: more thorough vetting?
-    return;
-  }
+chrome.runtime.onMessage.addListener(
+  (
+    message:
+      | HealthCheckResultMessageType
+      | StartDeletionTaskResultMessageType
+      | DeletePhotoResultMessageType,
+    sender
+  ) => {
+    if (
+      // Filter out messages not intended for our app
+      message?.app !== "GooglePhotosDeduper"
+    ) {
+      // TODO: more thorough vetting?
+      return;
+    }
 
-  if (
-    [
-      "healthCheck.result",
-      "startDeletionTask.result",
-      "deletePhoto.result",
-    ].includes(message.action)
-  ) {
-    console.debug(
-      "[app_content] message received from chrome runtime, posting to window",
-      { message, sender }
-    );
-    window.postMessage(message);
+    if (
+      [
+        "healthCheck.result",
+        "startDeletionTask.result",
+        "deletePhoto.result",
+      ].includes(message.action)
+    ) {
+      window.postMessage(message);
+    }
   }
-});
+);

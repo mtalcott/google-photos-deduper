@@ -5,7 +5,8 @@
   "description": "See https://github.com/mtalcott/google-photos-deduper",
   "permissions": ["activeTab", "windows", "tabs"],
   "background": {
-    "service_worker": "src/service_worker.js"
+    "service_worker": "src/service_worker.ts",
+    "type": "module"
   },
   "action": {
     "default_popup": "src/popup.html"

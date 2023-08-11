@@ -15,7 +15,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import LinearProgress from "@mui/material/LinearProgress";
-import { TaskResultsType } from "utils/types";
+import { TaskResultsType, StartDeletionTaskMessageType } from "utils/types";
 import { appApiUrl } from "utils";
 
 const styles = {
@@ -217,18 +217,19 @@ async function processDuplicates({
         // We only need the productUrls to open the page with the Chrome
         // extension and the mediaItem.id to uniquely identify the photo
         id: mediaItem.id,
-        productUrl: mediaItem.productUrl,
+        productUrl: mediaItem.productUrl as unknown as string,
       };
     }
   );
 
   setMediaItemIdsPendingDeletion(selectedMediaItemIds);
 
-  window.postMessage({
+  const message: StartDeletionTaskMessageType = {
     app: "GooglePhotosDeduper",
     action: "startDeletionTask",
-    duplicateMediaItems: selectedMediaItems,
-  });
+    mediaItems: selectedMediaItems,
+  };
+  window.postMessage(message);
 }
 
 interface DuplicatesProcessingDialogProps {
