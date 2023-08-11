@@ -15,7 +15,11 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import LinearProgress from "@mui/material/LinearProgress";
-import { TaskResultsType, StartDeletionTaskMessageType } from "utils/types";
+import {
+  TaskResultsType,
+  StartDeletionTaskMessageType,
+  DeletePhotoResultMessageType,
+} from "utils/types";
 import { appApiUrl } from "utils";
 
 const styles = {
@@ -62,27 +66,39 @@ export default function TaskResultsActionBar() {
     const listener = async (event: MessageEvent) => {
       if (
         event.data?.app === "GooglePhotosDeduper" &&
-        event.data?.action === "deletePhoto.result" &&
-        event.data?.success
+        event.data?.action === "deletePhoto.result"
       ) {
-        const { userUrl, deletedAt, mediaItemId } = event.data;
-        const response = await fetch(
-          appApiUrl(`/api/media_items/${mediaItemId}`),
-          {
-            method: "post",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ userUrl, deletedAt }),
-          }
-        );
+        const message: DeletePhotoResultMessageType = event.data;
+        const { mediaItemId } = message;
+        if (message.success) {
+          const { userUrl, deletedAt } = message;
+          // Save the media item attributes to the database
+          const response = await fetch(
+            appApiUrl(`/api/media_items/${mediaItemId}`),
+            {
+              method: "post",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ userUrl, deletedAt }),
+            }
+          );
 
-        if (response.ok) {
-          const json = await response.json();
+          if (response.ok) {
+            const json = await response.json();
+            // Update the media item via the reducer
+            dispatch({
+              type: "setMediaItem",
+              mediaItemId: mediaItemId,
+              attributes: json.media_item,
+            });
+          }
+        } else {
+          const { error } = message;
           dispatch({
             type: "setMediaItem",
             mediaItemId: mediaItemId,
-            attributes: json.media_item,
+            attributes: { error },
           });
         }
       }
@@ -242,10 +258,18 @@ function DuplicatesProcessingDialog({
   setMediaItemIdsPendingDeletion,
 }: DuplicatesProcessingDialogProps) {
   const { results } = useContext(TaskResultsContext);
-  const numCompleted = Array.from(mediaItemIdsPendingDeletion.values())
-    .map((mediaItemId) => results.mediaItems[mediaItemId])
-    .filter((mediaItem) => mediaItem.deletedAt).length;
   const numTotal = mediaItemIdsPendingDeletion.size;
+  let numDeleted = 0;
+  let numErrored = 0;
+  for (const mediaItemId of Array.from(mediaItemIdsPendingDeletion.values())) {
+    const mediaItem = results.mediaItems[mediaItemId];
+    if (mediaItem.deletedAt) {
+      numDeleted++;
+    } else if (mediaItem.error) {
+      numErrored++;
+    }
+  }
+  const numCompleted = numDeleted + numErrored;
   const percent = numTotal > 0 ? (numCompleted / numTotal) * 100 : 0;
 
   const cancelDuplicatesProcessing = () => {
@@ -273,7 +297,8 @@ function DuplicatesProcessingDialog({
           sx={{ mb: 2 }}
         />
         <DialogContentText>
-          Deleted {numCompleted} of {numTotal} duplicates.
+          Deleted {numDeleted} of {numTotal} duplicates.
+          {numErrored > 0 && ` ${numErrored} failed.`}
         </DialogContentText>
       </DialogContent>
       <DialogActions>

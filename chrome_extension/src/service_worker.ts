@@ -70,7 +70,6 @@ async function navigateAndDelete(
   mediaItem: StartDeletionTaskMessageType["mediaItems"][0],
   sender: chrome.runtime.MessageSender
 ): Promise<void> {
-  debugger;
   // Navigate to the photo in Google Photos
   await chrome.tabs.update(tab.id!, { url: mediaItem.productUrl });
 

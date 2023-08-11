@@ -18,7 +18,8 @@ import { truncateString } from "utils";
 import AspectRatioIcon from "@mui/icons-material/AspectRatio";
 import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
-import CheckCircleOutlineTwoToneIcon from "@mui/icons-material/CheckCircleOutlineTwoTone";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList as List } from "react-window";
 import {
@@ -200,6 +201,12 @@ function MediaItemCard({
             field="dimensions"
             {...{ mediaItem, isOriginal, originalMediaItem }}
           />
+          {mediaItem.error && (
+            <MediaItemCardField
+              field="error"
+              {...{ mediaItem, isOriginal, originalMediaItem }}
+            />
+          )}
           {mediaItem.deletedAt ? (
             <MediaItemCardField
               field="deletedAt"
@@ -226,7 +233,7 @@ function MediaItemCard({
 }
 
 interface MediaItemCardFieldProps {
-  field: "similarity" | "filename" | "dimensions" | "deletedAt";
+  field: "similarity" | "filename" | "dimensions" | "deletedAt" | "error";
   mediaItem: MediaItemType;
   isOriginal: boolean;
   originalMediaItem: MediaItemType;
@@ -248,11 +255,15 @@ function MediaItemCardField({
     if (isOriginal) {
       text = "Original";
     } else {
+      let similarityAsPercent = "N/A";
       const similarity =
         results?.similarityMap[mediaItem.id][originalMediaItem.id];
-      const similarityAsPercent = similarity
-        ? `${(similarity * 100).toFixed(2)}%`
-        : "N/A";
+      if (similarity) {
+        similarityAsPercent = `${(similarity * 100).toFixed(2)}%`;
+        if (similarity > 0.99) {
+          color = "success.main";
+        }
+      }
       text = `Similarity: ${similarityAsPercent}`;
     }
   } else if (field === "filename") {
@@ -261,6 +272,7 @@ function MediaItemCardField({
     if (isOriginal || mediaItem.filename !== originalMediaItem.filename) {
       text = truncateString(mediaItem.filename, 24);
     } else {
+      color = "success.main";
       text = "Same filename";
     }
   } else if (field === "dimensions") {
@@ -269,13 +281,18 @@ function MediaItemCardField({
     if (isOriginal || mediaItem.dimensions !== originalMediaItem.dimensions) {
       text = mediaItem.dimensions;
     } else {
+      color = "success.main";
       text = "Same dimensions";
     }
   } else if (field === "deletedAt") {
-    IconComponent = CheckCircleOutlineTwoToneIcon;
+    IconComponent = CheckCircleIcon;
     color = "success.main";
     tooltip = new Date(mediaItem.deletedAt!).toLocaleString();
     text = "Deleted";
+  } else if (field === "error") {
+    IconComponent = ErrorIcon;
+    color = "error.main";
+    text = mediaItem.error || "";
   }
 
   return (

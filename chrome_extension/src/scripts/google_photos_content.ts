@@ -29,7 +29,7 @@ function handleDeletePhoto(
     };
 
     try {
-      const trashButton = await waitForElement("[data-delete-origin] buttonz");
+      const trashButton = await waitForElement("[data-delete-origin] button");
       trashButton.click();
     } catch (error) {
       chrome.runtime.sendMessage({
@@ -41,7 +41,7 @@ function handleDeletePhoto(
 
     try {
       const confirmButton = await waitForElement("[jsshadow] [autofocus]");
-      // confirmButton.click();
+      confirmButton.click();
     } catch (error) {
       chrome.runtime.sendMessage({
         ...resultMessage,
