@@ -17,10 +17,14 @@ import Link from "@mui/material/Link";
 import LinearProgress from "@mui/material/LinearProgress";
 import {
   TaskResultsType,
+  HealthCheckMessageType,
+  HealthCheckResultMessageType,
   StartDeletionTaskMessageType,
   DeletePhotoResultMessageType,
+  StartDeletionTaskResultMessageType,
 } from "utils/types";
 import { appApiUrl } from "utils";
+import { Typography } from "@mui/material";
 
 const styles = {
   fabContainer: css({
@@ -42,13 +46,17 @@ export default function TaskResultsActionBar() {
     useContext(TaskResultsContext);
   const [mediaItemIdsPendingDeletion, setMediaItemIdsPendingDeletion] =
     useState(new Set<string>());
+  const [startDeletionTaskResult, setStartDeletionTaskResult] = useState<
+    StartDeletionTaskResultMessageType | undefined
+  >(undefined);
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
+      const message: HealthCheckResultMessageType = event.data;
       if (
-        event.data?.app === "GooglePhotosDeduper" &&
-        event.data?.action === "healthCheck.result" &&
-        event.data?.success
+        message?.app === "GooglePhotosDeduper" &&
+        message?.action === "healthCheck.result" &&
+        message.success
       ) {
         setIsChromeExtensionFound(true);
       }
@@ -101,6 +109,12 @@ export default function TaskResultsActionBar() {
             attributes: { error },
           });
         }
+      } else if (
+        event.data?.app === "GooglePhotosDeduper" &&
+        event.data?.action === "startDeletionTask.result"
+      ) {
+        const message: StartDeletionTaskResultMessageType = event.data;
+        setStartDeletionTaskResult(message);
       }
     };
     window.addEventListener("message", listener);
@@ -202,6 +216,8 @@ export default function TaskResultsActionBar() {
         {...{
           mediaItemIdsPendingDeletion,
           setMediaItemIdsPendingDeletion,
+          startDeletionTaskResult,
+          setStartDeletionTaskResult,
         }}
       />
     </>
@@ -209,10 +225,11 @@ export default function TaskResultsActionBar() {
 }
 
 async function pingCheckChromeExtension() {
-  window.postMessage({
+  const message: HealthCheckMessageType = {
     app: "GooglePhotosDeduper",
     action: "healthCheck",
-  });
+  };
+  window.postMessage(message);
 }
 
 interface ProcessDuplicatesArgs {
@@ -251,11 +268,17 @@ async function processDuplicates({
 interface DuplicatesProcessingDialogProps {
   mediaItemIdsPendingDeletion: Set<string>;
   setMediaItemIdsPendingDeletion: (mediaItemIds: Set<string>) => void;
+  startDeletionTaskResult?: StartDeletionTaskResultMessageType;
+  setStartDeletionTaskResult: (
+    startDeletionTaskResult?: StartDeletionTaskResultMessageType
+  ) => void;
 }
 
 function DuplicatesProcessingDialog({
   mediaItemIdsPendingDeletion,
   setMediaItemIdsPendingDeletion,
+  startDeletionTaskResult,
+  setStartDeletionTaskResult,
 }: DuplicatesProcessingDialogProps) {
   const { results } = useContext(TaskResultsContext);
   const numTotal = mediaItemIdsPendingDeletion.size;
@@ -278,6 +301,7 @@ function DuplicatesProcessingDialog({
   };
 
   const dismissModal = () => {
+    setStartDeletionTaskResult(undefined);
     setMediaItemIdsPendingDeletion(new Set());
   };
 
@@ -300,9 +324,19 @@ function DuplicatesProcessingDialog({
           Deleted {numDeleted} of {numTotal} duplicates.
           {numErrored > 0 && ` ${numErrored} failed.`}
         </DialogContentText>
+        {startDeletionTaskResult &&
+          (startDeletionTaskResult.success ? (
+            <DialogContentText sx={{ mt: 1, color: "success.main" }}>
+              Done.
+            </DialogContentText>
+          ) : (
+            <DialogContentText sx={{ mt: 1, color: "error.main" }}>
+              {startDeletionTaskResult.error}
+            </DialogContentText>
+          ))}
       </DialogContent>
       <DialogActions>
-        {numCompleted === numTotal ? (
+        {startDeletionTaskResult ? (
           <Button onClick={dismissModal}>Dismiss</Button>
         ) : (
           <Button disabled onClick={cancelDuplicatesProcessing}>

@@ -1,4 +1,6 @@
 import {
+  HealthCheckMessageType,
+  HealthCheckResultMessageType,
   StartDeletionTaskMessageType,
   StartDeletionTaskResultMessageType,
   DeletePhotoMessageType,
@@ -6,6 +8,8 @@ import {
 } from "../../../chrome_extension_message_types";
 
 export type {
+  HealthCheckMessageType,
+  HealthCheckResultMessageType,
   StartDeletionTaskMessageType,
   StartDeletionTaskResultMessageType,
   DeletePhotoMessageType,

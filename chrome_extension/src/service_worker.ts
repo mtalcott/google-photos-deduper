@@ -5,6 +5,7 @@ import {
   DeletePhotoResultMessageType,
   HealthCheckMessageType,
   StartDeletionTaskMessageType,
+  StartDeletionTaskResultMessageType,
 } from "types";
 
 const VERSION = chrome.runtime.getManifest().version;
@@ -42,27 +43,38 @@ function handleStartDeletionTask(
   sender: chrome.runtime.MessageSender
 ): void {
   (async () => {
-    // Open a new window to delete photos in
-    const window = await chrome.windows.create({
-      focused: true,
-      incognito: sender.tab!.incognito,
-    });
-    const tab = window.tabs![0];
+    const resultMessage: StartDeletionTaskResultMessageType = {
+      app: "GooglePhotosDeduper",
+      action: "startDeletionTask.result",
+      success: true,
+    };
 
-    for (const mediaItem of message.mediaItems) {
-      await navigateAndDelete(tab, mediaItem, sender);
+    try {
+      // Open a new window to delete photos in
+      const window = await chrome.windows.create({
+        focused: true,
+        incognito: sender.tab!.incognito,
+      });
+      const tab = window.tabs![0];
+
+      for (const mediaItem of message.mediaItems) {
+        await navigateAndDelete(tab, mediaItem, sender);
+      }
+
+      await chrome.windows.remove(window.id!);
+
+      chrome.tabs.sendMessage(sender.tab!.id!, resultMessage);
+    } catch (error) {
+      chrome.tabs.sendMessage(sender.tab!.id!, {
+        ...resultMessage,
+        success: false,
+        error:
+          "Whoops! An unexpected error occurred. Please check the Chrome \
+          Extension service worker logs for more details.",
+      });
+      throw error;
     }
-
-    await chrome.windows.remove(window.id!);
   })();
-
-  const response = {
-    app: "GooglePhotosDeduper",
-    action: "startDeletionTask.result",
-    success: true,
-  };
-
-  chrome.tabs.sendMessage(sender.tab!.id!, response);
 }
 
 async function navigateAndDelete(

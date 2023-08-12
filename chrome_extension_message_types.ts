@@ -27,10 +27,17 @@ export interface StartDeletionTaskMessageType extends BaseMessageType {
   }[];
 }
 
-export interface StartDeletionTaskResultMessageType extends BaseMessageType {
+export type StartDeletionTaskResultMessageType = BaseMessageType & {
   action: "startDeletionTask.result";
-  success: true;
-}
+} & (
+    | {
+        success: true;
+      }
+    | {
+        success: false;
+        error: string;
+      }
+  );
 
 export interface DeletePhotoMessageType extends BaseMessageType {
   action: "deletePhoto";
