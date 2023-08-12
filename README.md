@@ -48,7 +48,7 @@ If you have questions about the tool, please [post on the discussions page](http
 
 - Python app
   - Flask is set to debug mode, so live reloading is enabled.
-  - Debugging with `debugpy` is supported. See `launch.json`.
+  - Debugging with `debugpy` is supported. See [`launch.json`](.vscode/launch.json).
 - React app
   - Utilizes [Vite](https://vitejs.dev/) for HMR and building.
 - Chrome extension
