@@ -7,13 +7,15 @@ export function appApiUrl(path: string): string {
   return `${SERVER_HOST}${path}`;
 }
 
-export async function fetchAppJson<T = unknown>(path: string): Promise<T> {
+export async function fetchAppJson<T = unknown>(
+  path: string
+): Promise<T | undefined> {
   const response = await fetch(appApiUrl(path));
   const json = await response.json();
   if (response.ok) {
     return json;
   }
-  throw new Error(`Error fetching data from ${path}`);
+  return undefined;
 }
 
 export function prettyDuration(seconds: number): string {

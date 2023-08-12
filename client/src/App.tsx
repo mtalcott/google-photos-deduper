@@ -17,8 +17,8 @@ import Link, { LinkProps } from "@mui/material/Link";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useFetch } from "utils/useFetch";
 import { appApiUrl, fetchAppJson } from "utils";
-import { ActiveTaskType, MeResponseType } from "utils/MeResponseType";
-import { AppContext, AppContextType } from "utils/AppContext";
+import { MeResponseType } from "utils/types";
+import { AppContext, AppContextType, ActiveTaskType } from "utils/AppContext";
 import DeduperAppBar from "components/DeduperAppBar";
 import DeduperDrawer from "components/DeduperDrawer";
 import Box from "@mui/material/Box";
@@ -28,9 +28,13 @@ export default function App() {
   const { data: me, isLoading: meIsLoading } = useFetch<MeResponseType>(
     appApiUrl("/auth/me")
   );
-  const [activeTask, setActiveTask] = useState<ActiveTaskType | null>(null);
+  const [activeTask, setActiveTask] = useState<ActiveTaskType | undefined>(
+    undefined
+  );
   const reloadActiveTask = async () => {
-    const activeTaskJson = await fetchAppJson("/api/active_task");
+    const activeTaskJson = await fetchAppJson<ActiveTaskType>(
+      "/api/active_task"
+    );
     setActiveTask(activeTaskJson);
   };
   useEffect(() => {
