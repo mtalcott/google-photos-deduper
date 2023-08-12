@@ -2,14 +2,21 @@
   "manifest_version": 3,
   "name": "Google Photos Deduper",
   "version": "0.2.0",
-  "description": "See https://github.com/mtalcott/google-photos-deduper",
+  "description": "Helper extension for removing duplicates in Google Photos. See https://github.com/mtalcott/google-photos-deduper.",
+  "action": {
+    "default_title": "Google Photos Deduper",
+    "default_popup": "src/popup.html"
+  },
+  "icons": {
+    "16": "public/logo16.png",
+    "32": "public/logo32.png",
+    "48": "public/logo48.png",
+    "128": "public/logo128.png"
+  },
   "permissions": ["activeTab", "windows", "tabs"],
   "background": {
     "service_worker": "src/service_worker.ts",
     "type": "module"
-  },
-  "action": {
-    "default_popup": "src/popup.html"
   },
   "content_scripts": [
     {

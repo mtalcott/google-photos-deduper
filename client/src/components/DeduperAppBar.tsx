@@ -42,7 +42,14 @@ export default function DeduperAppBar() {
       <Toolbar>
         <Box sx={{ flexGrow: 1 }}>
           <Link to="/" variant="h6" color="inherit" underline="none" noWrap>
-            Google Photos Deduper
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <img
+                src="/logo.svg"
+                alt="logo"
+                style={{ width: 30, height: 30, marginRight: 16 }}
+              />
+              Google Photos Deduper
+            </Box>
           </Link>
         </Box>
 
