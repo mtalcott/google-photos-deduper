@@ -51,8 +51,7 @@ class ProcessDuplicatesTask:
 
         media_items = list(client.get_local_media_items())
         # Skip videos for now. We don't get video length from metadata;
-        #   comparing by thumbnail on its own results in too many
-        #   false positives.
+        #   comparing by thumbnail on its own results in false positives.
         media_items = list(
             filter(lambda m: m["mimeType"].startswith("image/"), media_items)
         )
@@ -71,10 +70,21 @@ class ProcessDuplicatesTask:
         for group_index, media_item_indices in enumerate(clusters):
             group_media_items = [media_items[i] for i in media_item_indices]
 
-            # The first item in the cluster is the one that is most similar to
-            # all the others. Use that as the "original" media item.
-            # https://github.com/UKPLab/sentence-transformers/blob/a458ce79c40fef93d5ecc66931b446ea65fdd017/sentence_transformers/util.py#L351C26-L351C95
-            original_media_item_id = media_items[min(media_item_indices)]["id"]
+            dimensions = [
+                int(m["mediaMetadata"]["width"]) * int(m["mediaMetadata"]["height"])
+                for m in group_media_items
+            ]
+
+            # Choose the media item with largest dimensions as the original.
+            if len(set(dimensions)) > 1:
+                largest = dimensions.index(max(dimensions))
+                original_media_item_id = group_media_items[largest]["id"]
+            else:
+                # Otherwise, the first item in the cluster is the one that is most
+                # similar to all the others. Prefer that as the "original" media
+                # item, since we don't get created/uploaded times from the API.
+                # https://github.com/UKPLab/sentence-transformers/blob/a458ce79c40fef93d5ecc66931b446ea65fdd017/sentence_transformers/util.py#L351C26-L351C95
+                original_media_item_id = media_items[min(media_item_indices)]["id"]
 
             result["groups"].append(
                 {
