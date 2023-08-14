@@ -26,7 +26,10 @@ from app.lib.media_items_image_store import MediaItemsImageStore
 
 
 class DuplicateImageDetector:
-    """Uses https://github.com/UKPLab/sentence-transformers to calculate image embeddings and compute cosine similarities"""
+    """
+    Uses https://github.com/UKPLab/sentence-transformers to calculate image
+    embeddings and compute cosine similarities
+    """
 
     def __init__(
         self,
@@ -85,8 +88,8 @@ class DuplicateImageDetector:
         if self.embeddings is not None:
             return self.embeddings
         print(
-            f"Calculating embeddings for {len(self.media_items)} images \
-                using {self.model.device}"
+            f"Calculating embeddings for {len(self.media_items)} images "
+            f"using {self.model.device}"
         )
 
         start = time.perf_counter()
