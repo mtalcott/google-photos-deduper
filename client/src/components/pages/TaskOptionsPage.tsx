@@ -4,16 +4,17 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import FormGroup from "@mui/material/FormGroup";
 import FormHelperText from "@mui/material/FormHelperText";
 import Input from "@mui/material/Input";
 import InputAdornment from "@mui/material/InputAdornment";
-import InputLabel from "@mui/material/InputLabel";
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
+import { Stack, Typography } from "@mui/material";
+import Tooltip from "@mui/material/Tooltip";
+import InfoIcon from "@mui/icons-material/Info";
 
 interface FormData {
   refresh_media_items: boolean;
@@ -34,7 +35,7 @@ export default function TaskOptionsPage() {
     defaultValues: {
       refresh_media_items: true,
       resolution: "250",
-      similarity_threshold: "99",
+      similarity_threshold: "99.00",
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,102 +63,124 @@ export default function TaskOptionsPage() {
       navigate("/active_task");
     }
   };
+
   return (
     <form noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)}>
-      <FormGroup sx={{ mt: 1 }}>
-        <FormControlLabel
-          label="Refresh media items"
-          control={
+      <Stack direction="column" spacing={3} sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <FormControlLabel
+            label="Refresh media items"
+            sx={{ mr: 0 }}
+            control={
+              <Controller
+                name="refresh_media_items"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    checked={field.value}
+                  />
+                )}
+              />
+            }
+          />
+          <Tooltip
+            title="Refresh media items from the Google Photos API. This will
+            happen automatically if no media items are present."
+            placement="right"
+            arrow
+          >
+            <InfoIcon sx={{ color: "text.secondary" }} />
+          </Tooltip>
+        </Stack>
+        <Box>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <label htmlFor="resolution">Resolution</label>
+            <Tooltip
+              title="Resolution (width & height) to use when comparing images.
+              Higher resolution takes longer and uses more space."
+              placement="right"
+              arrow
+            >
+              <InfoIcon sx={{ color: "text.secondary" }} />
+            </Tooltip>
+          </Stack>
+          <FormControl error={!!errors.resolution} variant="standard">
             <Controller
-              name="refresh_media_items"
+              name="resolution"
               control={control}
+              rules={{
+                validate: (v) =>
+                  parseInt(v) >= 100 || "Please enter a number >= 100",
+              }}
               render={({ field }) => (
-                <Checkbox
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  checked={field.value}
+                <Input
+                  id="resolution"
+                  sx={{ width: 70 }}
+                  endAdornment={
+                    <InputAdornment position="end">px</InputAdornment>
+                  }
+                  {...field}
                 />
               )}
             />
-          }
-        />
-      </FormGroup>
-      <Box sx={{ mt: 1 }}>
-        <FormControl error={!!errors.resolution} variant="standard">
-          <InputLabel htmlFor="resolution">Resolution</InputLabel>
-          <Controller
-            name="resolution"
-            control={control}
-            rules={{
-              validate: (v) => {
-                const invalidMessage = "Please enter a number >= 100";
-                try {
-                  return parseInt(v) >= 100 || invalidMessage;
-                } catch (e) {
-                  return invalidMessage;
-                }
-              },
-            }}
-            render={({ field }) => (
-              <Input
-                id="resolution"
-                endAdornment={
-                  <InputAdornment position="end">px</InputAdornment>
-                }
-                {...field}
-              />
-            )}
-          />
-          <FormHelperText>
-            {errors.resolution ? errors.resolution.message : "Default: 250px"}
-          </FormHelperText>
-        </FormControl>
-      </Box>
-      <Box sx={{ mt: 1 }}>
-        <FormControl error={!!errors.similarity_threshold} variant="standard">
-          <InputLabel htmlFor="similarity_threshold">
-            Similarity threshold
-          </InputLabel>
-          <Controller
-            name="similarity_threshold"
-            control={control}
-            rules={{
-              validate: (v) => {
-                const invalidMessage = "Please enter a number >= 90 and < 100";
-                try {
+            <FormHelperText>
+              {errors.resolution ? errors.resolution.message : "Default: 250px"}
+            </FormHelperText>
+          </FormControl>
+        </Box>
+        <Box>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <label htmlFor="similarity_threshold">Similarity threshold</label>
+            <Tooltip
+              title="Percentage of similarity between images to be considered
+              duplicates."
+              placement="right"
+              arrow
+            >
+              <InfoIcon sx={{ color: "text.secondary" }} />
+            </Tooltip>
+          </Stack>
+          <Typography variant="body2" sx={{ fontStyle: "italic" }}></Typography>
+          <FormControl error={!!errors.similarity_threshold} variant="standard">
+            <Controller
+              name="similarity_threshold"
+              control={control}
+              rules={{
+                validate: (v) => {
                   const f = parseFloat(v);
-                  return (f >= 90.0 && f < 100.0) || invalidMessage;
-                } catch (e) {
-                  return invalidMessage;
-                }
-              },
-            }}
-            render={({ field }) => (
-              <Input
-                id="similarity_threshold"
-                endAdornment={<InputAdornment position="end">%</InputAdornment>}
-                {...field}
-              />
-            )}
-          />
-          <FormHelperText>
-            {errors.similarity_threshold
-              ? errors.similarity_threshold.message
-              : "Default: 99%"}
-          </FormHelperText>
-        </FormControl>
-      </Box>
-      <Box>
-        <FormControl>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSubmitting}
-            sx={{ mt: 2 }}
-          >
-            {activeTask ? "Restart" : "Start"}
-          </Button>
-        </FormControl>
-      </Box>
+                  return (
+                    (f >= 90.0 && f < 100.0) ||
+                    "Please enter a number >= 90 and < 100"
+                  );
+                },
+              }}
+              render={({ field }) => (
+                <Input
+                  id="similarity_threshold"
+                  sx={{ width: 70 }}
+                  endAdornment={
+                    <InputAdornment position="end">%</InputAdornment>
+                  }
+                  {...field}
+                />
+              )}
+            />
+            <FormHelperText>
+              {errors.similarity_threshold
+                ? errors.similarity_threshold.message
+                : "Default: 99%"}
+            </FormHelperText>
+          </FormControl>
+        </Box>
+        <Box>
+          <FormControl>
+            <Button type="submit" variant="contained" disabled={isSubmitting}>
+              {activeTask ? "Restart" : "Start"}
+            </Button>
+          </FormControl>
+        </Box>
+      </Stack>
     </form>
   );
 }
