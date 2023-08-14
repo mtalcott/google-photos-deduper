@@ -21,11 +21,13 @@ class ProcessDuplicatesTask:
         task: celery.Task,
         user_id: str,
         refresh_media_items: bool = False,
+        resolution: int = 250,
         logger: logging.Logger = logging,
     ):
         self.task = task
         self.user_id = user_id
         self.refresh_media_items = refresh_media_items
+        self.resolution = resolution
         self.logger = logger
 
         # Initialize meta structure
@@ -35,8 +37,13 @@ class ProcessDuplicatesTask:
         }
 
     def run(self):
+        self.logger.info(self)
         self.start_step(Steps.FETCH_MEDIA_ITEMS)
-        client = GooglePhotosClient.from_user_id(self.user_id, logger=self.logger)
+        client = GooglePhotosClient.from_user_id(
+            self.user_id,
+            logger=self.logger,
+            resolution=self.resolution,
+        )
 
         if self.refresh_media_items or client.local_media_items_count() == 0:
             client.fetch_media_items()

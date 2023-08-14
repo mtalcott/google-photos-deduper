@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 from app.lib.google_api_client import GoogleApiClient
 from app.lib.media_items_image_store import MediaItemsImageStore
 from app.models.media_items_repository import MediaItemsRepository
@@ -8,14 +9,18 @@ class GooglePhotosClient(GoogleApiClient):
     def __init__(
         self,
         *args,
+        resolution: Optional[int] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
         user_id = self.get_user_id()
-        self.image_store = MediaItemsImageStore()
         self.repo = MediaItemsRepository(user_id=user_id)
-        self.image_store = MediaItemsImageStore()
+
+        image_store_args = {}
+        if resolution:
+            image_store_args["resolution"] = resolution
+        self.image_store = MediaItemsImageStore(**image_store_args)
 
     def local_media_items_count(self):
         return self.repo.count()
@@ -25,9 +30,6 @@ class GooglePhotosClient(GoogleApiClient):
 
     def fetch_media_items(self):
         self.clear_local_media_items()
-        # TODO: clear local image store?
-
-        max_items = 20_000
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
@@ -35,7 +37,7 @@ class GooglePhotosClient(GoogleApiClient):
         self.logger.info("Fetching mediaItems...")
         last_log_time = time.time()
 
-        while item_count < max_items:
+        while True:
             if next_page_token:
                 request_data["pageToken"] = next_page_token
 

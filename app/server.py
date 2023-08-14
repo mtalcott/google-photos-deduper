@@ -59,14 +59,16 @@ def create_task():
     user_id = flask.session.get("user_id")
     assert user_id
 
+    task_args = {
+        "refresh_media_items": flask.request.json.get("refresh_media_items"),
+    }
+    if "resolution" in flask.request.json:
+        task_args["resolution"] = int(flask.request.json.get("resolution"))
     flask_app.logger.info(
-        f"Creating task for user_id {user_id} with options: {flask.request.json}"
+        f"Creating task for user_id {user_id} with options: {task_args}"
     )
 
-    refresh_media_items = flask.request.json.get("refresh_media_items") == "true"
-    result = tasks.process_duplicates.delay(
-        user_id, refresh_media_items=refresh_media_items
-    )
+    result = tasks.process_duplicates.delay(user_id, **task_args)
     flask.session["active_task_id"] = result.id
 
     return flask.jsonify({"success": True})
