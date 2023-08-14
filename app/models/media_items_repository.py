@@ -76,6 +76,9 @@ class MediaItemsRepository:
             # Order by creationTime ascending, so we can easily identify
             #   the earliest created mediaItem as the original
             .sort("mediaMetadata.creationTime", 1)
+            # Prevent out of memory errors by allowing MongoDB to write to temp
+            #   files (default memory limit is 100MB)
+            .allow_disk_use(True)
         )
 
     def count(self):
