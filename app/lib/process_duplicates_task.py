@@ -22,12 +22,14 @@ class ProcessDuplicatesTask:
         user_id: str,
         refresh_media_items: bool = False,
         resolution: int = 250,
+        similarity_threshold: float = 0.99,
         logger: logging.Logger = logging,
     ):
         self.task = task
         self.user_id = user_id
         self.refresh_media_items = refresh_media_items
         self.resolution = resolution
+        self.similarity_threshold = similarity_threshold
         self.logger = logger
 
         # Initialize meta structure
@@ -37,7 +39,6 @@ class ProcessDuplicatesTask:
         }
 
     def run(self):
-        self.logger.info(self)
         self.start_step(Steps.FETCH_MEDIA_ITEMS)
         client = GooglePhotosClient.from_user_id(
             self.user_id,
@@ -65,6 +66,7 @@ class ProcessDuplicatesTask:
         duplicate_detector = DuplicateImageDetector(
             media_items,
             logger=self.logger,
+            threshold=self.similarity_threshold,
         )
         similarity_map = duplicate_detector.calculate_similarity_map()
         clusters = duplicate_detector.calculate_clusters()

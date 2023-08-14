@@ -18,6 +18,7 @@ import { useForm, Controller, SubmitHandler } from "react-hook-form";
 interface FormData {
   refresh_media_items: boolean;
   resolution: string;
+  similarity_threshold: string;
 }
 
 export default function TaskOptionsPage() {
@@ -30,7 +31,11 @@ export default function TaskOptionsPage() {
     formState: { errors },
   } = useForm<FormData>({
     mode: "onChange",
-    defaultValues: { refresh_media_items: true, resolution: "250" },
+    defaultValues: {
+      refresh_media_items: true,
+      resolution: "250",
+      similarity_threshold: "99",
+    },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,7 +49,11 @@ export default function TaskOptionsPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ...data, resolution: parseInt(data.resolution) }),
+      body: JSON.stringify({
+        ...data,
+        resolution: parseInt(data.resolution),
+        similarity_threshold: parseFloat(data.similarity_threshold) / 100.0,
+      }),
     });
 
     if (response.ok) {
@@ -55,7 +64,7 @@ export default function TaskOptionsPage() {
   };
   return (
     <form noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)}>
-      <FormGroup>
+      <FormGroup sx={{ mt: 1 }}>
         <FormControlLabel
           label="Refresh media items"
           control={
@@ -72,13 +81,22 @@ export default function TaskOptionsPage() {
           }
         />
       </FormGroup>
-      <Box>
+      <Box sx={{ mt: 1 }}>
         <FormControl error={!!errors.resolution} variant="standard">
           <InputLabel htmlFor="resolution">Resolution</InputLabel>
           <Controller
             name="resolution"
             control={control}
-            rules={{ required: true, pattern: /^[0-9]+$/, min: 100 }}
+            rules={{
+              validate: (v) => {
+                const invalidMessage = "Please enter a number >= 100";
+                try {
+                  return parseInt(v) >= 100 || invalidMessage;
+                } catch (e) {
+                  return invalidMessage;
+                }
+              },
+            }}
             render={({ field }) => (
               <Input
                 id="resolution"
@@ -89,9 +107,43 @@ export default function TaskOptionsPage() {
               />
             )}
           />
-          {errors.resolution && (
-            <FormHelperText>{"Please enter a number >= 100"}</FormHelperText>
-          )}
+          <FormHelperText>
+            {errors.resolution ? errors.resolution.message : "Default: 250px"}
+          </FormHelperText>
+        </FormControl>
+      </Box>
+      <Box sx={{ mt: 1 }}>
+        <FormControl error={!!errors.similarity_threshold} variant="standard">
+          <InputLabel htmlFor="similarity_threshold">
+            Similarity threshold
+          </InputLabel>
+          <Controller
+            name="similarity_threshold"
+            control={control}
+            rules={{
+              validate: (v) => {
+                const invalidMessage = "Please enter a number >= 90 and < 100";
+                try {
+                  const f = parseFloat(v);
+                  return (f >= 90.0 && f < 100.0) || invalidMessage;
+                } catch (e) {
+                  return invalidMessage;
+                }
+              },
+            }}
+            render={({ field }) => (
+              <Input
+                id="similarity_threshold"
+                endAdornment={<InputAdornment position="end">%</InputAdornment>}
+                {...field}
+              />
+            )}
+          />
+          <FormHelperText>
+            {errors.similarity_threshold
+              ? errors.similarity_threshold.message
+              : "Default: 99%"}
+          </FormHelperText>
         </FormControl>
       </Box>
       <Box>

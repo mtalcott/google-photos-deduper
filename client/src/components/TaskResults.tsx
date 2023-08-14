@@ -67,6 +67,10 @@ export default function TaskResults(props: TaskResultsProps) {
     new Set<string>()
   );
 
+  if (groups.length === 0) {
+    return <Typography sx={{ mt: 4 }}>No duplicates found.</Typography>;
+  }
+
   return (
     <TaskResultsContext.Provider
       value={{

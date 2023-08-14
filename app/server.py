@@ -64,6 +64,10 @@ def create_task():
     }
     if "resolution" in flask.request.json:
         task_args["resolution"] = int(flask.request.json.get("resolution"))
+    if "similarity_threshold" in flask.request.json:
+        task_args["similarity_threshold"] = float(
+            flask.request.json.get("similarity_threshold")
+        )
     flask_app.logger.info(
         f"Creating task for user_id {user_id} with options: {task_args}"
     )
