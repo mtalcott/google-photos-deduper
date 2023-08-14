@@ -30,7 +30,6 @@ For privacy and cost reasons, no public hosted solution is currently provided. I
    a. `cp .example.env .env`
    a. Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
    a. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file you downloaded.
-1. Run `docker-compose build` from the project directory.
 
 ### Start
 

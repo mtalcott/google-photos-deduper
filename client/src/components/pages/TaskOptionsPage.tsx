@@ -98,7 +98,8 @@ export default function TaskOptionsPage() {
             <label htmlFor="resolution">Resolution</label>
             <Tooltip
               title="Resolution (width & height) to use when comparing images.
-              Higher resolution takes longer and uses more space."
+              Higher resolution is more accurate but uses more memory and
+              takes longer."
               placement="right"
               arrow
             >
@@ -125,7 +126,9 @@ export default function TaskOptionsPage() {
               )}
             />
             <FormHelperText>
-              {errors.resolution ? errors.resolution.message : "Default: 250px"}
+              {errors.resolution
+                ? errors.resolution.message
+                : "Recommendation: 250px"}
             </FormHelperText>
           </FormControl>
         </Box>
@@ -168,7 +171,7 @@ export default function TaskOptionsPage() {
             <FormHelperText>
               {errors.similarity_threshold
                 ? errors.similarity_threshold.message
-                : "Default: 99%"}
+                : "Recommendation: 99%"}
             </FormHelperText>
           </FormControl>
         </Box>
