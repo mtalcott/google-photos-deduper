@@ -12,7 +12,7 @@ import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
-import { Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import Tooltip from "@mui/material/Tooltip";
 import InfoIcon from "@mui/icons-material/Info";
 
@@ -141,7 +141,6 @@ export default function TaskOptionsPage() {
               <InfoIcon sx={{ color: "text.secondary" }} />
             </Tooltip>
           </Stack>
-          <Typography variant="body2" sx={{ fontStyle: "italic" }}></Typography>
           <FormControl error={!!errors.similarity_threshold} variant="standard">
             <Controller
               name="similarity_threshold"
