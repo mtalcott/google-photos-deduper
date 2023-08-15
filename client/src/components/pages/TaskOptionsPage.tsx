@@ -12,7 +12,7 @@ import { useNavigate } from "react-router";
 import { appApiUrl } from "utils";
 import { AppContext } from "utils/AppContext";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
-import { Stack } from "@mui/material";
+import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import InfoIcon from "@mui/icons-material/Info";
 
@@ -29,6 +29,7 @@ export default function TaskOptionsPage() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     mode: "onChange",
@@ -93,43 +94,47 @@ export default function TaskOptionsPage() {
             <InfoIcon sx={{ color: "text.secondary" }} />
           </Tooltip>
         </Stack>
-        <Box>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <label htmlFor="resolution">Resolution</label>
-            <Tooltip
-              title="Resolution (width & height) to use when comparing images.
+        {watch("refresh_media_items") && (
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <label htmlFor="resolution">Resolution</label>
+              <Tooltip
+                title="Resolution (width & height) to use when comparing images.
               Higher resolution is more accurate but uses more memory and
               takes longer."
-              placement="right"
-              arrow
-            >
-              <InfoIcon sx={{ color: "text.secondary" }} />
-            </Tooltip>
-          </Stack>
-          <FormControl error={!!errors.resolution} variant="standard">
-            <Controller
-              name="resolution"
-              control={control}
-              rules={{
-                validate: (v) =>
-                  parseInt(v) >= 100 || "Please enter a number >= 100",
-              }}
-              render={({ field }) => (
-                <Input
-                  id="resolution"
-                  sx={{ width: 70 }}
-                  endAdornment={
-                    <InputAdornment position="end">px</InputAdornment>
-                  }
-                  {...field}
-                />
-              )}
-            />
-            <FormHelperText>
-              {errors.resolution ? errors.resolution.message : "Default: 250px"}
-            </FormHelperText>
-          </FormControl>
-        </Box>
+                placement="right"
+                arrow
+              >
+                <InfoIcon sx={{ color: "text.secondary" }} />
+              </Tooltip>
+            </Stack>
+            <FormControl error={!!errors.resolution} variant="standard">
+              <Controller
+                name="resolution"
+                control={control}
+                rules={{
+                  validate: (v) =>
+                    parseInt(v) >= 100 || "Please enter a number >= 100",
+                }}
+                render={({ field }) => (
+                  <Input
+                    id="resolution"
+                    sx={{ width: 70 }}
+                    endAdornment={
+                      <InputAdornment position="end">px</InputAdornment>
+                    }
+                    {...field}
+                  />
+                )}
+              />
+              <FormHelperText>
+                {errors.resolution
+                  ? errors.resolution.message
+                  : "Default: 250px"}
+              </FormHelperText>
+            </FormControl>
+          </Box>
+        )}
         <Box>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <label htmlFor="similarity_threshold">Similarity threshold</label>
