@@ -79,14 +79,11 @@ class ProcessDuplicatesTask:
         for group_index, media_item_indices in enumerate(clusters):
             group_media_items = [media_items[i] for i in media_item_indices]
 
-            dimensions = [
-                int(m["mediaMetadata"]["width"]) * int(m["mediaMetadata"]["height"])
-                for m in group_media_items
-            ]
+            group_sizes = [m["size"] for m in group_media_items]
 
-            # Choose the media item with largest dimensions as the original.
-            if len(set(dimensions)) > 1:
-                largest = dimensions.index(max(dimensions))
+            # Choose the media item with largest size as the original.
+            if len(set(group_sizes)) > 1:
+                largest = group_sizes.index(max(group_sizes))
                 original_media_item_id = group_media_items[largest]["id"]
             else:
                 # Otherwise, the first item in the cluster is the one that is most
