@@ -42,7 +42,7 @@ export default function DeduperAppBar() {
       <Toolbar>
         <Box sx={{ flexGrow: 1 }}>
           <Link to="/" variant="h6" color="inherit" underline="none" noWrap>
-            <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Box sx={{ display: "inline-flex", alignItems: "center" }}>
               <img
                 src="/logo.svg"
                 alt="logo"
