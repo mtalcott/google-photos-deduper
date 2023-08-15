@@ -20,6 +20,3 @@ IMAGE_STORE_PATH = os.environ.get("IMAGE_STORE_PATH")
 PUBLIC_IMAGE_FOLDER = os.environ.get("PUBLIC_IMAGE_FOLDER")
 
 CLIENT_HOST = os.environ.get("CLIENT_HOST")
-
-# Speeds up processing by 65%, but can cause system instability. Not recommended.
-ENABLE_GPU = os.environ.get("ENABLE_GPU") == "1"

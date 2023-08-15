@@ -39,8 +39,6 @@ class DuplicateImageDetector:
     ):
         # First, load the CLIP model
         self.model = SentenceTransformer("clip-ViT-B-32")
-        if app.config.ENABLE_GPU:
-            self.model = self.model.to("gpu")
 
         self.media_items = media_items
         self.threshold = threshold
