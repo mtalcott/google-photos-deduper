@@ -113,4 +113,4 @@ class GooglePhotosClient(GoogleApiClient):
                 if attempts <= 0:
                     raise error
 
-        return size
+        return int(size)

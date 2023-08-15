@@ -20,6 +20,7 @@ class MediaItemsRepository:
         "productUrl",
         "baseUrl",
         "storageFilename",  # Locally stored filename per MediaItemsImageStore
+        "size",  # Size in bytes
         "deletedAt",  # When the media item was deleted by our app
         "userUrl",  # User-facing URL of the media item. productUrl is generated for our app and eventually expires.
     ]
