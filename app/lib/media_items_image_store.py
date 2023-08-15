@@ -2,7 +2,7 @@ import logging
 import os
 import app.config
 from PIL import Image
-import urllib.request
+import requests
 
 
 class MediaItemsImageStore:
@@ -23,15 +23,17 @@ class MediaItemsImageStore:
             success = False
             while not success:
                 try:
-                    urllib.request.urlretrieve(url, path)
+                    request = requests.get(url, timeout=5)
+                    with open(path, "wb") as file:
+                        file.write(request.content)
                     success = True
-                except urllib.error.HTTPError as error:
+                except requests.exceptions.HTTPError as error:
                     attempts -= 1
                     logging.warn(
-                        f"Received {error} downloading image\n\
-                        media_item: {media_item}\n\
-                        url: {url}\n\
-                        attempts left: {attempts}"
+                        f"Received {error} downloading image\n"
+                        f"media_item: {media_item}\n"
+                        f"url: {url}\n"
+                        f"attempts left: {attempts}"
                     )
                     if attempts <= 0:
                         raise error
