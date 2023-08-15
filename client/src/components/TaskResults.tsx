@@ -18,6 +18,7 @@ import { truncateString } from "utils";
 import AspectRatioIcon from "@mui/icons-material/AspectRatio";
 import CompareIcon from "@mui/icons-material/Compare";
 import RenameIcon from "@mui/icons-material/DriveFileRenameOutline";
+import SaveIcon from "@mui/icons-material/Save";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import AutoSizer from "react-virtualized-auto-sizer";
@@ -89,7 +90,7 @@ export default function TaskResults(props: TaskResultsProps) {
                 height={height}
                 width={width}
                 itemCount={groups.length}
-                itemSize={276}
+                itemSize={291}
               >
                 {({ index, style }) => (
                   <ResultRow group={groups[index]} {...{ style }} />
@@ -205,6 +206,10 @@ function MediaItemCard({
             field="dimensions"
             {...{ mediaItem, isOriginal, originalMediaItem }}
           />
+          <MediaItemCardField
+            field="size"
+            {...{ mediaItem, isOriginal, originalMediaItem }}
+          />
           {mediaItem.error && (
             <MediaItemCardField
               field="error"
@@ -237,7 +242,13 @@ function MediaItemCard({
 }
 
 interface MediaItemCardFieldProps {
-  field: "similarity" | "filename" | "dimensions" | "deletedAt" | "error";
+  field:
+    | "similarity"
+    | "filename"
+    | "size"
+    | "dimensions"
+    | "deletedAt"
+    | "error";
   mediaItem: MediaItemType;
   isOriginal: boolean;
   originalMediaItem: MediaItemType;
@@ -278,6 +289,15 @@ function MediaItemCardField({
     } else {
       color = "success.main";
       text = "Same filename";
+    }
+  } else if (field === "size") {
+    IconComponent = SaveIcon;
+    if (isOriginal || mediaItem.size !== originalMediaItem.size) {
+      text = mediaItem.size;
+    } else {
+      color = "success.main";
+      text = "Same size";
+      tooltip = mediaItem.size;
     }
   } else if (field === "dimensions") {
     IconComponent = AspectRatioIcon;
@@ -344,20 +364,3 @@ function SelectAll() {
     </Box>
   );
 }
-
-// function mediaItemField(field, mediaItem) {
-//   switch (field) {
-//     case "filename":
-//       return (
-//         <a
-//           target="_blank"
-//           rel="noopener noreferrer"
-//           href={mediaItem["filenameSearchUrl"]}
-//         >
-//           {mediaItem["filename"]}
-//         </a>
-//       );
-//     default:
-//       return mediaItem[field];
-//   }
-// }

@@ -1,3 +1,4 @@
+import math
 import pprint
 import urllib.parse
 import re
@@ -166,15 +167,8 @@ def media_item_for_display(media_item):
     )
     m["imageUrl"] = image_url
 
-    # TODO: figure out a way for this to work with e.g. PXL_20210303_210331830.PORTRAIT.jpg
-    before_period = media_item["filename"].split(".")[0]
-    quoted_filename = urllib.parse.quote(before_period)
-    # Replace underscores with double underscores, for some reason
-    replaced_filename = re.sub("_", "__", quoted_filename)
-    filename_search_url = "".join(
-        ["https://photos.google.com/search/intitle:", replaced_filename]
-    )
-    m["filenameSearchUrl"] = filename_search_url
+    if "size" in media_item:
+        m["size"] = pretty_size(media_item["size"])
 
     m["dimensions"] = " x ".join(
         [
@@ -184,6 +178,19 @@ def media_item_for_display(media_item):
     )
 
     return m
+
+
+def pretty_size(size_bytes: int):
+    """
+    Given a size in bytes, return a human-readable string.
+    """
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
 
 
 if __name__ == "__main__":
