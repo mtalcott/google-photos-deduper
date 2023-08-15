@@ -126,9 +126,7 @@ export default function TaskOptionsPage() {
               )}
             />
             <FormHelperText>
-              {errors.resolution
-                ? errors.resolution.message
-                : "Recommendation: 250px"}
+              {errors.resolution ? errors.resolution.message : "Default: 250px"}
             </FormHelperText>
           </FormControl>
         </Box>
@@ -171,7 +169,7 @@ export default function TaskOptionsPage() {
             <FormHelperText>
               {errors.similarity_threshold
                 ? errors.similarity_threshold.message
-                : "Recommendation: 99%"}
+                : "Default: 99.00%"}
             </FormHelperText>
           </FormControl>
         </Box>
