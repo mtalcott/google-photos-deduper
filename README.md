@@ -24,18 +24,18 @@ For privacy and cost reasons, no public hosted solution is currently provided. I
 
 1. Install [Docker Desktop](https://docs.docker.com/desktop/) on your system.
 1. Clone this repository.
-1. Generate an app client secret file. (No hosted solution currently provided.)
-   a. Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID for a web application using Google Developer Console.
-   a. Download your client secret file.
-   a. `cp .example.env .env`
-   a. Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
-   a. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file you downloaded.
+1. Set up local environment variables.
+   - Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID for a web application using Google Developer Console.
+ Download your client secret file.
+   - `cp example.env .env`
+   - Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
+   - Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file.
 
 ### Start
 
-- Run `docker-compose up` from the project directory.
-- Load [http://localhost](http://localhost) and follow the instructions from there!
-- [Install the Chrome Extension](chrome_extension/README.md) once you want to delete duplicates.
+1. Run `docker-compose up` from the project directory.
+1. Load [http://localhost](http://localhost) and follow the instructions from there!
+   - [Install the Chrome Extension](chrome_extension/README.md) once you want to delete duplicates.
 
 ## Support
 
