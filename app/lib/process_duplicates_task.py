@@ -58,11 +58,6 @@ class ProcessDuplicatesTask:
         )
 
         media_items = list(client.get_local_media_items())
-        # Skip videos for now. We don't get video length from metadata;
-        #   comparing by thumbnail on its own results in false positives.
-        media_items = list(
-            filter(lambda m: m["mimeType"].startswith("image/"), media_items)
-        )
         duplicate_detector = DuplicateImageDetector(
             media_items,
             logger=self.logger,
