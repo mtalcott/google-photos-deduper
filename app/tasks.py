@@ -1,6 +1,9 @@
+from datetime import datetime
 import logging
 import celery
 from typing import Callable
+
+import memray
 from app import CELERY_APP as celery_app
 
 from app.lib.process_duplicates_task import ProcessDuplicatesTask
@@ -68,16 +71,18 @@ def process_duplicates(self: celery.Task, *args, **kwargs):
         **kwargs,
     )
 
-    def set_task_meta_log_message(message):
-        task_instance.update_meta(log_message=message)
+    with memray.Tracker(f"process_duplicates-{datetime.now()}.bin"):
 
-    task_updater_log_handler.set_handler(set_task_meta_log_message)
-    results = task_instance.run()
-    # Celery replaces the `info` field with the return value of the task, so
-    #   return the last meta update alongside our results
-    final_meta = task_instance.get_meta()
+        def set_task_meta_log_message(message):
+            task_instance.update_meta(log_message=message)
 
-    return {
-        "results": results,
-        "meta": final_meta,
-    }
+        task_updater_log_handler.set_handler(set_task_meta_log_message)
+        results = task_instance.run()
+        # Celery replaces the `info` field with the return value of the task, so
+        #   return the last meta update alongside our results
+        final_meta = task_instance.get_meta()
+
+        return {
+            "results": results,
+            "meta": final_meta,
+        }
