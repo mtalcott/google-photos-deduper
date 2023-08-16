@@ -4,7 +4,8 @@ import time
 from sentence_transformers import SentenceTransformer, util
 from PIL import Image
 from urllib.request import urlopen
-from tqdm import trange
+import torch
+from tqdm import tqdm
 from typing import Callable
 import app.config
 
@@ -85,27 +86,50 @@ class DuplicateImageDetector:
     def _calculate_embeddings(self):
         if self.embeddings is not None:
             return self.embeddings
+
         print(
             f"Calculating embeddings for {len(self.media_items)} images "
             f"using {self.model.device}"
         )
 
-        start = time.perf_counter()
-        images = list(self._get_images())
-        self.logger.info(
-            f"Loaded images in {(time.perf_counter() - start):.2f} seconds"
-        )
+        # start = time.perf_counter()
+        # images = list(self._get_images())
+        # self.logger.info(
+        #     f"Loaded images in {(time.perf_counter() - start):.2f} seconds"
+        # )
 
-        # Calculate embeddings in bulk
+        # # Calculate embeddings in bulk
+        # start = time.perf_counter()
+        # self.embeddings = self.model.encode(
+        #     images,
+        #     batch_size=8,
+        #     convert_to_tensor=True,
+        #     show_progress_bar=True,
+        # )
+        # self.logger.info(
+        #     f"Encoded images in {(time.perf_counter() - start):.2f} seconds"
+        # )
+
         start = time.perf_counter()
-        self.embeddings = self.model.encode(
-            images,
-            batch_size=8,
-            convert_to_tensor=True,
-            show_progress_bar=True,
-        )
+
+        raw_embeddings = []
+        batch_size = 16
+        with tqdm(total=len(self.media_items)) as pbar:
+            for image in self._get_images():
+                embedding = self.model.encode(
+                    image,
+                    batch_size=1,
+                    convert_to_numpy=False,
+                    show_progress_bar=False,
+                )
+                raw_embeddings.append(embedding)
+                pbar.update(batch_size)
+
+        self.embeddings = torch.stack(raw_embeddings)
+
         self.logger.info(
-            f"Encoded images in {(time.perf_counter() - start):.2f} seconds"
+            f"Calculated embeddings for {len(self.media_items)} images in "
+            f"{(time.perf_counter() - start):.2f} seconds"
         )
 
         return self.embeddings

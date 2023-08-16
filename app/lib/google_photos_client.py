@@ -32,7 +32,8 @@ class GooglePhotosClient(GoogleApiClient):
         self.repo.delete_all()
 
     def fetch_media_items(self):
-        self.clear_local_media_items()
+        # TODO: Re-enable this
+        # self.clear_local_media_items()
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
