@@ -27,7 +27,7 @@ class MediaItemsImageStore:
                     with open(path, "wb") as file:
                         file.write(request.content)
                     success = True
-                except requests.exceptions.HTTPError as error:
+                except requests.exceptions.RequestException as error:
                     attempts -= 1
                     logging.warn(
                         f"Received {error} downloading image\n"

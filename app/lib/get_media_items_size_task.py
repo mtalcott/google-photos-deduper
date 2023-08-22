@@ -63,11 +63,11 @@ class GetMediaItemsSizeTask:
             try:
                 size = requests.head(
                     url,
-                    timeout=10,
+                    timeout=20,
                     allow_redirects=True,
                 ).headers["content-length"]
                 success = True
-            except requests.exceptions.HTTPError as error:
+            except requests.exceptions.RequestException as error:
                 attempts -= 1
                 logging.warn(
                     f"Received {error} getting media item size\n"
@@ -76,6 +76,9 @@ class GetMediaItemsSizeTask:
                     f"attempts left: {attempts}"
                 )
                 if attempts <= 0:
-                    raise error
+                    self.logger.warn(
+                        f"Failed to get media item size, received {error}. Skipping.\n"
+                        f"media_item_json: {media_item_json}"
+                    )
 
         return int(size)
