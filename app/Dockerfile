@@ -1,11 +1,13 @@
-FROM python:3.9 AS base
+FROM python:3.9-slim-buster AS base
+
+RUN apt-get update && apt-get install -y \
+    python3-opencv \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
 
 ########### START NEW IMAGE : DEV ###################
 FROM base as dev
