@@ -29,7 +29,7 @@ class GooglePhotosClient(GoogleApiClient):
         request_data = {"pageSize": 100}
 
         self.logger.info("Fetching mediaItems...")
-        last_log_time = None
+        last_log_time = time.time()
 
         while True:
             if next_page_token:
@@ -54,7 +54,7 @@ class GooglePhotosClient(GoogleApiClient):
                     item_count += 1
 
                     # Log every 3 seconds
-                    if last_log_time is None or last_log_time < time.time() - 3:
+                    if last_log_time < time.time() - 3:
                         self.logger.info(f"Fetched {item_count:,} mediaItems so far")
                         last_log_time = time.time()
 

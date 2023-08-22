@@ -31,7 +31,7 @@ class StoreImagesTask:
 
         num_completed = 0
         num_total = len(self.media_item_ids)
-        last_log_time = None
+        last_log_time = time.time()
 
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
@@ -41,7 +41,7 @@ class StoreImagesTask:
             num_completed += 1
 
             # Log every 3 seconds
-            if last_log_time is None or last_log_time < time.time() - 3:
+            if last_log_time < time.time() - 3:
                 self.logger.info(
                     f"Stored images for {num_completed} of {num_total} media items"
                 )
