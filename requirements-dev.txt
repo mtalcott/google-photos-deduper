@@ -1,11 +1,32 @@
 -i https://pypi.org/simple
+amqp==5.1.1; python_version >= '3.6'
+billiard==4.1.0; python_version >= '3.7'
 black==23.7.0
-click==8.1.6 ; python_version >= '3.7'
+celery[redis]==5.3.1
+click==8.1.6; python_version >= '3.7'
+click-didyoumean==0.3.0; python_full_version >= '3.6.2' and python_full_version < '4.0.0'
+click-plugins==1.1.1
+click-repl==0.3.0; python_version >= '3.6'
 debugpy==1.6.7
-mypy-extensions==1.0.0 ; python_version >= '3.5'
-packaging==23.1 ; python_version >= '3.7'
-pathspec==0.11.1 ; python_version >= '3.7'
-platformdirs==3.9.1 ; python_version >= '3.7'
-tomli==2.0.1 ; python_version < '3.11'
-typing-extensions==4.7.1 ; python_version >= '3.7'
+exceptiongroup==1.1.2; python_version < '3.11'
+iniconfig==2.0.0; python_version >= '3.7'
+kombu==5.3.1; python_version >= '3.8'
+mypy-extensions==1.0.0; python_version >= '3.5'
+packaging==23.1; python_version >= '3.7'
+pathspec==0.11.2; python_version >= '3.7'
+platformdirs==3.10.0; python_version >= '3.7'
+pluggy==1.2.0; python_version >= '3.7'
+prompt-toolkit==3.0.39; python_full_version >= '3.7.0'
+pytest==7.4.0
+pytest-celery==0.0.0
+pytest-dotenv==0.5.2
+pytest-mock==3.11.1
+python-dateutil==2.8.2; python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'
+python-dotenv==1.0.0
+six==1.16.0; python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'
+tomli==2.0.1; python_version < '3.11'
+typing-extensions==4.7.1; python_version >= '3.7'
+tzdata==2023.3; python_version >= '2'
+vine==5.0.0; python_version >= '3.6'
 watchdog==3.0.0
+wcwidth==0.2.6
