@@ -29,8 +29,11 @@ class GetMediaItemsSizeTask:
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
 
-            size = self._get_media_item_size(media_item)
-            self.repo.update(media_item_id, {"size": size})
+            # If we already retrieved the size, don't do it again
+            if not media_item["size"]:
+                size = self._get_media_item_size(media_item)
+                self.repo.update(media_item_id, {"size": size})
+
             num_completed += 1
 
             # Log every 3 seconds
