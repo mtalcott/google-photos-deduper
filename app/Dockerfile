@@ -20,7 +20,7 @@ CMD python -m debugpy --listen 0.0.0.0:5678 -m flask --app app/server run --host
 ######### START NEW IMAGE : DEV-WORKER ##############
 FROM dev as dev-worker
 
-CMD watchmedo auto-restart -p '*.py' --recursive -- python -m debugpy --listen 0.0.0.0:5678 -m celery --app app.tasks worker --loglevel=INFO
+CMD watchmedo auto-restart -p '*.py' --recursive -- python -m debugpy --listen 0.0.0.0:5678 -m celery --app app.tasks worker --concurrency=16 --loglevel=INFO
 
 ########## START NEW IMAGE : PROD ###################
 FROM base as prod
