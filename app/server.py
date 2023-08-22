@@ -136,7 +136,7 @@ def logout():
 def task_results_for_display(results):
     repo = MediaItemsRepository(user_id=flask.session["user_id"])
     media_item_ids = [id for g in results["groups"] for id in g["mediaItemIds"]]
-    media_items_id_map = repo.get_id_map(*media_item_ids)
+    media_items_id_map = repo.get_id_map(media_item_ids)
 
     results_for_display = {}
     results_for_display["groups"] = {g["id"]: g for g in results["groups"]}
