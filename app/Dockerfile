@@ -10,7 +10,10 @@ COPY . .
 ########### START NEW IMAGE : DEV ###################
 FROM base as dev
 
+COPY requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
+
+COPY . .
 
 ######### START NEW IMAGE : DEV-SERVER ##############
 FROM dev as dev-server
@@ -24,5 +27,7 @@ CMD watchmedo auto-restart -p '*.py' --recursive -- python -m debugpy --listen 0
 
 ########## START NEW IMAGE : PROD ###################
 FROM base as prod
+
+COPY . .
 
 CMD gunicorn -b 0.0.0.0:5000 app:app/server
