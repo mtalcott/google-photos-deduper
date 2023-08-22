@@ -1,10 +1,12 @@
 import copy
 import datetime
 import logging
+import time
+from typing import Union
 import celery
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
-from app import server  # required for building URLs
+from app import server, tasks  # required for building URLs
 from app import CELERY_APP as celery_app
 
 
@@ -15,7 +17,29 @@ class Steps:
     all = [FETCH_MEDIA_ITEMS, PROCESS_DUPLICATES]
 
 
+class Subtask:
+    STORE_IMAGES = "store_images"
+    GET_MEDIA_ITEMS_SIZE = "get_media_items_size"
+
+    types = [STORE_IMAGES, GET_MEDIA_ITEMS_SIZE]
+    type_type = Union[STORE_IMAGES, GET_MEDIA_ITEMS_SIZE]
+
+    def __init__(self, type: type_type, result: celery.result.AsyncResult):
+        self._type = type
+        self._result = result
+
+    @property
+    def type(self) -> type_type:
+        return self._type
+
+    @property
+    def result(self) -> celery.result.AsyncResult:
+        return self._result
+
+
 class ProcessDuplicatesTask:
+    SUBTASK_BATCH_SIZE = 100
+
     def __init__(
         self,
         task: celery.Task,
@@ -38,16 +62,20 @@ class ProcessDuplicatesTask:
             step: {"startedAt": None, "completedAt": None} for step in Steps.all
         }
 
+        # Initialize subtasks structure for async results
+        self.fetched_media_item_ids: list[dict] = []
+        self.subtasks: list[Subtask] = []
+
     def run(self):
         self.start_step(Steps.FETCH_MEDIA_ITEMS)
         client = GooglePhotosClient.from_user_id(
             self.user_id,
             logger=self.logger,
-            resolution=self.resolution,
         )
 
         if self.refresh_media_items or client.local_media_items_count() == 0:
-            client.fetch_media_items()
+            self._fetch_media_items(client)
+            self._await_subtask_completion()
 
         media_items_count = client.local_media_items_count()
         self.complete_step(Steps.FETCH_MEDIA_ITEMS, count=media_items_count)
@@ -127,7 +155,7 @@ class ProcessDuplicatesTask:
 
         self.task.update_state(
             # If we don't pass a state, it gets updated to blank.
-            # Let's use PROGRESS to differentate from PENDING.
+            # Let's use PROGRESS to differentiate from PENDING.
             state="PROGRESS",
             # `meta` field comes through as the `info` field on task async result.
             meta={"meta": self.meta},
@@ -141,3 +169,56 @@ class ProcessDuplicatesTask:
 
     def complete_step(self, step, count=None):
         self.update_meta(complete_step_name=step, count=count)
+
+    def _fetch_media_items(self, client: GooglePhotosClient):
+        def fetch_callback(media_item_json):
+            self.fetched_media_item_ids.append(media_item_json["id"])
+            if len(self.fetched_media_item_ids) >= self.SUBTASK_BATCH_SIZE:
+                self._postprocess_fetched_media_items()
+
+        # Fetch media items, passing success callback
+        client.fetch_media_items(callback=fetch_callback)
+
+        # Fetch any remaining media items
+        self._postprocess_fetched_media_items()
+
+    def _postprocess_fetched_media_items(self):
+        media_item_ids = self.fetched_media_item_ids
+        if len(media_item_ids) == 0:
+            return
+
+        store_images_result = tasks.store_images.delay(
+            self.user_id,
+            media_item_ids,
+            self.resolution,
+        )
+        self.subtasks.append(Subtask(Subtask.STORE_IMAGES, store_images_result))
+
+        get_media_items_size_result = tasks.get_media_items_size.delay(
+            self.user_id,
+            media_item_ids,
+        )
+        self.subtasks.append(
+            Subtask(Subtask.GET_MEDIA_ITEMS_SIZE, get_media_items_size_result)
+        )
+
+        self.fetched_media_item_ids = []
+
+    def _await_subtask_completion(self):
+        """
+        Wait for all subtasks to complete.
+        """
+        while True:
+            subtask_results = [s.result for s in self.subtasks]
+            num_completed = [r.ready() for r in subtask_results].count(True)
+            num_total = len(self.subtasks)
+            if num_completed == num_total:
+                # All done.
+                break
+            else:
+                message = (
+                    f"Waiting for subtasks to complete... "
+                    f"({num_completed} / {num_total})"
+                )
+                self.logger.info(message)
+                time.sleep(3)

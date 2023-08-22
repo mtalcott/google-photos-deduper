@@ -50,7 +50,7 @@ def test_get_id_map__same_user_id(collection, user_id, media_item, repo):
     """Should return a dict of id to media item for specified user_id"""
     insert = collection.insert_one(media_item | {"userId": user_id})
 
-    result = repo.get_id_map(media_item["id"])
+    result = repo.get_id_map([media_item["id"]])
     assert type(result) == dict
     assert result[media_item["id"]].items() >= media_item.items()
 
@@ -63,7 +63,7 @@ def test_get_id_map__different_user_id(collection, user_id, media_item, repo):
         media_item | {"id": "id2", "userId": "test-other-user-id"}
     )
 
-    result = repo.get_id_map("id1", "id2")
+    result = repo.get_id_map(["id1", "id2"])
     assert "id2" not in result
 
 
