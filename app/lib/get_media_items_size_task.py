@@ -30,7 +30,7 @@ class GetMediaItemsSizeTask:
             media_item = media_item_id_map[media_item_id]
 
             # If we already retrieved the size, don't do it again
-            if not media_item["size"]:
+            if "size" not in media_item:
                 size = self._get_media_item_size(media_item)
                 self.repo.update(media_item_id, {"size": size})
 
