@@ -2,6 +2,7 @@ import logging
 import celery
 from typing import Callable
 from app import CELERY_APP as celery_app
+from app.lib.get_media_items_size_task import GetMediaItemsSizeTask
 
 from app.lib.process_duplicates_task import ProcessDuplicatesTask
 from app.lib.store_images_task import StoreImagesTask
@@ -101,7 +102,7 @@ def store_images(user_id, media_item_ids, resolution):
 def get_media_items_size(user_id, media_item_ids):
     # TODO: Fix this workaround
     task_updater_log_handler.set_handler(lambda x: None)
-    task_instance = StoreImagesTask(
+    task_instance = GetMediaItemsSizeTask(
         user_id,
         media_item_ids,
         logger=task_logger,
