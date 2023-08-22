@@ -28,9 +28,6 @@ class GetMediaItemsSizeTask:
 
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
-            assert (
-                media_item
-            ), f"Media item {media_item_id} for user {self.user_id} not found"
 
             size = self._get_media_item_size(media_item)
             self.repo.update(media_item_id, {"size": size})

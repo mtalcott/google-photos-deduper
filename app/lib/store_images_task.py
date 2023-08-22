@@ -35,9 +35,6 @@ class StoreImagesTask:
 
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
-            assert (
-                media_item
-            ), f"Media item {media_item_id} for user {self.user_id} not found"
 
             storage_filename = self.image_store.store_image(media_item)
             self.repo.update(media_item_id, {"storageFilename": storage_filename})

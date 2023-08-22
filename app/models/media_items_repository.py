@@ -35,7 +35,7 @@ class MediaItemsRepository:
         self.db = client[config.DATABASE]
         self.collection = self.db.media_items
 
-    def get_id_map(self, *ids):
+    def get_id_map(self, ids):
         result = self.collection.find(
             {
                 "id": {"$in": ids},
