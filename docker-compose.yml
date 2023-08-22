@@ -73,6 +73,13 @@ services:
     volumes:
       - ./:/usr/src/app
       - image-volume:/mnt/images
+  flower:
+    image: mher/flower
+    command: "celery --broker=redis://redis:6379 flower --port=5555"
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
   client:
     build:
       dockerfile: Dockerfile
