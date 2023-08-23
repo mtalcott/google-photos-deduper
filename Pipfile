@@ -17,6 +17,7 @@ celery = {extras = [ "redis",]}
 tqdm = "*"
 install = "*"
 mediapipe = "*"
+torch = "*"
 
 [dev-packages]
 debugpy = "*"
