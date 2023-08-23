@@ -8,7 +8,9 @@ import requests
 import torch
 from tqdm import trange
 import mediapipe as mp
+
 from app.lib.media_items_image_store import MediaItemsImageStore
+from app import config
 
 BaseOptions = mp.tasks.BaseOptions
 ImageEmbedder = mp.tasks.vision.ImageEmbedder
@@ -77,7 +79,7 @@ class DuplicateImageDetector:
         if self.embeddings is not None:
             return self.embeddings
 
-        model_path = "mobilenet_v3_large.tflite"
+        model_path = os.path.join(config.TEMP_PATH, "mobilenet_v3_large.tflite")
         if not os.path.exists(model_path):
             print(f"Downloading model")
             request = requests.get(

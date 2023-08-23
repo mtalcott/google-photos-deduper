@@ -17,6 +17,7 @@ MONGODB_URI = os.environ.get("MONGODB_URI")
 DATABASE = os.environ.get("DATABASE")
 
 IMAGE_STORE_PATH = os.environ.get("IMAGE_STORE_PATH")
+TEMP_PATH = "tmp/"
 PUBLIC_IMAGE_FOLDER = os.environ.get("PUBLIC_IMAGE_FOLDER")
 
 CLIENT_HOST = os.environ.get("CLIENT_HOST")
