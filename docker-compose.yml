@@ -65,6 +65,7 @@ services:
       - REDIS_HOST=redis:6379
       - IMAGE_STORE_PATH=/mnt/images/
       - PUBLIC_IMAGE_FOLDER=http://localhost/images/
+      - CELERY_CONCURRENCY=32
     ports:
       - "5679:5678" # debugpy
     depends_on:
