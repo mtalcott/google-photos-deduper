@@ -1,7 +1,6 @@
 import logging
 import os
 import app.config
-from PIL import Image
 import requests
 
 
@@ -15,8 +14,8 @@ class MediaItemsImageStore:
         self.resolution = resolution
 
     def store_image(self, media_item) -> str:
-        url = self._get_image_url(media_item)
-        path = self._get_storage_path(media_item)
+        url = self._image_url(media_item)
+        path = self._storage_path(media_item)
         # If we already have a local copy, don't download it again
         if not os.path.isfile(path):
             attempts = 3
@@ -38,21 +37,23 @@ class MediaItemsImageStore:
                     if attempts <= 0:
                         raise error
 
-        return self.get_storage_filename(media_item)
+        return self._storage_filename(media_item)
 
-    def get_image(self, media_item) -> Image:
-        path = self._get_storage_path(media_item)
-        return Image.open(path)
+    def get_storage_path(self, storage_filename: str) -> str:
+        return os.path.join(
+            app.config.IMAGE_STORE_PATH,
+            storage_filename,
+        )
 
-    def get_storage_filename(self, media_item) -> str:
+    def _storage_filename(self, media_item) -> str:
         # These are all JPEG images (baseUrl for movies is a thumbnail)
         return f"{media_item['id']}-{self.resolution}.jpg"
 
-    def _get_storage_path(self, media_item) -> str:
+    def _storage_path(self, media_item) -> str:
         return os.path.join(
             app.config.IMAGE_STORE_PATH,
-            self.get_storage_filename(media_item),
+            self._storage_filename(media_item),
         )
 
-    def _get_image_url(self, media_item) -> str:
+    def _image_url(self, media_item) -> str:
         return f"{media_item['baseUrl']}=w{self.resolution}-h{self.resolution}"
