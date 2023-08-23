@@ -1,5 +1,6 @@
 # import pprint
 # import json
+import logging
 import os
 import pymongo
 from bson.objectid import ObjectId
@@ -24,6 +25,11 @@ class MediaItemsRepository:
         "deletedAt",  # When the media item was deleted by our app
         "userUrl",  # User-facing URL of the media item. productUrl is generated for our app and eventually expires.
     ]
+
+    @classmethod
+    def create_indexes(cls):
+        instance = cls("1")
+        instance._create_indexes()
 
     def __init__(self, user_id: str):
         if not user_id:
@@ -84,3 +90,24 @@ class MediaItemsRepository:
 
     def count(self):
         return self.collection.count_documents({"userId": self.user_id})
+
+    def _create_indexes(self):
+        index_info = self.collection.index_information()
+        logging.info(f"Existing indexes: {index_info}")
+
+        index1_name = "media_items_user_id_media_item_id_idx"
+        if index1_name not in index_info:
+            self.collection.create_index(
+                [("user_id", pymongo.ASCENDING), "id"],
+                unique=True,
+                name=index1_name,
+            )
+            logging.info(f"Created index {index1_name}")
+
+        index2_name = "media_items_user_id_idx"
+        if index2_name not in index_info:
+            self.collection.create_index(
+                "user_id",
+                name=index2_name,
+            )
+            logging.info(f"Created index {index2_name}")

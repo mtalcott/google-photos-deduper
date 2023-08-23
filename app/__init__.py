@@ -2,6 +2,7 @@ from flask import Flask
 from celery import Celery, Task
 import flask_cors
 from app import config
+from app.models.media_items_repository import MediaItemsRepository
 
 
 # Flask app setup
@@ -38,3 +39,5 @@ def celery_init_app(flask_app: Flask) -> Celery:
 
 FLASK_APP = create_flask_app()
 CELERY_APP = FLASK_APP.extensions["celery"]
+
+MediaItemsRepository.create_indexes()
