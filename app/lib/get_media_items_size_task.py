@@ -72,12 +72,23 @@ class GetMediaItemsSizeTask:
                 success = True
             except requests.exceptions.RequestException as error:
                 attempts -= 1
-                logging.warn(
-                    f"Received {error} getting media item size\n"
-                    f"media_item_json: {media_item_json}\n"
-                    f"url: {url}\n"
-                    f"attempts left: {attempts}"
-                )
+                if (
+                    isinstance(error, requests.exceptions.HTTPError)
+                    and error.response.status_code == 429
+                ):
+                    logging.warn(
+                        f"Received {error} getting media item size\n"
+                        f"See https://developers.google.com/photos/library/guides/api-limits-quotas#general-quota-limits\n"
+                        f"Sleeping 60s before retry..."
+                    )
+                    time.sleep(60)
+                else:
+                    logging.warn(
+                        f"Received {error} getting media item size\n"
+                        f"media_item_json: {media_item_json}\n"
+                        f"url: {url}\n"
+                        f"attempts left: {attempts}"
+                    )
                 if attempts <= 0:
                     self.logger.warn(
                         f"Failed to get media item size, received {error}. Skipping.\n"

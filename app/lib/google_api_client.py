@@ -140,8 +140,8 @@ class GoogleApiClient:
         # Automatically raise errors
         session.hooks = {"response": lambda r, *args, **kwargs: r.raise_for_status()}
 
-        # Retry up to 3 times on 503 response
-        retry_strategy = Retry(total=3, backoff_factor=1, status_forcelist=[503])
+        # Retry up to 3 times on 503 or 429 response
+        retry_strategy = Retry(total=3, backoff_factor=4, status_forcelist=[429, 503])
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
