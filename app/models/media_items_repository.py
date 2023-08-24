@@ -108,10 +108,10 @@ class MediaItemsRepository:
         index_info = self.collection.index_information()
         logging.info(f"Existing indexes: {index_info}")
 
-        index1_name = "media_items_user_id_media_item_id_idx"
+        index1_name = "media_items_id_user_id_idx"
         if index1_name not in index_info:
             self.collection.create_index(
-                [("user_id", pymongo.ASCENDING), "id"],
+                [("id", pymongo.ASCENDING), "user_id"],
                 unique=True,
                 name=index1_name,
             )
