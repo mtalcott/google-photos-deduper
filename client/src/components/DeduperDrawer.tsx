@@ -227,19 +227,10 @@ function DeduperTaskStep({ step, info }: DeduperTaskStepProps) {
           ) : (
             <CircularProgress size={"1em"} />
           )}{" "}
-          {taskStepTitle}
-          {count !== undefined && (
-            <>
-              {" ("}
-              {[
-                new Intl.NumberFormat().format(count),
-                countUnit,
-                "in",
-                prettyDuration(duration),
-              ].join(" ")}
-              {")"}
-            </>
-          )}
+          {taskStepTitle} (
+          {count !== undefined &&
+            `${[new Intl.NumberFormat().format(count)]} ${countUnit} in `}
+          {prettyDuration(duration)})
         </Typography>
       </>
     );
