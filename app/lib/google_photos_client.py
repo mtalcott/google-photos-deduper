@@ -1,3 +1,4 @@
+import datetime
 import time
 from typing import Callable
 
@@ -50,7 +51,10 @@ class GooglePhotosClient(GoogleApiClient):
                     # refresh them later for long-running tasks.
 
                     all_ids.add(media_item_json["id"])
-                    self.repo.create_or_update(media_item_json)
+                    self.repo.create_or_update(
+                        media_item_json
+                        | {"fetchedAt": datetime.datetime.now().astimezone()}
+                    )
                     item_count += 1
 
                     # Log every 3 seconds

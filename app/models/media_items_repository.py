@@ -25,6 +25,7 @@ class MediaItemsRepository:
         "size",  # Size in bytes
         "deletedAt",  # When the media item was deleted by our app
         "userUrl",  # User-facing URL of the media item. productUrl is generated for our app and eventually expires.
+        "fetchedAt",  # Datetime representing when the media item was fetched from Google Photos
     ]
 
     @classmethod
@@ -86,9 +87,9 @@ class MediaItemsRepository:
     def all(self):
         return (
             self.collection.find({"userId": self.user_id})
-            # Order by creationTime ascending, so we can easily identify
-            #   the earliest created mediaItem as the original
-            .sort("mediaMetadata.creationTime", 1)
+            # Order by fetchedAt, representing the order mediaItems were returned
+            #   from the Google Photos API
+            .sort("fetchedAt", 1)
             # Prevent out of memory errors by allowing MongoDB to write to temp
             #   files (default memory limit is 100MB)
             .allow_disk_use(True)
