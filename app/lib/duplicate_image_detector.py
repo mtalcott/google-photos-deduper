@@ -120,7 +120,7 @@ class DuplicateImageDetector:
         embeddings: torch.Tensor,
         threshold=0.99,
         min_community_size=2,
-        batch_size=1024,
+        batch_size=128,
     ):
         """
         Function for Fast Community Detection
