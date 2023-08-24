@@ -31,8 +31,14 @@ class GetMediaItemsSizeTask:
 
             # If we already retrieved the size, don't do it again
             if "size" not in media_item:
-                size = self._get_media_item_size(media_item)
-                self.repo.update(media_item_id, {"size": size})
+                try:
+                    size = self._get_media_item_size(media_item)
+                    self.repo.update(media_item_id, {"size": size})
+                except requests.exceptions.RequestException as error:
+                    self.logger.warn(
+                        f"Failed to get media item size, received {error}. Skipping.\n"
+                        f"media_item: {media_item}"
+                    )
 
             num_completed += 1
 
@@ -90,10 +96,6 @@ class GetMediaItemsSizeTask:
                         f"attempts left: {attempts}"
                     )
                 if attempts <= 0:
-                    self.logger.warn(
-                        f"Failed to get media item size, received {error}. Skipping.\n"
-                        f"media_item_json: {media_item_json}"
-                    )
-                    return None
+                    raise error
 
         return int(size)
