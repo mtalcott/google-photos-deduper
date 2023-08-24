@@ -47,7 +47,9 @@ interface TaskResultsProps {
 
 export default function TaskResults(props: TaskResultsProps) {
   const [results, dispatch] = useTaskResultsReducer(props.results);
-  const groups = Object.values(results.groups);
+  const groupsWithDuplicates = Object.values(results.groups).filter(
+    (g) => g.hasDuplicates
+  );
   const selectedMediaItemIds = Object.values(results.groups).reduce(
     (acc, group) => {
       if (group.isSelected) {
@@ -68,7 +70,7 @@ export default function TaskResults(props: TaskResultsProps) {
     new Set<string>()
   );
 
-  if (groups.length === 0) {
+  if (groupsWithDuplicates.length === 0) {
     return <Typography sx={{ mt: 4 }}>No duplicates found.</Typography>;
   }
 
@@ -89,11 +91,14 @@ export default function TaskResults(props: TaskResultsProps) {
                 className="react-window-list"
                 height={height}
                 width={width}
-                itemCount={groups.length}
+                itemCount={groupsWithDuplicates.length}
                 itemSize={291}
               >
                 {({ index, style }) => (
-                  <ResultRow group={groups[index]} {...{ style }} />
+                  <ResultRow
+                    group={groupsWithDuplicates[index]}
+                    {...{ style }}
+                  />
                 )}
               </List>
             )}
