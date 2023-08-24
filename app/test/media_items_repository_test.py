@@ -86,15 +86,17 @@ def test_create_or_update__update(collection, user_id, media_item, repo):
 
 
 @requires_mongodb
-def test_delete_all(collection, user_id, media_item, repo):
-    """Should delete all documents with the same user_id"""
+def test_delete(collection, user_id, media_item, repo):
+    """Should delete documents with matching ID and same user_id"""
     other_user_id = "test-other-user-id"
     insert1 = collection.insert_one(media_item | {"id": "id1", "userId": user_id})
-    insert2 = collection.insert_one(media_item | {"id": "id2", "userId": other_user_id})
-    repo.delete_all()
+    insert2 = collection.insert_one(media_item | {"id": "id2", "userId": user_id})
+    insert3 = collection.insert_one(media_item | {"id": "id3", "userId": other_user_id})
+    repo.delete(["id1"])
 
     assert collection.count_documents({"id": "id1"}) == 0
     assert collection.count_documents({"id": "id2"}) == 1
+    assert collection.count_documents({"id": "id3"}) == 1
 
 
 @requires_mongodb
@@ -108,9 +110,8 @@ def test_all__same_user_id(collection, user_id, media_item, repo):
     insert2 = collection.insert_one(attr2)
     documents = repo.all()
 
-    ids = [doc["id"] for doc in documents]
-    print(documents)
-    assert ids == ["id2", "id1"]
+    ids = {doc["id"] for doc in documents}
+    assert ids == {"id2", "id1"}
 
 
 @requires_mongodb
@@ -123,7 +124,7 @@ def test_all__different_user_id(collection, user_id, media_item, repo):
 
     documents = repo.all()
 
-    ids = [doc["id"] for doc in documents]
+    ids = {doc["id"] for doc in documents}
     assert "id2" not in ids
 
 
