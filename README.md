@@ -18,7 +18,7 @@ It turns out the [Google Photos API](https://developers.google.com/photos) is qu
 
 ## Getting Started
 
-For privacy and cost reasons, no public hosted solution is currently provided. Instead, follow these instructions to get the app up and running locally:
+No public hosted solution is currently provided, due to the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914) as well as cost and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
 
 ### Setup
 
@@ -26,7 +26,7 @@ For privacy and cost reasons, no public hosted solution is currently provided. I
 1. Clone this repository.
 1. Set up local environment variables.
    - Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID for a web application using Google Developer Console.
- Download your client secret file.
+     Download your client secret file.
    - `cp example.env .env`
    - Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
    - Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file.
