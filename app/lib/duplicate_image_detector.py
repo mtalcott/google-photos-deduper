@@ -42,6 +42,7 @@ class DuplicateImageDetector:
     def calculate_groups(self):
         embeddings = self._calculate_embeddings()
 
+        start = time.perf_counter()
         # Two parameters to tune:
         #   min_community_size: Only consider cluster that have at least 2 elements
         #   threshold: Consider sentence pairs with a cosine-similarity larger than threshold as similar
@@ -49,6 +50,9 @@ class DuplicateImageDetector:
             embeddings,
             min_community_size=2,
             threshold=self.threshold,
+        )
+        self.logger.info(
+            f"Calculated groups in {(time.perf_counter() - start):.2f} seconds"
         )
 
         return groups
@@ -58,7 +62,11 @@ class DuplicateImageDetector:
 
         # Contains a list with triplets (score, image_index1, image_index2) and
         # is sorted in decreasing order by score
+        start = time.perf_counter()
         similarity_scores = self._paraphrase_mining_embeddings(embeddings)
+        self.logger.info(
+            f"Calculated similarity map in {(time.perf_counter() - start):.2f} seconds"
+        )
 
         # Convert these into a dict of dict[image_id1][image_id2] = score
         similarity_map = {}
