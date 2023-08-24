@@ -35,7 +35,7 @@ def test_image_paths():
     ]
 
 
-def test_calculate_clusters(mocker, media_items, test_image_paths):
+def test_calculate_groups(mocker, media_items, test_image_paths):
     p1 = mocker.patch.object(GoogleApiClient, "get_user_info")
     p1.return_value = {"id": "test-user-id"}
 
@@ -43,9 +43,9 @@ def test_calculate_clusters(mocker, media_items, test_image_paths):
     p2.side_effect = test_image_paths  # Return first, then second, then third
 
     detector = DuplicateImageDetector(media_items)
-    clusters = detector.calculate_clusters()
+    groups = detector.calculate_groups()
 
-    assert clusters == [[0, 1]]
+    assert groups == [[0, 1]]
 
 
 def test_calculate_similarity_map(mocker, media_items, test_image_paths):

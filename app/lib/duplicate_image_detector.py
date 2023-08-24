@@ -39,19 +39,19 @@ class DuplicateImageDetector:
         self.image_store = MediaItemsImageStore()
         self.embeddings: torch.Tensor = None
 
-    def calculate_clusters(self):
+    def calculate_groups(self):
         embeddings = self._calculate_embeddings()
 
         # Two parameters to tune:
         #   min_community_size: Only consider cluster that have at least 2 elements
         #   threshold: Consider sentence pairs with a cosine-similarity larger than threshold as similar
-        clusters = self._community_detection(
+        groups = self._community_detection(
             embeddings,
             min_community_size=2,
             threshold=self.threshold,
         )
 
-        return clusters
+        return groups
 
     def calculate_similarity_map(self):
         embeddings = self._calculate_embeddings()

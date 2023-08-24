@@ -92,14 +92,14 @@ class ProcessDuplicatesTask:
             threshold=self.similarity_threshold,
         )
         similarity_map = duplicate_detector.calculate_similarity_map()
-        clusters = duplicate_detector.calculate_clusters()
+        groups = duplicate_detector.calculate_groups()
 
         result = {
             "similarityMap": similarity_map,
             "groups": [],
         }
 
-        for group_index, media_item_indices in enumerate(clusters):
+        for group_index, media_item_indices in enumerate(groups):
             group_media_items = [media_items[i] for i in media_item_indices]
 
             group_sizes = [m["size"] for m in group_media_items]
