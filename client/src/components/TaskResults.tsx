@@ -277,7 +277,7 @@ function MediaItemCardField({
     } else {
       let similarityAsPercent = "N/A";
       const similarity =
-        results?.similarityMap[mediaItem.id][originalMediaItem.id];
+        results.similarityMap[mediaItem.id]?.[originalMediaItem.id];
       if (similarity) {
         similarityAsPercent = `${(similarity * 100).toFixed(2)}%`;
         if (similarity > 0.99) {
