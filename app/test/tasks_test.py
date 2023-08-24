@@ -20,6 +20,7 @@ def test_process_duplicates(
         "app.models.credentials_repository.CredentialsRepository",
         get=Mock(return_value=credentials),
     )
+    media_item = media_item | {"size": 100}
     mocker.patch.multiple(
         "app.lib.google_photos_client.GooglePhotosClient",
         get_user_info=Mock(return_value=user_info),
@@ -29,7 +30,7 @@ def test_process_duplicates(
     )
     mocker.patch.multiple(
         "app.lib.duplicate_image_detector.DuplicateImageDetector",
-        calculate_clusters=Mock(return_value=[[0]]),
+        calculate_groups=Mock(return_value=[[0]]),
         calculate_similarity_map=Mock(return_value={}),
     )
 
@@ -39,13 +40,11 @@ def test_process_duplicates(
     )
     result = async_result.get()
 
-    assert "groups" in result
-    assert len(result["groups"]) == 1
-    assert "mediaItems" in result["groups"][0]
-    assert len(result["groups"][0]["mediaItems"]) == 1
-    assert (
-        result["groups"][0]["mediaItems"][0].items() >= {"id": media_item["id"]}.items()
-    )
+    assert "groups" in result["results"]
+    assert len(result["results"]["groups"]) == 1
+    assert "mediaItemIds" in result["results"]["groups"][0]
+    assert len(result["results"]["groups"][0]["mediaItemIds"]) == 1
+    assert result["results"]["groups"][0]["mediaItemIds"][0] == media_item["id"]
 
-    assert "similarityMap" in result
-    assert result["similarityMap"] == {}
+    assert "similarityMap" in result["results"]
+    assert result["results"]["similarityMap"] == {}
