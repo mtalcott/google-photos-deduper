@@ -2,6 +2,7 @@
 # import json
 import logging
 import os
+from typing import Union
 import pymongo
 from bson.objectid import ObjectId
 from app import config
@@ -74,8 +75,13 @@ class MediaItemsRepository:
 
         return self.collection.find_one({"id": id, "userId": self.user_id})
 
-    def delete_all(self):
-        return self.collection.delete_many({"userId": self.user_id})
+    def delete(self, ids: Union[list[str], set[str]]) -> None:
+        self.collection.delete_many(
+            {
+                "id": {"$in": list(ids)},
+                "userId": self.user_id,
+            }
+        )
 
     def all(self):
         return (
@@ -88,10 +94,17 @@ class MediaItemsRepository:
             .allow_disk_use(True)
         )
 
-    def count(self):
+    def count(self) -> int:
         return self.collection.count_documents({"userId": self.user_id})
 
-    def _create_indexes(self):
+    def all_ids(self) -> set[str]:
+        result = self.collection.find(
+            {"userId": self.user_id},
+            projection={"id": 1, "_id": 0},
+        )
+        return {item["id"] for item in result}
+
+    def _create_indexes(self) -> None:
         index_info = self.collection.index_information()
         logging.info(f"Existing indexes: {index_info}")
 

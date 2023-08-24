@@ -19,17 +19,16 @@ class GooglePhotosClient(GoogleApiClient):
     def local_media_items_count(self):
         return self.repo.count()
 
-    def clear_local_media_items(self):
-        self.repo.delete_all()
-
     def fetch_media_items(self, callback: Callable[[dict], None] = None):
-        self.clear_local_media_items()
         next_page_token = None
         item_count = 0
         request_data = {"pageSize": 100}
 
         self.logger.info("Fetching mediaItems...")
         last_log_time = time.time()
+        # Keep track of every ID we've seen so we can clear out any media
+        #   items that no longer exist at the end of the fetch
+        all_ids = set()
 
         while True:
             if next_page_token:
@@ -50,6 +49,7 @@ class GooglePhotosClient(GoogleApiClient):
                     # local copy as soon as we get the URLs so we don't have to
                     # refresh them later for long-running tasks.
 
+                    all_ids.add(media_item_json["id"])
                     self.repo.create_or_update(media_item_json)
                     item_count += 1
 
@@ -64,6 +64,15 @@ class GooglePhotosClient(GoogleApiClient):
             next_page_token = resp_json.get("nextPageToken", None)
             if not next_page_token:
                 break
+
+        repo_ids = self.repo.all_ids()
+        ids_to_delete = repo_ids - all_ids
+        count_ids_to_delete = len(ids_to_delete)
+        if count_ids_to_delete > 0:
+            self.logger.info(
+                f"Deleting {count_ids_to_delete} local mediaItems not found during fetch"
+            )
+            self.repo.delete(ids_to_delete)
 
         self.logger.info(f"Done fetching mediaItems, {item_count:,} total")
 
