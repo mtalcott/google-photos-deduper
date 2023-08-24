@@ -11,7 +11,7 @@ import StepIcon, { StepIconProps } from "@mui/material/StepIcon";
 import { CircularProgress, Grow } from "@mui/material";
 import CheckIcon from "@mui/icons-material/Check";
 import ErrorIcon from "@mui/icons-material/Error";
-import { AppContext } from "utils/AppContext";
+import { ActiveTaskType, AppContext } from "utils/AppContext";
 import { useMatch } from "react-router-dom";
 import { prettyDuration } from "utils";
 
@@ -198,16 +198,25 @@ function DeduperStepIcon({ active, completed, className }: StepIconProps) {
   return <StepIcon {...{ active, completed, className }} icon={number} />;
 }
 
-function DeduperTaskStep({ step, info }) {
+type DeduperTaskStepProps = {
+  step: string;
+  info: NonNullable<NonNullable<ActiveTaskType["meta"]>["steps"]>[string];
+};
+
+function DeduperTaskStep({ step, info }: DeduperTaskStepProps) {
   let taskStepTitle = "";
+  let countUnit = "";
   if (step === "fetch_media_items") {
     taskStepTitle = "Gather media items";
   } else if (step === "process_duplicates") {
     taskStepTitle = "Process duplicates";
+    countUnit = info.count === 1 ? "group" : "groups";
   }
   if (info.startedAt) {
     const start = Date.parse(info.startedAt);
-    const end = info.completedAt ? Date.parse(info.completedAt) : new Date();
+    const end = info.completedAt
+      ? Date.parse(info.completedAt)
+      : new Date().getTime();
     const duration = Math.round((end - start) / 1000);
     const count = info.count;
     return (
@@ -218,10 +227,19 @@ function DeduperTaskStep({ step, info }) {
           ) : (
             <CircularProgress size={"1em"} />
           )}{" "}
-          {taskStepTitle} (
-          {count !== undefined &&
-            `${new Intl.NumberFormat().format(count)} in `}
-          {prettyDuration(duration)})
+          {taskStepTitle}
+          {count !== undefined && (
+            <>
+              {" ("}
+              {[
+                new Intl.NumberFormat().format(count),
+                countUnit,
+                "in",
+                prettyDuration(duration),
+              ].join(" ")}
+              {")"}
+            </>
+          )}
         </Typography>
       </>
     );
