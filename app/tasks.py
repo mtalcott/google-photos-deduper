@@ -143,6 +143,6 @@ def backfill_missing_media_items_info(
             missing_size = []
 
     if len(missing_images) > 0:
-        store_images.delay(user_id, missing_images)
+        store_images.delay(user_id, missing_images, resolution=resolution)
     if len(missing_size) > 0:
         get_media_items_size.delay(user_id, missing_size)
