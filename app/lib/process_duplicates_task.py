@@ -102,7 +102,16 @@ class ProcessDuplicatesTask:
         for group_index, media_item_indices in enumerate(groups):
             group_media_items = [media_items[i] for i in media_item_indices]
 
-            group_sizes = [m["size"] for m in group_media_items]
+            try:
+                # Try to use the `size` field from the media item...
+                group_sizes = [m["size"] for m in group_media_items]
+            except KeyError:
+                # ...but if we don't have it for some of our media items,
+                #   fall back to using dimensions in the metadata.
+                group_sizes = [
+                    int(m["mediaMetadata"]["width"]) * int(m["mediaMetadata"]["height"])
+                    for m in group_media_items
+                ]
 
             # Choose the media item with largest size as the original.
             if len(set(group_sizes)) > 1:
