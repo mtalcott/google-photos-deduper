@@ -86,6 +86,11 @@ class ProcessDuplicatesTask:
         )
 
         media_items = list(client.get_local_media_items())
+
+        # Skip videos for now. We don't get video length from metadata and size
+        #   is not a good enough indicator of similarity;
+        media_items = list(filter(lambda m: "photo" in m["mediaMetadata"], media_items))
+
         duplicate_detector = DuplicateImageDetector(
             media_items,
             logger=self.logger,
