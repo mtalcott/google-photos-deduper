@@ -1,7 +1,11 @@
-FROM node:alpine
+FROM node:20-alpine
+
 WORKDIR /app
+
 COPY package.json ./
 COPY package-lock.json ./
+RUN npm ci && npm cache clean --force
+
 COPY ./ ./
-RUN npm i
+
 CMD npm run dev
