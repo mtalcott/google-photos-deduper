@@ -24,7 +24,7 @@ import {
   StartDeletionTaskResultMessageType,
 } from "utils/types";
 import { appApiUrl } from "utils";
-import { Typography } from "@mui/material";
+import Confetti from "react-confetti";
 
 const styles = {
   fabContainer: css({
@@ -305,45 +305,53 @@ function DuplicatesProcessingDialog({
     setMediaItemIdsPendingDeletion(new Set());
   };
 
+  const celebrate =
+    mediaItemIdsPendingDeletion.size > 0 &&
+    startDeletionTaskResult?.success &&
+    numErrored === 0;
+
   return (
-    <Dialog
-      open={mediaItemIdsPendingDeletion.size > 0}
-      // Intentionally prevent close via backdrop clicks, escape key
-      onClose={() => {}}
-      fullWidth
-      maxWidth="sm"
-    >
-      <DialogTitle>Deleting duplicates...</DialogTitle>
-      <DialogContent>
-        <LinearProgress
-          variant={numCompleted > 0 ? "determinate" : "indeterminate"}
-          value={percent}
-          sx={{ mb: 2 }}
-        />
-        <DialogContentText>
-          Deleted {numDeleted} of {numTotal} duplicates.
-          {numErrored > 0 && ` ${numErrored} failed.`}
-        </DialogContentText>
-        {startDeletionTaskResult &&
-          (startDeletionTaskResult.success ? (
-            <DialogContentText sx={{ mt: 1, color: "success.main" }}>
-              Done.
-            </DialogContentText>
+    <>
+      <Dialog
+        open={mediaItemIdsPendingDeletion.size > 0}
+        // Intentionally prevent close via backdrop clicks, escape key
+        onClose={() => {}}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Deleting duplicates...</DialogTitle>
+        <DialogContent>
+          <LinearProgress
+            variant={numCompleted > 0 ? "determinate" : "indeterminate"}
+            value={percent}
+            sx={{ mb: 2 }}
+          />
+          <DialogContentText>
+            Deleted {numDeleted} of {numTotal} duplicates.
+            {numErrored > 0 && ` ${numErrored} failed.`}
+          </DialogContentText>
+          {startDeletionTaskResult &&
+            (startDeletionTaskResult.success ? (
+              <DialogContentText sx={{ mt: 1, color: "success.main" }}>
+                Done.
+              </DialogContentText>
+            ) : (
+              <DialogContentText sx={{ mt: 1, color: "error.main" }}>
+                {startDeletionTaskResult.error}
+              </DialogContentText>
+            ))}
+        </DialogContent>
+        <DialogActions>
+          {startDeletionTaskResult ? (
+            <Button onClick={dismissModal}>Dismiss</Button>
           ) : (
-            <DialogContentText sx={{ mt: 1, color: "error.main" }}>
-              {startDeletionTaskResult.error}
-            </DialogContentText>
-          ))}
-      </DialogContent>
-      <DialogActions>
-        {startDeletionTaskResult ? (
-          <Button onClick={dismissModal}>Dismiss</Button>
-        ) : (
-          <Button disabled onClick={cancelDuplicatesProcessing}>
-            Cancel
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
+            <Button disabled onClick={cancelDuplicatesProcessing}>
+              Cancel
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      {celebrate && <Confetti recycle={false} />}
+    </>
   );
 }
