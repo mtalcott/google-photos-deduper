@@ -54,8 +54,8 @@ function handleStartDeletionTask(
       const window = await chrome.windows.create({
         focused: true,
         incognito: sender.tab!.incognito,
-        height: 1,
-        width: 1,
+        width: 500,
+        height: 200,
       });
       const tab = window.tabs![0];
 
