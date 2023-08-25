@@ -97,7 +97,10 @@ export default function TaskResults(props: TaskResultsProps) {
                 {({ index, style }) => (
                   <ResultRow
                     group={groupsWithDuplicates[index]}
-                    {...{ style }}
+                    style={{
+                      ...style,
+                      width: undefined, // Prevent react-window setting width: 100% on rows
+                    }}
                   />
                 )}
               </List>
