@@ -4,7 +4,7 @@ Locally run web app + Chrome extension to delete duplicates within Google Photos
 
 ## Demo
 
-[![Demo](https://github.com/mtalcott/google-photos-deduper/assets/354599/decf8ae7-09b1-4fd7-a128-8ba4c4f3545c)](https://youtu.be/QDUGKgQOa7o)
+[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
 
 ## Motivation
 
