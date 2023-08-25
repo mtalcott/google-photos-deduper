@@ -70,10 +70,6 @@ export default function TaskResults(props: TaskResultsProps) {
     new Set<string>()
   );
 
-  if (groupsWithDuplicates.length === 0) {
-    return <Typography sx={{ mt: 4 }}>No duplicates found.</Typography>;
-  }
-
   return (
     <TaskResultsContext.Provider
       value={{
@@ -85,27 +81,31 @@ export default function TaskResults(props: TaskResultsProps) {
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <SelectAll />
         <Box sx={{ flexGrow: 1 }}>
-          <AutoSizer>
-            {({ height, width }) => (
-              <List
-                className="react-window-list"
-                height={height}
-                width={width}
-                itemCount={groupsWithDuplicates.length}
-                itemSize={291}
-              >
-                {({ index, style }) => (
-                  <ResultRow
-                    group={groupsWithDuplicates[index]}
-                    style={{
-                      ...style,
-                      width: undefined, // Prevent react-window setting width: 100% on rows
-                    }}
-                  />
-                )}
-              </List>
-            )}
-          </AutoSizer>
+          {groupsWithDuplicates.length === 0 ? (
+            <Typography sx={{ mt: 4 }}>No duplicates found. 🎉</Typography>
+          ) : (
+            <AutoSizer>
+              {({ height, width }) => (
+                <List
+                  className="react-window-list"
+                  height={height}
+                  width={width}
+                  itemCount={groupsWithDuplicates.length}
+                  itemSize={291}
+                >
+                  {({ index, style }) => (
+                    <ResultRow
+                      group={groupsWithDuplicates[index]}
+                      style={{
+                        ...style,
+                        width: undefined, // Prevent react-window setting width: 100% on rows
+                      }}
+                    />
+                  )}
+                </List>
+              )}
+            </AutoSizer>
+          )}
         </Box>
         <TaskResultsActionBar />
       </Box>
@@ -343,9 +343,10 @@ function SelectAll() {
   const selectedGroupsCount = Object.values(results.groups).filter(
     (g) => g.isSelected
   ).length;
-  const allGroupsSelected =
-    selectedGroupsCount ===
-    Object.values(results.groups).filter((g) => g.hasDuplicates).length;
+  const allGroupsCount = Object.values(results.groups).filter(
+    (g) => g.hasDuplicates
+  ).length;
+  const allGroupsSelected = selectedGroupsCount === allGroupsCount;
   const noGroupsSelected = selectedGroupsCount === 0;
 
   const handleCheckboxChange = () => {
@@ -354,6 +355,10 @@ function SelectAll() {
       isSelected: noGroupsSelected ? true : false,
     });
   };
+
+  if (allGroupsCount === 0) {
+    return null;
+  }
 
   return (
     <Box sx={{ pt: 1 }}>

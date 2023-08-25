@@ -351,7 +351,12 @@ function DuplicatesProcessingDialog({
           )}
         </DialogActions>
       </Dialog>
-      {celebrate && <Confetti recycle={false} />}
+      <Box
+        className="celebrate"
+        sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
+      >
+        {celebrate && <Confetti recycle={false} />}
+      </Box>
     </>
   );
 }
