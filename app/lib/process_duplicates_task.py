@@ -8,6 +8,7 @@ from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
 from app import server, tasks  # required for building URLs
 from app import CELERY_APP as celery_app
+from app.models.media_items_repository import MediaItemsRepository
 
 
 class Steps:
@@ -74,6 +75,8 @@ class ProcessDuplicatesTask:
         )
 
         if self.refresh_media_items or client.local_media_items_count() == 0:
+            # Create mongo indexes if they haven't been created yet
+            MediaItemsRepository.create_indexes()
             self._fetch_media_items(client)
             self._await_subtask_completion()
 

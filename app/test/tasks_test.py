@@ -1,10 +1,5 @@
-import pytest
 import app.tasks
 import app.config
-import requests
-from app.lib.duplicate_image_detector import DuplicateImageDetector
-from app.lib.google_api_client import GoogleApiClient
-from app.models.media_items_repository import MediaItemsRepository
 from unittest.mock import Mock
 
 
@@ -21,6 +16,10 @@ def test_process_duplicates(
         get=Mock(return_value=credentials),
     )
     media_item = media_item | {"size": 100}
+    mocker.patch.multiple(
+        "app.models.media_items_repository.MediaItemsRepository",
+        create_indexes=Mock(return_value=None),
+    )
     mocker.patch.multiple(
         "app.lib.google_photos_client.GooglePhotosClient",
         get_user_info=Mock(return_value=user_info),

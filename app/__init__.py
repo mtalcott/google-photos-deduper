@@ -39,5 +39,3 @@ def celery_init_app(flask_app: Flask) -> Celery:
 
 FLASK_APP = create_flask_app()
 CELERY_APP = FLASK_APP.extensions["celery"]
-
-MediaItemsRepository.create_indexes()
