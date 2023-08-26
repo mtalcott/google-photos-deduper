@@ -53,7 +53,10 @@ class GooglePhotosClient(GoogleApiClient):
                     all_ids.add(media_item_json["id"])
                     self.repo.create_or_update(
                         media_item_json
-                        | {"fetchedAt": datetime.datetime.now().astimezone()}
+                        | {
+                            "fetchedAt": datetime.datetime.now().astimezone(),
+                            "deletedAt": None,
+                        }
                     )
                     item_count += 1
 
