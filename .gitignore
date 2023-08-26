@@ -4,3 +4,4 @@ __pycache__/
 .env
 # WSL Zone.Identifier files
 *:Zone.Identifier
+.DS_Store
