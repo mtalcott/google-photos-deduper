@@ -1,8 +1,19 @@
 # Google Photos Deduper
 
-Locally run web app + Chrome extension to delete duplicates within Google Photos. [Watch a short demo](TODO).
+Locally run web app + Chrome extension to delete duplicates within Google Photos built with:
 
-Personal project by [Mack Talcott](https://github.com/mtalcott).
+[![Google Photos API](https://img.shields.io/badge/Google_Photos_API-F5F7F9.svg?logo=googlephotos)](https://developers.google.com/photos)
+[![Python](https://img.shields.io/badge/Python-F5F7F9.svg?logo=python)](https://www.python.org/)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-F5F7F9.svg)](https://developers.google.com/mediapipe)
+[![TypeScript](https://img.shields.io/badge/TypeScript-F5F7F9.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-F5F7F9.svg?logo=vite)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-F5F7F9.svg?logo=react)](https://react.dev/)
+[![CRXJS](https://img.shields.io/badge/CRXJS-F5F7F9.svg)](https://crxjs.dev/vite-plugin)
+[![Docker](https://img.shields.io/badge/Docker-F5F7F9.svg?logo=docker)](https://www.docker.com/)
+
+## Demo
+
+[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
 
 ## Motivation
 
