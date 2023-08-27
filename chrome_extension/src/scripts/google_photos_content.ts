@@ -18,14 +18,13 @@ chrome.runtime.onMessage.addListener(
 
 function handleDeletePhoto(
   message: DeletePhotoMessageType,
-  sender: chrome.runtime.MessageSender
+  _sender: chrome.runtime.MessageSender
 ): void {
   (async () => {
     const resultMessage: Partial<DeletePhotoResultMessageType> = {
       app: "GooglePhotosDeduper",
       action: "deletePhoto.result",
       mediaItemId: message.mediaItemId,
-      originalMessage: message,
     };
 
     try {
@@ -51,9 +50,7 @@ function handleDeletePhoto(
     }
 
     try {
-      const confirmationToaster = await waitForElement(
-        '[role="status"][aria-live="polite"]'
-      );
+      await waitForElement('[role="status"][aria-live="polite"]');
     } catch (error) {
       chrome.runtime.sendMessage({
         ...resultMessage,
@@ -73,14 +70,14 @@ function handleDeletePhoto(
 
 function waitForElement(
   selector: string,
-  timeout: number = 5000
+  timeout: number = 10_000
 ): Promise<HTMLElement> {
   const findElementPromise = new Promise<HTMLElement>((resolve) => {
     if (document.querySelector(selector)) {
       return resolve(document.querySelector(selector) as HTMLElement);
     }
 
-    const observer = new MutationObserver((mutations) => {
+    const observer = new MutationObserver((_mutations) => {
       if (document.querySelector(selector)) {
         resolve(document.querySelector(selector) as HTMLElement);
         observer.disconnect();

@@ -31,7 +31,7 @@ chrome.runtime.onMessage.addListener(
       | HealthCheckResultMessageType
       | StartDeletionTaskResultMessageType
       | DeletePhotoResultMessageType,
-    sender
+    _sender
   ) => {
     if (
       // Filter out messages not intended for our app

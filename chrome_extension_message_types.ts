@@ -47,7 +47,6 @@ export interface DeletePhotoMessageType extends BaseMessageType {
 export type DeletePhotoResultMessageType = BaseMessageType & {
   action: "deletePhoto.result";
   mediaItemId: string;
-  originalMessage: DeletePhotoMessageType;
 } & (
     | {
         success: true;

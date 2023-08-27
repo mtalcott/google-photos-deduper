@@ -1,17 +1,3 @@
 body {
   width: 20rem;
 }
-
-ul {
-  padding-inline-start: 0;
-}
-
-li {
-  padding: 0.25rem;
-}
-li:nth-child(odd) {
-  background: #80808030;
-}
-li:nth-child(even) {
-  background: #ffffff;
-}

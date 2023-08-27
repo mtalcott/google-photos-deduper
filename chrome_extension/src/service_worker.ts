@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 });
 
 function handleHealthCheck(
-  message: HealthCheckMessageType,
+  _message: HealthCheckMessageType,
   sender: chrome.runtime.MessageSender
 ): void {
   const response = {
@@ -59,14 +59,31 @@ function handleStartDeletionTask(
       });
       const tab = window.tabs![0];
 
+      // Detect and warn if window closed
+      const windowRemovedListener = (windowId: number) => {
+        if (windowId === window.id) {
+          // TODO: handle window closed
+          console.error("Window closed!");
+          chrome.tabs.sendMessage(sender.tab!.id!, {
+            ...resultMessage,
+            success: false,
+            error: "Window was closed.",
+          });
+        }
+      };
+      chrome.windows.onRemoved.addListener(windowRemovedListener);
+
       for (const mediaItem of message.mediaItems) {
         await navigateAndDelete(tab, mediaItem, sender);
       }
+
+      chrome.windows.onRemoved.removeListener(windowRemovedListener);
 
       await chrome.windows.remove(window.id!);
 
       chrome.tabs.sendMessage(sender.tab!.id!, resultMessage);
     } catch (error) {
+      console.error("handleStartDeletionTask error", error);
       chrome.tabs.sendMessage(sender.tab!.id!, {
         ...resultMessage,
         success: false,
@@ -74,9 +91,10 @@ function handleStartDeletionTask(
           "Whoops! An unexpected error occurred. Please check the Chrome \
           Extension service worker logs for more details.",
       });
-      throw error;
     }
-  })();
+  })().catch((error) => {
+    console.error("handleStartDeletionTask promise error", error);
+  });
 }
 
 async function navigateAndDelete(
@@ -84,43 +102,82 @@ async function navigateAndDelete(
   mediaItem: StartDeletionTaskMessageType["mediaItems"][0],
   sender: chrome.runtime.MessageSender
 ): Promise<void> {
-  // Navigate to the photo in Google Photos
-  await chrome.tabs.update(tab.id!, { url: mediaItem.productUrl });
+  try {
+    // Navigate to the photo in Google Photos
+    await chrome.tabs.update(tab.id!, { url: mediaItem.productUrl });
 
-  // Wait for the page to load
-  await new Promise<void>((resolve) => {
-    chrome.tabs.onUpdated.addListener(function listener(
-      tabId,
-      changeInfo,
-      tab
-    ) {
-      if (tabId === tab.id && changeInfo.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    });
-  });
-
-  chrome.tabs.sendMessage(tab.id!, {
-    app: "GooglePhotosDeduper",
-    action: "deletePhoto",
-    mediaItemId: mediaItem.id,
-  } as DeletePhotoMessageType);
-
-  // Wait for a result message
-  const result = await new Promise<DeletePhotoResultMessageType>((resolve) => {
-    chrome.runtime.onMessage.addListener(function listener(message, sender) {
-      if (
-        message?.app === "GooglePhotosDeduper" &&
-        message?.action === "deletePhoto.result" &&
-        message?.mediaItemId === mediaItem.id
+    // Wait for the page to load
+    await new Promise<void>((resolve) => {
+      chrome.tabs.onUpdated.addListener(async function listener(
+        tabId,
+        changeInfo,
+        tab
       ) {
-        chrome.runtime.onMessage.removeListener(listener);
-        resolve(message);
-      }
+        if (tabId === tab.id && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }
+      });
     });
-  });
 
-  // Forward the result to the original tab
-  chrome.tabs.sendMessage(sender.tab!.id!, result);
+    await chrome.tabs.sendMessage(tab.id!, {
+      app: "GooglePhotosDeduper",
+      action: "deletePhoto",
+      mediaItemId: mediaItem.id,
+    } as DeletePhotoMessageType);
+
+    // Wait for a result message
+    const timeout = 10_000;
+    let timerId: number | undefined;
+    let result = await Promise.race([
+      new Promise<DeletePhotoResultMessageType>((resolve) => {
+        chrome.runtime.onMessage.addListener(function listener(
+          message,
+          _sender
+        ) {
+          if (
+            message?.app === "GooglePhotosDeduper" &&
+            message?.action === "deletePhoto.result" &&
+            message?.mediaItemId === mediaItem.id
+          ) {
+            chrome.runtime.onMessage.removeListener(listener);
+            resolve(message);
+          }
+        });
+      }),
+      new Promise(
+        (_resolve, reject) =>
+          (timerId = setTimeout(
+            () =>
+              reject(
+                `Timeout: failed to delete mediaItem ${mediaItem.id} within ${
+                  timeout / 1000
+                }s, skipping`
+              ),
+            timeout
+          ))
+      ),
+    ]).finally(() => clearTimeout(timerId));
+
+    // Forward the result to the original tab
+    chrome.tabs.sendMessage(sender.tab!.id!, result);
+  } catch (error) {
+    console.error("navigateAndDelete error", error);
+    const resultMessage: DeletePhotoResultMessageType = {
+      app: "GooglePhotosDeduper",
+      action: "deletePhoto.result",
+      mediaItemId: mediaItem.id,
+      success: false,
+      error: "Error, please try again",
+    };
+
+    try {
+      chrome.tabs.sendMessage(sender.tab!.id!, resultMessage);
+    } catch (error) {
+      console.error(
+        "navigateAndDelete failed to send error message back to original tab",
+        error
+      );
+    }
+  }
 }
