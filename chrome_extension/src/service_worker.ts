@@ -120,11 +120,30 @@ async function navigateAndDelete(
       });
     });
 
-    await chrome.tabs.sendMessage(tab.id!, {
-      app: "GooglePhotosDeduper",
-      action: "deletePhoto",
-      mediaItemId: mediaItem.id,
-    } as DeletePhotoMessageType);
+    let attempts = 3;
+    let success = false;
+    while (!success) {
+      // Workaround for 'Error: Could not establish connection. Receiving end does not exist.'
+      attempts--;
+      try {
+        await chrome.tabs.sendMessage(tab.id!, {
+          app: "GooglePhotosDeduper",
+          action: "deletePhoto",
+          mediaItemId: mediaItem.id,
+        } as DeletePhotoMessageType);
+        success = true;
+      } catch (error) {
+        if (attempts > 0) {
+          console.warn(
+            `deletePhoto message error, retrying (retries left = ${attempts})`,
+            error
+          );
+          await new Promise((r) => setTimeout(r, 1_000)); // Sleep 1s
+        } else {
+          throw error;
+        }
+      }
+    }
 
     // Wait for a result message
     const timeout = 10_000;
