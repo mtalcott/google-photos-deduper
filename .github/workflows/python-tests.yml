@@ -54,4 +54,11 @@ jobs:
           MONGODB_URI: mongodb://localhost:27017/
           DATABASE: test
         run: |
-          pytest
+          coverage run -m pytest
+          coverage report --ignore-errors --show-missing
+          coverage html --ignore-errors
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: coverage
+          path: htmlcov/index.html
