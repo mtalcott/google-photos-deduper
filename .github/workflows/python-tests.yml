@@ -48,10 +48,17 @@ jobs:
       #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
       #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
       #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Test with pytest
+      - name: Pytest with coverage
         env:
           TEST_DB: 1
           MONGODB_URI: mongodb://localhost:27017/
           DATABASE: test
         run: |
-          pytest
+          coverage run -m pytest
+          coverage report --ignore-errors --show-missing
+          coverage html --ignore-errors
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: coverage
+          path: htmlcov/index.html
