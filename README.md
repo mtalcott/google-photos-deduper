@@ -2,7 +2,7 @@
 
 [![Python tests build badge](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml?query=branch%3Amain)
 
-Locally run web app + Chrome extension to delete duplicates within Google Photos built with:
+Locally run web app + Chrome extension to delete duplicates in Google Photos. Built with:
 
 [![Google Photos API](https://img.shields.io/badge/Google_Photos_API-F5F7F9.svg?logo=googlephotos)](https://developers.google.com/photos)
 [![Python](https://img.shields.io/badge/Python-F5F7F9.svg?logo=python)](https://www.python.org/)
