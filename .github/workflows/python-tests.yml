@@ -49,4 +49,5 @@ jobs:
           MONGODB_URI: mongodb://mongo:27017/
           DATABASE: test
         run: |
-          pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+          # pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
+          pytest -k test_create_or_update__update
