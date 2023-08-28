@@ -51,7 +51,7 @@ jobs:
       - name: Test with pytest
         env:
           TEST_DB: 1
-          MONGODB_URI: mongodb://mongo:27017/
+          MONGODB_URI: mongodb://localhost:27017/
           DATABASE: test
         run: |
           pytest app/test/credentials_repository_test.py -k test_create_or_update__update
