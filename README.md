@@ -35,14 +35,53 @@ No public hosted solution is currently provided due to [API usage limits](https:
 
 ### Setup
 
-1. Install [Docker Desktop](https://docs.docker.com/desktop/) on your system.
-1. Clone this repository.
-1. Set up local environment variables.
-   - Follow [these instructions](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create a project and OAuth 2.0 Client ID for a web application using Google Developer Console.
-     Download your client secret file.
-   - `cp example.env .env`
-   - Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
-   - Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file.
+1\. Install [Docker Desktop](https://docs.docker.com/desktop/) on your system.
+
+2\. Clone this repository.
+
+<details>
+
+<summary>3. Create a Google Cloud project and OAuth credentials.</summary>
+<br>
+
+- Create a Google Cloud project ([Guide](https://developers.google.com/workspace/guides/create-project))
+  - Project name: Enter `Photos Deduper`
+  - Select the project
+- Go to APIs & Services > Enable APIs and Services
+  - Search for `Photos Library API`
+  - Enable
+- Go to APIs & Services > OAuth consent screen
+  - User Type: Choose `External`
+  - Create
+    - App name: Enter `Photos Deduper`
+    - User support email: Choose your email
+    - Developer contact information: Enter your email
+    - Save and Continue
+  - Add or remove scopes:
+    - Manually add scopes:
+      - `https://www.googleapis.com/auth/userinfo.profile`
+      - `https://www.googleapis.com/auth/userinfo.email`
+      - `https://www.googleapis.com/auth/photoslibrary`
+    - Update
+    - Save and Continue
+  - Test users:
+    - Add your email (and any others you want to use the tool with)
+    - Save and Continue
+- Go to APIs & Services > Credentials > Create Credentials > OAuth client ID
+  - Application type: Choose `Web application`
+  - Name: Enter `Photos Deduper Web Client`
+  - Authorized JavaScript origins: Enter `http://localhost`
+  - Authorized redirect URIs: Enter `http://localhost/auth/google/callback`
+  - Create
+- Download the JSON file
+  
+</details>
+
+4\. Set up local environment variables.
+
+- `cp example.env .env`
+- Generate [`FLASK_SECRET_KEY`](https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY) with `python -c 'import secrets; print(secrets.token_hex())'` and add it to `.env`.
+- Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the `client_id` and `client_secret` values from the client secret file created above.
 
 ### Start
 
