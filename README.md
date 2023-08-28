@@ -65,3 +65,7 @@ If you have questions about the tool, please [post on the discussions page](http
   - Utilizes [Vite](https://vitejs.dev/) for HMR and building.
 - Chrome extension
   - Utilizes the [CRXJS Vite Plugin](https://crxjs.dev/vite-plugin) for HMR and building.
+
+## Say Thanks
+
+If you found this project useful, give it a star!
