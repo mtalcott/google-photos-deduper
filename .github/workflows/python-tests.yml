@@ -16,6 +16,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:4.4
+        ports:
+          - 27017:27017
 
     steps:
       - uses: actions/checkout@v3
@@ -39,6 +44,9 @@ jobs:
       #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
       #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
+        env:
+          TEST_DB: 1
+          MONGODB_URI: mongodb://mongo:27017/
+          DATABASE: test
         run: |
-          pip install pytest pytest-cov
           pytest --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
