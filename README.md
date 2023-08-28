@@ -31,7 +31,7 @@ It turns out the [Google Photos API](https://developers.google.com/photos) is qu
 
 ## Getting Started
 
-No public hosted solution is currently provided, due to the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914) as well as cost and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
+No public hosted solution is currently provided due to [API usage limits](https://developers.google.com/photos/library/guides/api-limits-quotas), the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914), cost, and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
 
 ### Setup
 
