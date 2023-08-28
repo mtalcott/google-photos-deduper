@@ -1,6 +1,6 @@
 # Google Photos Deduper
 
-![Python tests build badge](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml/badge.svg?branch=main)
+[![Python tests build badge](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml)
 
 Locally run web app + Chrome extension to delete duplicates within Google Photos built with:
 
