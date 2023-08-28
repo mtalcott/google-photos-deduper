@@ -27,6 +27,7 @@ pytest = "*"
 pytest-mock = "*"
 pytest-celery = "*"
 pytest-dotenv = "*"
+pytest-cov = "*"
 
 [requires]
 python_version = "3.9"
