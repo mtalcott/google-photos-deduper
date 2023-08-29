@@ -3,6 +3,7 @@ services:
   node:
     build:
       dockerfile: Dockerfile
+      context: .
     volumes:
       - chrome-extension-node-modules:/app/node_modules
       - .:/app
