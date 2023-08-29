@@ -10,6 +10,7 @@ Locally run web app + Chrome extension to delete duplicates in Google Photos. Bu
 [![TypeScript](https://img.shields.io/badge/TypeScript-F5F7F9.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-F5F7F9.svg?logo=vite)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-F5F7F9.svg?logo=react)](https://react.dev/)
+[![MUI](https://img.shields.io/badge/MUI-F5F7F9.svg?logo=mui)](https://mui.com/)
 [![CRXJS](https://img.shields.io/badge/CRXJS-F5F7F9.svg)](https://crxjs.dev/vite-plugin)
 [![Docker](https://img.shields.io/badge/Docker-F5F7F9.svg?logo=docker)](https://www.docker.com/)
 
