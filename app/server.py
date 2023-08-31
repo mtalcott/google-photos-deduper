@@ -167,9 +167,6 @@ def media_item_for_display(media_item):
     )
     m["imageUrl"] = image_url
 
-    if "size" in media_item:
-        m["size"] = pretty_size(media_item["size"])
-
     m["dimensions"] = " x ".join(
         [
             media_item["mediaMetadata"]["width"],
@@ -178,19 +175,6 @@ def media_item_for_display(media_item):
     )
 
     return m
-
-
-def pretty_size(size_bytes: int):
-    """
-    Given a size in bytes, return a human-readable string.
-    """
-    if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_name[i]}"
 
 
 if __name__ == "__main__":
