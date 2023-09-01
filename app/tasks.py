@@ -1,5 +1,6 @@
 import logging
 import celery
+from celery.signals import after_task_publish
 from typing import Callable, Optional
 from app import CELERY_APP as celery_app
 from app.lib.get_media_items_size_task import GetMediaItemsSizeTask
@@ -53,6 +54,18 @@ is_stdout_handler_setup = False
 # import torch
 
 # torch.set_num_threads(1)
+
+
+# https://stackoverflow.com/a/10089358
+@after_task_publish.connect
+def update_sent_state(sender=None, headers=None, **kwargs):
+    # the task may not exist if sent using `send_task` which
+    # sends tasks by name, so fall back to the default result backend
+    # if that is the case.
+    task = celery_app.tasks.get(sender)
+    backend = task.backend if task else celery_app.backend
+
+    backend.store_result(headers["id"], None, "SENT")
 
 
 @celery.shared_task(bind=True)

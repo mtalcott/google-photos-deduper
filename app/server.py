@@ -23,13 +23,7 @@ def me():
     client = GoogleApiClient.from_user_id(user_id)
     user_info = client.get_user_info()
 
-    return flask.jsonify(
-        {
-            "logged_in": True,
-            "user_info": user_info,
-            "has_active_task": "active_task_id" in flask.session,
-        }
-    )
+    return flask.jsonify({"logged_in": True, "user_info": user_info})
 
 
 @flask_app.route("/auth/google")
@@ -81,11 +75,15 @@ def create_task():
 
 @flask_app.route("/api/active_task", methods=["GET"])
 def get_active_task():
+    result = None
     active_task_id = flask.session.get("active_task_id")
-    if not active_task_id:
-        return flask.jsonify({"error": "No active task found"}), 404
+    if active_task_id:
+        result = tasks.process_duplicates.AsyncResult(active_task_id)
 
-    result = tasks.process_duplicates.AsyncResult(active_task_id)
+    if (
+        result is None or result.status == "PENDING"
+    ):  # PENDING is the default return value of celery.result.AsyncResult, even if that task no longer exists
+        return flask.jsonify({"error": "No active task found"}), 404
 
     response = {"status": result.status}
     if result.status in ["SUCCESS", "PROGRESS"]:

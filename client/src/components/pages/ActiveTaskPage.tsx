@@ -11,7 +11,7 @@ import AlertTitle from "@mui/material/AlertTitle";
 export default function ActiveTaskPage() {
   const { activeTask, reloadActiveTask } = useContext(AppContext);
   const isRunning =
-    !activeTask || ["PENDING", "PROGRESS"].includes(activeTask?.status);
+    !activeTask || ["SENT", "PROGRESS"].includes(activeTask?.status);
 
   useInterval(async () => {
     if (isRunning) {

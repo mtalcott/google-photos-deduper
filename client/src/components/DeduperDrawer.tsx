@@ -109,7 +109,7 @@ function DeduperStepper() {
   if (activeTask) {
     steps[1].isCompleted = true;
     steps[2].isEnabled = true;
-    if (["PENDING", "PROGRESS"].includes(activeTask?.status)) {
+    if (["SENT", "PROGRESS"].includes(activeTask?.status)) {
       steps[2].isInProgress = true;
     } else if (activeTask?.status == "SUCCESS") {
       steps[2].isCompleted = true;
