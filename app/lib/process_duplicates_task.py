@@ -4,13 +4,14 @@ import logging
 import time
 from typing import Literal
 import celery.result
+import requests
 import app.config
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
-from app import server, tasks  # required for building URLs
 from app import CELERY_APP as celery_app
 from app.models.media_items_repository import MediaItemsRepository
 from enum import Enum
+import app.tasks
 
 
 class Steps:
@@ -38,6 +39,10 @@ class Subtask:
     @property
     def result(self):
         return self._result
+
+
+class DailyLimitExceededError(Exception):
+    pass
 
 
 class ProcessDuplicatesTask:
@@ -194,7 +199,7 @@ class ProcessDuplicatesTask:
         if len(media_item_ids) == 0:
             return
 
-        store_images_result = tasks.store_images.delay(
+        store_images_result = app.tasks.store_images.delay(
             self.user_id,
             media_item_ids,
             self.resolution,
@@ -208,15 +213,39 @@ class ProcessDuplicatesTask:
         Wait for all subtasks to complete.
         """
         while True:
+            subtask_classes = {s.type.name for s in self.subtasks}
             subtask_results = [s.result for s in self.subtasks]
             num_completed = [r.ready() for r in subtask_results].count(True)
+            num_successful = [r.successful() for r in subtask_results].count(True)
+            failed_subtasks = [s for s in self.subtasks if s.result.failed()]
+            num_failed = len(failed_subtasks)
             num_total = len(self.subtasks)
+
+            if num_failed > 0:
+                self.logger.error(f"{num_failed} subtasks failed")
+                subtask_errors = [
+                    s.result.get(disable_sync_subtasks=False, propagate=False)
+                    for s in failed_subtasks
+                ]
+                if any(
+                    isinstance(e, requests.exceptions.HTTPError)
+                    and "429 Client Error" in str(e)
+                    for e in subtask_errors
+                ):
+                    raise DailyLimitExceededError(
+                        f"Successfully completed {num_successful} of {num_completed} "
+                        f"subtasks to store images before exceeding daily baseUrl "
+                        f"request quota. Restart task tomorrow to resume. "
+                        f"For more details on quota usage, visit "
+                        f"https://console.cloud.google.com/apis/api/photoslibrary.googleapis.com/quotas"
+                    )
+
             if num_completed == num_total:
                 # All done.
                 break
             else:
                 message = (
-                    f"Waiting for subtasks to complete... "
+                    f"Waiting for {', '.join(subtask_classes)} subtasks to complete... "
                     f"({num_completed} / {num_total})"
                 )
                 self.logger.info(message)

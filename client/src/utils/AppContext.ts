@@ -5,6 +5,7 @@ export interface ActiveTaskType {
   status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
   meta?: {
     logMessage?: string;
+    error?: string;
     steps?: {
       [step: string]: {
         startedAt: string;

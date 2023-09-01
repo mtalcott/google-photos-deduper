@@ -8,6 +8,7 @@ from app import tasks
 from app import config
 from app import server  # required for building URLs
 from app.lib.google_api_client import GoogleApiClient
+from app.lib.process_duplicates_task import DailyLimitExceededError
 from app import FLASK_APP as flask_app
 from app.models.media_items_repository import MediaItemsRepository
 
@@ -79,6 +80,9 @@ def create_task():
     return flask.jsonify({"success": True})
 
 
+expected_errors = [DailyLimitExceededError]
+
+
 @flask_app.route("/api/active_task", methods=["GET"])
 def get_active_task():
     active_task_id = flask.session.get("active_task_id")
@@ -90,6 +94,9 @@ def get_active_task():
     response = {"status": result.status}
     if result.status in ["SUCCESS", "PROGRESS"]:
         response["meta"] = result.info["meta"]
+    elif result.status == "FAILURE":
+        if any(isinstance(result.info, e) for e in expected_errors):
+            response["error"] = str(result.info)
     else:
         # Some other state we didn't explictly set.
         flask_app.logger.info(
