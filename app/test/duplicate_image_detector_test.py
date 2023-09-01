@@ -3,17 +3,6 @@ from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_api_client import GoogleApiClient
 from app.lib.media_items_image_store import MediaItemsImageStore
 
-
-# TODO: Use remote image URLs only when INTEGRATION_TEST env is true
-remote_images_folder_path = (
-    "https://mack-public.s3.amazonaws.com/google_photos_deduper/test_images"
-)
-duplicate_image_urls = [
-    f"{remote_images_folder_path}/test-image-dup-1a.jpg?test",
-    f"{remote_images_folder_path}/test-image-dup-1b.jpg?test",
-]
-other_image_url = f"{remote_images_folder_path}/test-image-2.jpg?test"
-
 local_images_folder_path = "app/test/images"
 
 

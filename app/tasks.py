@@ -3,7 +3,6 @@ import celery
 from celery.signals import after_task_publish
 from typing import Callable, Optional
 from app import CELERY_APP as celery_app
-from app.lib.get_media_items_size_task import GetMediaItemsSizeTask
 
 from app.lib.process_duplicates_task import ProcessDuplicatesTask
 from app.lib.store_images_task import StoreImagesTask
@@ -114,48 +113,3 @@ def store_images(
         logger=task_logger,
     )
     task_instance.run()
-
-
-@celery.shared_task
-def get_media_items_size(
-    user_id: str,
-    media_item_ids: list[str],
-):
-    # TODO: Fix this workaround
-    task_updater_log_handler.set_handler(lambda x: None)
-    task_instance = GetMediaItemsSizeTask(
-        user_id,
-        media_item_ids,
-        logger=task_logger,
-    )
-    task_instance.run()
-
-
-@celery.shared_task
-def backfill_missing_media_items_info(
-    user_id: str,
-    resolution: Optional[int] = None,
-):
-    repo = MediaItemsRepository(user_id)
-    media_items = repo.all()
-    batch_size = 100
-    missing_size = []
-    missing_images = []
-
-    for media_item in media_items:
-        if not media_item.get("storageFilename"):
-            missing_images.append(media_item["id"])
-        if not media_item.get("size"):
-            missing_size.append(media_item["id"])
-
-        if len(missing_images) >= batch_size:
-            store_images.delay(user_id, missing_images)
-            missing_images = []
-        if len(missing_size) >= batch_size:
-            get_media_items_size.delay(user_id, missing_size)
-            missing_size = []
-
-    if len(missing_images) > 0:
-        store_images.delay(user_id, missing_images, resolution=resolution)
-    if len(missing_size) > 0:
-        get_media_items_size.delay(user_id, missing_size)

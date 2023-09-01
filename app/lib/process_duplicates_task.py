@@ -2,13 +2,16 @@ import copy
 import datetime
 import logging
 import time
-from typing import Union
-import celery
+from typing import Literal
+import celery.result
+import requests
+import app.config
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
-from app import server, tasks  # required for building URLs
 from app import CELERY_APP as celery_app
 from app.models.media_items_repository import MediaItemsRepository
+from enum import Enum
+import app.tasks
 
 
 class Steps:
@@ -19,23 +22,27 @@ class Steps:
 
 
 class Subtask:
-    STORE_IMAGES = "store_images"
-    GET_MEDIA_ITEMS_SIZE = "get_media_items_size"
+    class Type(Enum):
+        STORE_IMAGES = "store_images"
 
-    types = [STORE_IMAGES, GET_MEDIA_ITEMS_SIZE]
-    type_type = Union[STORE_IMAGES, GET_MEDIA_ITEMS_SIZE]
+    types = [Type.STORE_IMAGES]
+    type_type = Literal[Type.STORE_IMAGES]
 
     def __init__(self, type: type_type, result: celery.result.AsyncResult):
         self._type = type
         self._result = result
 
     @property
-    def type(self) -> type_type:
+    def type(self):
         return self._type
 
     @property
-    def result(self) -> celery.result.AsyncResult:
+    def result(self):
         return self._result
+
+
+class DailyLimitExceededError(Exception):
+    pass
 
 
 class ProcessDuplicatesTask:
@@ -110,27 +117,15 @@ class ProcessDuplicatesTask:
         for group_index, media_item_indices in enumerate(groups):
             group_media_items = [media_items[i] for i in media_item_indices]
 
-            try:
-                # Try to use the `size` field from the media item...
-                group_sizes = [m["size"] for m in group_media_items]
-            except KeyError:
-                # ...but if we don't have it for some of our media items,
-                #   fall back to using dimensions in the metadata.
-                group_sizes = [
-                    int(m["mediaMetadata"]["width"]) * int(m["mediaMetadata"]["height"])
-                    for m in group_media_items
-                ]
+            group_dimensions = [
+                int(m["mediaMetadata"]["width"]) * int(m["mediaMetadata"]["height"])
+                for m in group_media_items
+            ]
 
-            # Choose the media item with largest size as the original.
-            if len(set(group_sizes)) > 1:
-                largest = group_sizes.index(max(group_sizes))
-                original_media_item_id = group_media_items[largest]["id"]
-            else:
-                # Otherwise, the first item in the cluster is the one that is most
-                # similar to all the others. Prefer that as the "original" media
-                # item, since we don't get created/uploaded times from the API.
-                # https://github.com/UKPLab/sentence-transformers/blob/a458ce79c40fef93d5ecc66931b446ea65fdd017/sentence_transformers/util.py#L351C26-L351C95
-                original_media_item_id = media_items[min(media_item_indices)]["id"]
+            # Choose the media item with largest dimensions as the original
+            #   (we don't get created/uploaded times from the AP).
+            largest = group_dimensions.index(max(group_dimensions))
+            original_media_item_id = group_media_items[largest]["id"]
 
             result["groups"].append(
                 {
@@ -204,20 +199,12 @@ class ProcessDuplicatesTask:
         if len(media_item_ids) == 0:
             return
 
-        store_images_result = tasks.store_images.delay(
+        store_images_result = app.tasks.store_images.delay(
             self.user_id,
             media_item_ids,
             self.resolution,
         )
-        self.subtasks.append(Subtask(Subtask.STORE_IMAGES, store_images_result))
-
-        get_media_items_size_result = tasks.get_media_items_size.delay(
-            self.user_id,
-            media_item_ids,
-        )
-        self.subtasks.append(
-            Subtask(Subtask.GET_MEDIA_ITEMS_SIZE, get_media_items_size_result)
-        )
+        self.subtasks.append(Subtask(Subtask.Type.STORE_IMAGES, store_images_result))
 
         self.fetched_media_item_ids = []
 
@@ -226,16 +213,40 @@ class ProcessDuplicatesTask:
         Wait for all subtasks to complete.
         """
         while True:
+            subtask_classes = {s.type.name for s in self.subtasks}
             subtask_results = [s.result for s in self.subtasks]
             num_completed = [r.ready() for r in subtask_results].count(True)
+            num_successful = [r.successful() for r in subtask_results].count(True)
+            failed_subtasks = [s for s in self.subtasks if s.result.failed()]
+            num_failed = len(failed_subtasks)
             num_total = len(self.subtasks)
+
+            if num_failed > 0:
+                self.logger.error(f"{num_failed} subtasks failed")
+                subtask_errors = [
+                    s.result.get(disable_sync_subtasks=False, propagate=False)
+                    for s in failed_subtasks
+                ]
+                if any(
+                    isinstance(e, requests.exceptions.HTTPError)
+                    and "429 Client Error" in str(e)
+                    for e in subtask_errors
+                ):
+                    raise DailyLimitExceededError(
+                        f"Successfully completed {num_successful} of {num_completed} "
+                        f"subtasks to store images before exceeding daily baseUrl "
+                        f"request quota. Restart task tomorrow to resume. "
+                        f"For more details on quota usage, visit "
+                        f"https://console.cloud.google.com/apis/api/photoslibrary.googleapis.com/quotas"
+                    )
+
             if num_completed == num_total:
                 # All done.
                 break
             else:
                 message = (
-                    f"Waiting for subtasks to complete... "
+                    f"Waiting for {', '.join(subtask_classes)} subtasks to complete... "
                     f"({num_completed} / {num_total})"
                 )
                 self.logger.info(message)
-                time.sleep(3)
+                time.sleep(app.config.PROCESS_DUPLICATE_SUBTASK_POLL_INTERVAL)

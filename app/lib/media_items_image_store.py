@@ -23,29 +23,24 @@ class MediaItemsImageStore:
             success = False
             while not success:
                 try:
-                    request = requests.get(url, timeout=5)
+                    response = requests.get(url, timeout=5)
+                    response.raise_for_status()
                     with open(path, "wb") as file:
-                        file.write(request.content)
+                        file.write(response.content)
                     success = True
                 except requests.exceptions.RequestException as error:
                     attempts -= 1
-                    if (
-                        isinstance(error, requests.exceptions.HTTPError)
-                        and error.response.status_code == 429
-                    ):
-                        logging.warn(
-                            f"Received {error} getting media item size\n"
-                            f"See https://developers.google.com/photos/library/guides/api-limits-quotas#general-quota-limits\n"
-                            f"Sleeping 60s before retry..."
-                        )
-                        time.sleep(60)
-                    else:
-                        logging.warn(
-                            f"Received {error} downloading image\n"
-                            f"media_item: {media_item}\n"
-                            f"url: {url}\n"
-                            f"attempts left: {attempts}"
-                        )
+                    sleep_time = app.config.RESPONSE_FAILURE_RETRY_SECONDS
+                    if error.response is not None and error.response.status_code == 429:
+                        sleep_time = app.config.RESPONSE_429_RETRY_SECONDS
+                    logging.warning(
+                        f"Received {error} downloading image\n"
+                        f"media_item: {media_item}\n"
+                        f"url: {url}\n"
+                        f"attempts left: {attempts}\n"
+                        f"sleeping for {sleep_time} seconds before retrying"
+                    )
+                    time.sleep(sleep_time)
                     if attempts <= 0:
                         raise error
 

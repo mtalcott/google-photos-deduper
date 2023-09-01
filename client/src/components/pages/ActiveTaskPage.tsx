@@ -39,7 +39,8 @@ export default function ActiveTaskPage() {
       {activeTask?.status === "FAILURE" && (
         <Alert severity="error" sx={{ mt: 1 }}>
           <AlertTitle>Error</AlertTitle>
-          Whoops! An unexpected error occurred. Check application logs.
+          {activeTask?.error ||
+            "Whoops! An unexpected error occurred. Check application logs."}
         </Alert>
       )}
     </>

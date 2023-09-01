@@ -15,7 +15,7 @@ def test_process_duplicates(
         "app.models.credentials_repository.CredentialsRepository",
         get=Mock(return_value=credentials),
     )
-    media_item = media_item | {"size": 100}
+    media_item = media_item
     mocker.patch.multiple(
         "app.models.media_items_repository.MediaItemsRepository",
         create_indexes=Mock(return_value=None),

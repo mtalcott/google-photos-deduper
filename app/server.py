@@ -8,6 +8,7 @@ from app import tasks
 from app import config
 from app import server  # required for building URLs
 from app.lib.google_api_client import GoogleApiClient
+from app.lib.process_duplicates_task import DailyLimitExceededError
 from app import FLASK_APP as flask_app
 from app.models.media_items_repository import MediaItemsRepository
 
@@ -73,6 +74,9 @@ def create_task():
     return flask.jsonify({"success": True})
 
 
+expected_errors = [DailyLimitExceededError]
+
+
 @flask_app.route("/api/active_task", methods=["GET"])
 def get_active_task():
     result = None
@@ -88,6 +92,9 @@ def get_active_task():
     response = {"status": result.status}
     if result.status in ["SUCCESS", "PROGRESS"]:
         response["meta"] = result.info["meta"]
+    elif result.status == "FAILURE":
+        if any(isinstance(result.info, e) for e in expected_errors):
+            response["error"] = str(result.info)
     else:
         # Some other state we didn't explictly set.
         flask_app.logger.info(
@@ -165,9 +172,6 @@ def media_item_for_display(media_item):
     )
     m["imageUrl"] = image_url
 
-    if "size" in media_item:
-        m["size"] = pretty_size(media_item["size"])
-
     m["dimensions"] = " x ".join(
         [
             media_item["mediaMetadata"]["width"],
@@ -176,19 +180,6 @@ def media_item_for_display(media_item):
     )
 
     return m
-
-
-def pretty_size(size_bytes: int):
-    """
-    Given a size in bytes, return a human-readable string.
-    """
-    if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_name[i]}"
 
 
 if __name__ == "__main__":
