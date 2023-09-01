@@ -2,7 +2,7 @@ import { createContext } from "react";
 import { UserInfoType } from "./types";
 
 export interface ActiveTaskType {
-  status: "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE";
+  status: "SENT" | "PROGRESS" | "SUCCESS" | "FAILURE";
   meta?: {
     logMessage?: string;
     error?: string;
@@ -19,7 +19,6 @@ export interface ActiveTaskType {
 export interface AppContextType {
   isLoggedIn: boolean;
   user?: UserInfoType;
-  hasActiveTask: boolean;
   activeTask?: ActiveTaskType;
   reloadActiveTask: () => void;
 }
@@ -28,6 +27,5 @@ export const AppContext = createContext<AppContextType>({
   isLoggedIn: false,
   user: undefined,
   activeTask: undefined,
-  hasActiveTask: false,
   reloadActiveTask: () => {},
 });

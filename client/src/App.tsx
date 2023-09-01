@@ -48,7 +48,6 @@ export default function App() {
   const appState: AppContextType = {
     user: me?.user_info,
     isLoggedIn: me?.logged_in || false,
-    hasActiveTask: me?.has_active_task || false,
     activeTask: activeTask || undefined,
     reloadActiveTask: reloadActiveTask,
   };

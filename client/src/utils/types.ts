@@ -25,7 +25,6 @@ export interface MeResponseType {
 export interface MeType {
   isLoggedIn: boolean;
   userInfo?: UserInfoType;
-  hasActiveTask: boolean;
 }
 
 export interface UserInfoType {
