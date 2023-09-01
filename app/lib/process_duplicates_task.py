@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Literal
 import celery.result
+import app.config
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
 from app import server, tasks  # required for building URLs
@@ -219,4 +220,4 @@ class ProcessDuplicatesTask:
                     f"({num_completed} / {num_total})"
                 )
                 self.logger.info(message)
-                time.sleep(3)
+                time.sleep(app.config.PROCESS_DUPLICATE_SUBTASK_POLL_INTERVAL)
