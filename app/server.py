@@ -105,6 +105,20 @@ def get_active_task():
     return flask.jsonify(response)
 
 
+@flask_app.route("/api/active_task", methods=["DELETE"])
+def cancel_active_task():
+    active_task_id = flask.session.get("active_task_id")
+    if not active_task_id:
+        return flask.jsonify({"error": "No active task found"}), 404
+
+    result = tasks.process_duplicates.AsyncResult(active_task_id)
+    result.revoke(terminate=True)
+
+    del flask.session["active_task_id"]
+
+    return flask.Response(status=204)
+
+
 @flask_app.route("/api/active_task/results", methods=["GET"])
 def get_active_task_results():
     active_task_id = flask.session.get("active_task_id")
