@@ -144,7 +144,7 @@ async function navigateAndDelete(
       handleTabUpdated = async (
         tabId: number,
         changeInfo: chrome.tabs.TabChangeInfo,
-        tab: chrome.tabs.Tab
+        _tab: chrome.tabs.Tab
       ) => {
         if (tabId === tab.id && changeInfo.status === "complete") {
           chrome.tabs.onUpdated.removeListener(handleTabUpdated!);

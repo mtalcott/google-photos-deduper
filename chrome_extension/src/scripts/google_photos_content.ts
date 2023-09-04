@@ -28,6 +28,17 @@ function handleDeletePhoto(
     };
 
     try {
+      await waitForElement("img[aria-label][src*='googleusercontent.com']");
+    } catch (error) {
+      chrome.runtime.sendMessage({
+        ...resultMessage,
+        success: false,
+        error: document.title, // "Can't access photo", "Error 404 (Not Found)!!1", etc.
+      });
+      return;
+    }
+
+    try {
       const trashButton = await waitForElement("[data-delete-origin] button");
       trashButton.click();
     } catch (error) {
@@ -36,6 +47,7 @@ function handleDeletePhoto(
         success: false,
         error: "Trash button not found",
       });
+      return;
     }
 
     try {
@@ -47,6 +59,7 @@ function handleDeletePhoto(
         success: false,
         error: "Confirm button not found",
       });
+      return;
     }
 
     try {
@@ -57,6 +70,7 @@ function handleDeletePhoto(
         success: false,
         error: "Confirmation toaster not found",
       });
+      return;
     }
 
     chrome.runtime.sendMessage({
