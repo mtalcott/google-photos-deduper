@@ -78,22 +78,24 @@ function taskResultsReducer(
         [action.mediaItemId]: { ...mediaItem, ...action.attributes },
       },
     };
-    // Also update hasDuplicates on groups. Only need the group that contains
-    //   this mediaItem, but we have no reverse lookup from mediaItem to
-    //   group, so update all groups.
-    newState.groups = Object.fromEntries(
-      Object.entries(state.groups).map(([groupId, group]) => {
-        const hasDuplicates = groupHasDuplicates(group, newState);
-        return [
-          groupId,
-          {
-            ...group,
-            hasDuplicates: hasDuplicates,
-            isSelected: group.isSelected && hasDuplicates,
-          },
-        ];
-      })
-    );
+    // If deletedAt changed, also update hasDuplicates on groups. Only need
+    //   the group that contains this mediaItem, but we have no reverse lookup
+    //   from mediaItem to group, so update all groups.
+    if (action.attributes.deletedAt !== undefined) {
+      newState.groups = Object.fromEntries(
+        Object.entries(state.groups).map(([groupId, group]) => {
+          const hasDuplicates = groupHasDuplicates(group, newState);
+          return [
+            groupId,
+            {
+              ...group,
+              hasDuplicates: hasDuplicates,
+              isSelected: group.isSelected && hasDuplicates,
+            },
+          ];
+        })
+      );
+    }
     return newState;
   } else if (action.type === "clearMediaItemErrors") {
     return {
@@ -106,7 +108,7 @@ function taskResultsReducer(
       ),
     };
   } else {
-    throw new Error(`Unregognized action type: ${action.type}`);
+    throw new Error(`Unrecognized action type: ${action.type}`);
   }
 }
 
