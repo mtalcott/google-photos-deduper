@@ -29,6 +29,9 @@ export type TaskResultsActionType =
       type: "updateMediaItem";
       mediaItemId: string;
       attributes: Partial<MediaItemType>;
+    }
+  | {
+      type: "clearMediaItemErrors";
     };
 
 function taskResultsReducer(
@@ -47,8 +50,7 @@ function taskResultsReducer(
         },
       },
     };
-  }
-  if (action.type === "setAllGroupsSelected") {
+  } else if (action.type === "setAllGroupsSelected") {
     return {
       ...state,
       groups: Object.fromEntries(
@@ -93,6 +95,16 @@ function taskResultsReducer(
       })
     );
     return newState;
+  } else if (action.type === "clearMediaItemErrors") {
+    return {
+      ...state,
+      mediaItems: Object.fromEntries(
+        Object.entries(state.mediaItems).map(([mediaItemId, mediaItem]) => [
+          mediaItemId,
+          { ...mediaItem, error: undefined },
+        ])
+      ),
+    };
   } else {
     throw new Error(`Unregognized action type: ${action.type}`);
   }

@@ -134,6 +134,9 @@ export default function TaskResultsActionBar() {
   };
 
   const handleProcessDuplicates = () => {
+    dispatch({
+      type: "clearMediaItemErrors",
+    });
     processDuplicates({
       results,
       selectedMediaItemIds,
