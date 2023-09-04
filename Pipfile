@@ -28,6 +28,7 @@ pytest-mock = "*"
 pytest-celery = "*"
 pytest-dotenv = "*"
 pytest-cov = "*"
+selenium = "*"
 
 [requires]
 python_version = "3.9"
