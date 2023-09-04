@@ -109,7 +109,6 @@ async function handleStartDeletionTask(
         "Whoops! An unexpected error occurred. Check the Chrome \
           Extension service worker logs for more details.";
     }
-    debugger;
 
     chrome.tabs.sendMessage(
       sender.tab!.id!,
