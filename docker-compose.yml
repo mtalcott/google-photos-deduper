@@ -96,9 +96,11 @@ services:
     ports:
       - "3000:3000"
   selenium:
-    image: selenium/standalone-chrome
+    image: selenium/standalone-chrome:112.0
     ports:
       - "4444:4444"
+      - "7900:7900"
+    shm_size: "2g"
 volumes:
   image-volume:
   client-node-modules:
