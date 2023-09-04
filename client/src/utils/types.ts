@@ -5,6 +5,7 @@ import {
   StartDeletionTaskResultMessageType,
   DeletePhotoMessageType,
   DeletePhotoResultMessageType,
+  StopDeletionTaskMessageType,
 } from "../../../chrome_extension/src/types";
 
 export type {
@@ -14,6 +15,7 @@ export type {
   StartDeletionTaskResultMessageType,
   DeletePhotoMessageType,
   DeletePhotoResultMessageType,
+  StopDeletionTaskMessageType,
 };
 
 export interface MeResponseType {

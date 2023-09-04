@@ -22,6 +22,7 @@ import {
   StartDeletionTaskMessageType,
   DeletePhotoResultMessageType,
   StartDeletionTaskResultMessageType,
+  StopDeletionTaskMessageType,
 } from "utils/types";
 import { appApiUrl } from "utils";
 import Confetti from "react-confetti";
@@ -295,14 +296,18 @@ function DuplicatesProcessingDialog({
   const numCompleted = numDeleted + numErrored;
   const percent = numTotal > 0 ? (numCompleted / numTotal) * 100 : 0;
 
-  const cancelDuplicatesProcessing = () => {
-    // TODO: Cancel the current operation
-    setMediaItemIdsPendingDeletion(new Set());
-  };
-
   const dismissModal = () => {
     setStartDeletionTaskResult(undefined);
     setMediaItemIdsPendingDeletion(new Set());
+  };
+
+  const cancelDuplicatesProcessing = () => {
+    const message: StopDeletionTaskMessageType = {
+      app: "GooglePhotosDeduper",
+      action: "stopDeletionTask",
+    };
+    window.postMessage(message);
+    dismissModal();
   };
 
   const celebrate =
@@ -345,9 +350,7 @@ function DuplicatesProcessingDialog({
           {startDeletionTaskResult ? (
             <Button onClick={dismissModal}>Dismiss</Button>
           ) : (
-            <Button disabled onClick={cancelDuplicatesProcessing}>
-              Cancel
-            </Button>
+            <Button onClick={cancelDuplicatesProcessing}>Cancel</Button>
           )}
         </DialogActions>
       </Dialog>

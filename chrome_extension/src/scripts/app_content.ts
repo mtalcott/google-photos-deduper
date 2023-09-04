@@ -6,6 +6,7 @@ import {
   HealthCheckResultMessageType,
   StartDeletionTaskMessageType,
   StartDeletionTaskResultMessageType,
+  StopDeletionTaskMessageType,
 } from "types";
 
 // Listen to window messages and pass them on to the chrome runtime
@@ -18,9 +19,15 @@ window.addEventListener("message", (event) => {
     return;
   }
 
-  if (["healthCheck", "startDeletionTask"].includes(event.data?.action)) {
-    const message: HealthCheckMessageType | StartDeletionTaskMessageType =
-      event.data;
+  if (
+    ["healthCheck", "startDeletionTask", "stopDeletionTask"].includes(
+      event.data?.action
+    )
+  ) {
+    const message:
+      | HealthCheckMessageType
+      | StartDeletionTaskMessageType
+      | StopDeletionTaskMessageType = event.data;
     chrome.runtime.sendMessage(message);
   }
 });

@@ -6,7 +6,8 @@ interface BaseMessageType {
     | "deletePhoto"
     | "deletePhoto.result"
     | "startDeletionTask"
-    | "startDeletionTask.result";
+    | "startDeletionTask.result"
+    | "stopDeletionTask";
 }
 
 export interface HealthCheckMessageType extends BaseMessageType {
@@ -25,6 +26,10 @@ export interface StartDeletionTaskMessageType extends BaseMessageType {
     id: string;
     productUrl: string;
   }[];
+}
+
+export interface StopDeletionTaskMessageType extends BaseMessageType {
+  action: "stopDeletionTask";
 }
 
 export type StartDeletionTaskResultMessageType = BaseMessageType & {
