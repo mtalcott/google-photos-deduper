@@ -50,16 +50,31 @@ function handleDeletePhoto(
       return;
     }
 
+    var isBurst = false;
     try {
-      const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+      const confirmButton = await waitForElement("[jsshadow] [autofocus]", 2500);
       confirmButton.click();
     } catch (error) {
-      chrome.runtime.sendMessage({
-        ...resultMessage,
-        success: false,
-        error: "Confirm button not found",
-      });
-      return;
+      // Check if it's a burst photo
+      try {
+        const burstDeleteButton = await waitForElement("[jsshadow] [aria-label='Current photo only']", 2000);
+        
+        // Click is not working on the span element; must send mousedown and mouseup events
+        burstDeleteButton.dispatchEvent(new MouseEvent('mousedown', {bubbles:true,view:window}));
+        burstDeleteButton.dispatchEvent(new MouseEvent('mouseup', {bubbles:true,view:window}))
+
+        isBurst = true;
+      } catch (error) {
+      }
+ 
+      if(!isBurst) {
+        chrome.runtime.sendMessage({
+          ...resultMessage,
+          success: false,
+          error: "Confirm button not found",
+        });
+        return;
+      }
     }
 
     try {
