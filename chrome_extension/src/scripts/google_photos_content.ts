@@ -57,7 +57,7 @@ function handleDeletePhoto(
     } catch (error) {
       // Check if it's a burst photo
       try {
-        const burstDeleteButton = await waitForElement("[jsshadow] [aria-label='Current photo only']", 2000);
+        const burstDeleteButton = await waitForElement("[jsshadow][role='menu'] [role='menuitem']:nth-of-type(2)");
         
         // Click is not working on the span element; must send mousedown and mouseup events
         burstDeleteButton.dispatchEvent(new MouseEvent('mousedown', {bubbles:true,view:window}));
