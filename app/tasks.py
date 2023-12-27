@@ -1,8 +1,10 @@
-import logging
+import logging, logging.handlers
+import os
 import celery
-from celery.signals import after_task_publish
+from celery.signals import after_task_publish, after_setup_logger
 from typing import Callable, Optional
 from app import CELERY_APP as celery_app
+from app.config import CELERY_WORKER_LOG_PATH
 
 from app.lib.process_duplicates_task import ProcessDuplicatesTask
 from app.lib.store_images_task import StoreImagesTask
@@ -53,6 +55,25 @@ is_stdout_handler_setup = False
 # import torch
 
 # torch.set_num_threads(1)
+
+
+# Save worker logs to rotated log files
+@after_setup_logger.connect
+def on_after_setup_logger(
+    logger,
+    loglevel,
+    format,
+    **kwargs,
+):
+    log_file_handler = logging.handlers.RotatingFileHandler(
+        CELERY_WORKER_LOG_PATH,
+        maxBytes=10_000_000,  # 10 MB
+        backupCount=5,
+    )
+    log_file_handler.setLevel(logging.INFO)
+    log_file_formatter = logging.Formatter(format)
+    log_file_handler.setFormatter(log_file_formatter)
+    logger.addHandler(log_file_handler)
 
 
 # https://stackoverflow.com/a/10089358

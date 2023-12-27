@@ -2,6 +2,7 @@ __pycache__/
 .vscode/settings.json
 .vscode/tasks.json
 .env
+log/*.log*
 # WSL Zone.Identifier files
 *:Zone.Identifier
 .DS_Store

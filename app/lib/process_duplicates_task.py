@@ -45,6 +45,10 @@ class DailyLimitExceededError(Exception):
     pass
 
 
+class SubtasksFailedError(Exception):
+    pass
+
+
 class ProcessDuplicatesTask:
     SUBTASK_BATCH_SIZE = 100
 
@@ -235,9 +239,15 @@ class ProcessDuplicatesTask:
                     raise DailyLimitExceededError(
                         f"Successfully completed {num_successful} of {num_completed} "
                         f"subtasks to store images before exceeding daily baseUrl "
-                        f"request quota. Restart task tomorrow to resume. "
+                        f"request quota. Restart tomorrow to resume. "
                         f"For more details on quota usage, visit "
                         f"https://console.cloud.google.com/apis/api/photoslibrary.googleapis.com/quotas"
+                    )
+                else:
+                    raise SubtasksFailedError(
+                        f"{num_failed} of {num_total} subtasks failed. "
+                        f"View {app.config.CELERY_WORKER_LOG_PATH} for more details. "
+                        f"Restart to try again."
                     )
 
             if num_completed == num_total:
