@@ -111,7 +111,17 @@ class DuplicateImageDetector:
             for i in trange(len(self.media_items), ascii=False):
                 media_item = self.media_items[i]
                 storage_path = self._get_storage_path(media_item)
-                mp_image = mp.Image.create_from_file(storage_path)
+
+                mp_image = None
+                try:
+                    mp_image = mp.Image.create_from_file(storage_path)
+                except RuntimeError as error:
+                    logging.warning(
+                        f"Skipping invalid image file:\n"
+                        f"error: {error}\n"
+                        f"media_item: {media_item}\n"
+                    )
+                    continue
                 embedding_result = embedder.embed(mp_image)
                 embeddings.append(embedding_result.embeddings[0].embedding)
 
