@@ -246,8 +246,8 @@ class ProcessDuplicatesTask:
                 else:
                     raise SubtasksFailedError(
                         f"{num_failed} of {num_total} subtasks failed. "
-                        f"Restart to try again. "
-                        f" "
+                        f"View {app.config.CELERY_WORKER_LOG_PATH} for more details. "
+                        f"Restart to try again."
                     )
 
             if num_completed == num_total:

@@ -4,6 +4,7 @@ import celery
 from celery.signals import after_task_publish, after_setup_logger
 from typing import Callable, Optional
 from app import CELERY_APP as celery_app
+from app.config import CELERY_WORKER_LOG_PATH
 
 from app.lib.process_duplicates_task import ProcessDuplicatesTask
 from app.lib.store_images_task import StoreImagesTask
@@ -65,7 +66,7 @@ def on_after_setup_logger(
     **kwargs,
 ):
     log_file_handler = logging.handlers.RotatingFileHandler(
-        os.path.join("log", "celery_worker.log"),
+        CELERY_WORKER_LOG_PATH,
         maxBytes=10_000_000,  # 10 MB
         backupCount=5,
     )
