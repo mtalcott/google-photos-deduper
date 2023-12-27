@@ -18,18 +18,6 @@ Locally run web app + Chrome extension to delete duplicates in Google Photos. Bu
 
 [![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
 
-## Motivation
-
-I've been a long-time user of [Google Photos](http://photos.google.com). When [Picasa Web Albums](https://picasa.google.com) retired, my cloud photos and albums moved to Google Photos. I have used nearly every desktop client Google provided from Picasa, to the old Google Photos desktop uploader, to [Google Drive's built-in Photos integration](https://www.blog.google/products/photos/simplifying-google-photos-and-google-drive/), and finally to [Backup and Sync](https://www.google.com/drive/download/backup-and-sync/).
-
-Google has improved duplicate detection upon upload in recent years, but that wasn't always the case. I have tens of thousands of photos across hundreds of albums that were at some point duplicated by a desktop client. Also, even today, deleting, re-uploading, then restoring a photo results in a duplicate.
-
-This could probably be solved by clearing out my Photos data and re-uploading everything. However, that would remove all album organization and photo descriptions. Instead, it's preferred to remove duplicates in-place. [Searches](https://support.google.com/photos/thread/3954223/is-there-an-easy-way-to-delete-duplicate-photos?hl=en) [show](https://www.quora.com/How-does-one-delete-duplicate-photos-in-Google-Photos-from-the-web-or-from-the-app-Is-there-feature-where-you-can-scan-and-delete-for-duplicates) interest in this feature from the Google Photos user base, but it hasn't ever made its way into the product.
-
-The existing tools I could find for this problem did so only with media on the local computer, felt scammy, or didn't fully automate the deletion process. So I created this one.
-
-It turns out the [Google Photos API](https://developers.google.com/photos) is quite limited. While apps can read limited metadata about the media items in a user's library, they cannot delete media items (photos and videos), and they can only modify media items uploaded by the app itself. This means we can't, for example, add all of the duplicates to an album for the user to review. This necessitates some kind of tool to automate the deletion of duplicates. Since we've already bought in to the Google ecosystem as a Photos user, I chose to do this with a complementary Chrome extension.
-
 ## Getting Started
 
 No public hosted solution is currently provided due to [API usage limits](https://developers.google.com/photos/library/guides/api-limits-quotas), the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914), cost, and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
@@ -105,6 +93,18 @@ If you have questions about the tool, please [post on the discussions page](http
   - Utilizes [Vite](https://vitejs.dev/) for HMR and building.
 - Chrome extension
   - Utilizes the [CRXJS Vite Plugin](https://crxjs.dev/vite-plugin) for HMR and building.
+
+## Motivation
+
+I've been a long-time user of [Google Photos](http://photos.google.com). When [Picasa Web Albums](https://picasa.google.com) retired, my cloud photos and albums moved to Google Photos. I have used nearly every desktop client Google provided from Picasa, to the old Google Photos desktop uploader, to [Google Drive's built-in Photos integration](https://www.blog.google/products/photos/simplifying-google-photos-and-google-drive/), and finally to [Backup and Sync](https://www.google.com/drive/download/backup-and-sync/).
+
+Google has improved duplicate detection upon upload in recent years, but that wasn't always the case. I have tens of thousands of photos across hundreds of albums that were at some point duplicated by a desktop client. Also, even today, deleting, re-uploading, then restoring a photo results in a duplicate.
+
+This could probably be solved by clearing out my Photos data and re-uploading everything. However, that would remove all album organization and photo descriptions. Instead, it's preferred to remove duplicates in-place. [Searches](https://support.google.com/photos/thread/3954223/is-there-an-easy-way-to-delete-duplicate-photos?hl=en) [show](https://www.quora.com/How-does-one-delete-duplicate-photos-in-Google-Photos-from-the-web-or-from-the-app-Is-there-feature-where-you-can-scan-and-delete-for-duplicates) interest in this feature from the Google Photos user base, but it hasn't ever made its way into the product.
+
+The existing tools I could find for this problem did so only with media on the local computer, felt scammy, or didn't fully automate the deletion process. So I created this one.
+
+It turns out the [Google Photos API](https://developers.google.com/photos) is quite limited. While apps can read limited metadata about the media items in a user's library, they cannot delete media items (photos and videos), and they can only modify media items uploaded by the app itself. This means we can't, for example, add all of the duplicates to an album for the user to review. This necessitates some kind of tool to automate the deletion of duplicates. Since we've already bought in to the Google ecosystem as a Photos user, I chose to do this with a complementary Chrome extension.
 
 ## Say Thanks
 
