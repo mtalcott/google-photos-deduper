@@ -36,8 +36,22 @@ class StoreImagesTask:
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
 
-            storage_filename = self.image_store.store_image(media_item)
-            self.repo.update(media_item_id, {"storageFilename": storage_filename})
+            try:
+                storage_filename = self.image_store.store_image(media_item)
+                self.repo.update(media_item_id, {"storageFilename": storage_filename})
+            except Exception as error:
+                # Displaying and processing mediaItems requires we have an actual
+                #   image file to work with (referenced by storageFilename). If
+                #   we are unable to obtain an image for a particular mediaItem,
+                #   we'll delete the mediaItem from the collection (rather than
+                #   adding logic to handle this case everywhere else).
+                # See https://github.com/mtalcott/google-photos-deduper/issues/23
+                logging.error(
+                    f"Received {error} storing image, deleting mediaItem\n"
+                    f"media_item: {media_item}\n"
+                )
+                self.repo.delete([media_item_id])
+
             num_completed += 1
 
             # Log every 3 seconds
