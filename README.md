@@ -20,7 +20,7 @@ Locally run web app + Chrome extension to delete duplicates in Google Photos. Bu
 
 ## Getting Started
 
-No public hosted solution is currently provided due to [API usage limits](https://developers.google.com/photos/library/guides/api-limits-quotas), the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914), cost, and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
+While a [hosted web app](https://github.com/mtalcott/google-photos-deduper/wiki#hosted-app) would be ideal, one is not currently provided due to [API usage limits](https://developers.google.com/photos/library/guides/api-limits-quotas), the overhead of [Google's app verification process](https://support.google.com/cloud/answer/9110914), cost, and user privacy considerations. Instead, follow these instructions to get the app up and running locally:
 
 ### Setup
 
