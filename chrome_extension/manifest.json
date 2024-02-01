@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Google Photos Deduper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Helper extension for removing duplicates in Google Photos. See https://github.com/mtalcott/google-photos-deduper.",
   "action": {
     "default_title": "Google Photos Deduper",
