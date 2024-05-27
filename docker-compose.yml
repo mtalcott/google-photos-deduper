@@ -39,7 +39,7 @@ services:
       - IMAGE_STORE_PATH=/mnt/images/
       - PUBLIC_IMAGE_FOLDER=http://localhost/images/
     ports:
-      - "5000:5000" # flask
+      - "5001:5000" # flask
       - "5678:5678" # debugpy
     depends_on:
       - mongo
