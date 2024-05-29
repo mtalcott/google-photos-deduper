@@ -91,7 +91,7 @@ export default function TaskResults(props: TaskResultsProps) {
                   height={height}
                   width={width}
                   itemCount={groupsWithDuplicates.length}
-                  itemSize={291}
+                  itemSize={263}
                 >
                   {({ index, style }) => (
                     <ResultRow
@@ -214,10 +214,6 @@ function MediaItemCard({
             field="dimensions"
             {...{ mediaItem, isOriginal, originalMediaItem }}
           />
-          <MediaItemCardField
-            field="size"
-            {...{ mediaItem, isOriginal, originalMediaItem }}
-          />
           {mediaItem.error && (
             <MediaItemCardField
               field="error"
@@ -297,15 +293,6 @@ function MediaItemCardField({
     } else {
       color = "success.main";
       text = "Same filename";
-    }
-  } else if (field === "size") {
-    IconComponent = SaveIcon;
-    if (isOriginal || mediaItem.size !== originalMediaItem.size) {
-      text = mediaItem.size;
-    } else {
-      color = "success.main";
-      text = "Same size";
-      tooltip = mediaItem.size;
     }
   } else if (field === "dimensions") {
     IconComponent = AspectRatioIcon;
