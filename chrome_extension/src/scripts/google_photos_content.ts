@@ -28,7 +28,7 @@ function handleDeletePhoto(
     };
 
     try {
-      await waitForElement("img[aria-label][src*='googleusercontent.com']");
+      await waitForElement("img[aria-label][src*='usercontent']");
     } catch (error) {
       chrome.runtime.sendMessage({
         ...resultMessage,
