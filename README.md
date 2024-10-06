@@ -26,7 +26,7 @@ While a [hosted web app](https://github.com/mtalcott/google-photos-deduper/wiki#
 
 1\. Install [Docker Desktop](https://docs.docker.com/desktop/) on your system.
 
-2\. Clone this repository.
+2\. [Clone](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) this repository.
 
 <details>
 
