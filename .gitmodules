@@ -1,0 +1,3 @@
+[submodule "chrome_extension/submodules/Google-Photos-Toolkit"]
+	path = chrome_extension/submodules/Google-Photos-Toolkit
+	url = https://github.com/xob0t/Google-Photos-Toolkit.git
