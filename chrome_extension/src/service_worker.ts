@@ -4,6 +4,7 @@ import {
   DeletePhotoMessageType,
   DeletePhotoResultMessageType,
   HealthCheckMessageType,
+  LaunchAppMessageType,
   StartDeletionTaskMessageType,
   StartDeletionTaskResultMessageType,
 } from "types";
@@ -17,12 +18,21 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
 
-  if (message?.action === "healthCheck") {
+  if (message?.action === "launchApp") {
+    handleLaunchApp(message as LaunchAppMessageType, sender);
+  } else if (message?.action === "healthCheck") {
     handleHealthCheck(message as HealthCheckMessageType, sender);
   } else if (message?.action === "startDeletionTask") {
     handleStartDeletionTask(message as StartDeletionTaskMessageType, sender);
   }
 });
+
+function handleLaunchApp(
+  _message: LaunchAppMessageType,
+  _sender: chrome.runtime.MessageSender
+): void {
+  chrome.tabs.create({url: "/"});
+}
 
 function handleHealthCheck(
   _message: HealthCheckMessageType,
@@ -64,7 +74,7 @@ async function handleStartDeletionTask(
         abortController.abort(new WindowClosedError());
       }
     };
-    chrome.windows.onRemoved.addListener(handleWindowRemoved);
+    chrome.windows.onRemoveLaunchAppMessageTyped.addListener(handleWindowRemoved);
 
     // Listen for cancel messages and abort if received
     handleStopDeletionTask = async (message: any, _sender: any) => {

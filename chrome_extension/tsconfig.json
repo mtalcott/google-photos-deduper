@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "jsx": "react",
     "baseUrl": "src",
     "target": "ES2020",
     "useDefineForClassFields": true,
@@ -22,5 +23,6 @@
 
     "types": ["chrome"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -7,7 +7,8 @@ interface BaseMessageType {
     | "deletePhoto.result"
     | "startDeletionTask"
     | "startDeletionTask.result"
-    | "stopDeletionTask";
+    | "stopDeletionTask"
+    | "launchApp";
 }
 
 export interface HealthCheckMessageType extends BaseMessageType {
@@ -64,10 +65,15 @@ export type DeletePhotoResultMessageType = BaseMessageType & {
       }
   );
 
+export interface LaunchAppMessageType extends BaseMessageType {
+  action: "launchApp";
+}
+
 export type MessageType =
   | HealthCheckMessageType
   | HealthCheckResultMessageType
   | StartDeletionTaskMessageType
   | StartDeletionTaskResultMessageType
   | DeletePhotoMessageType
-  | DeletePhotoResultMessageType;
+  | DeletePhotoResultMessageType
+  | LaunchAppMessageType;
