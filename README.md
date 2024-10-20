@@ -74,7 +74,7 @@ While a [hosted web app](https://github.com/mtalcott/google-photos-deduper/wiki#
 
 ### Start
 
-1. Run `docker-compose up` from the project directory.
+1. Run `docker compose up` from the project directory.
 1. Load [http://localhost](http://localhost) and follow the instructions from there!
    - [Install the Chrome Extension](chrome_extension/README.md) once you want to delete duplicates.
 
