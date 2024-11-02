@@ -24,7 +24,16 @@
       "matches": ["*://localhost/*"]
     },
     {
-      "js": ["src/scripts/google_photos_content.ts"],
+      "js": [
+        "src/scripts/inject_gptk.ts",
+        "src/scripts/google_photos_content.ts"
+      ],
+      "matches": ["https://photos.google.com/*"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/scripts/google_photos_toolkit.user.js"],
       "matches": ["https://photos.google.com/*"]
     }
   ]
