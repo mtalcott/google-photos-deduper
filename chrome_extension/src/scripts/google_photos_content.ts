@@ -14,6 +14,8 @@ chrome.runtime.onMessage.addListener(
       return;
     }
 
+    console.log("[google_photos_content] message received", message);
+
     if (message?.action === "deletePhoto") {
       handleDeletePhoto(message, sender);
     }

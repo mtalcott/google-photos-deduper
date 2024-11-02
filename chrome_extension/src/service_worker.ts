@@ -5,11 +5,13 @@ import {
   DeletePhotoResultMessageType,
   HealthCheckMessageType,
   LaunchAppMessageType,
+  GetAllMediaItemsMessageType,
   StartDeletionTaskMessageType,
   StartDeletionTaskResultMessageType,
 } from "types";
 
 const VERSION = chrome.runtime.getManifest().version;
+const tabMap: { [key: number]: number; } = {};
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.app !== "GooglePhotosDeduper") {
@@ -18,8 +20,12 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
 
+  console.log("[service_worker] message received", message);
+
   if (message?.action === "launchApp") {
     handleLaunchApp(message as LaunchAppMessageType, sender);
+  } else if (message?.action === "getAllMediaItems") {
+    handleGetAllMediaItems(message as GetAllMediaItemsMessageType, sender);
   } else if (message?.action === "healthCheck") {
     handleHealthCheck(message as HealthCheckMessageType, sender);
   } else if (message?.action === "startDeletionTask") {
@@ -27,11 +33,66 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   }
 });
 
-function handleLaunchApp(
+async function handleLaunchApp(
   _message: LaunchAppMessageType,
-  _sender: chrome.runtime.MessageSender
+  sender: chrome.runtime.MessageSender
+): Promise<void> {
+  const appTab = await chrome.tabs.create({url: "/"});
+  // Create mapping between the sender tab and the new app so we can send
+  //   messages back and forth
+  Object.assign(tabMap, {
+    [sender.tab!.id!]: appTab.id,
+    [appTab.id!]: sender.tab!.id
+  });
+}
+
+async function handleGetAllMediaItems(
+  message: GetAllMediaItemsMessageType,
+  sender: chrome.runtime.MessageSender
 ): void {
-  chrome.tabs.create({url: "/"});
+  const senderTabId = sender.tab!.id!;
+  const receiverTabId = tabMap[senderTabId];
+
+  console.log("handleGetAllMediaItems");
+  
+  await chrome.scripting.executeScript({
+    target: { tabId: receiverTabId },
+    func: async () => {
+      try {
+        console.log("handleGetAllMediaItems!");
+        let nextPageId = null;
+        let mediaItems = [];
+        let gptkApi = window.gptkApi;
+        console.log(window);
+        do {
+          const page = await gptkApi.getItemsByUploadedDate(nextPageId);
+          console.log("handleGetAllMediaItems page", page);
+          for (const item of page.items) {
+            // const itemInfo = await gptkApi.getItemInfoExt(item.mediaKey);
+            mediaItems.push(item)
+          }
+          nextPageId = page.nextPageId;
+        } while (nextPageId);
+        console.log('handleGetAllMediaItems', { mediaItems });
+      } catch (error: any) {
+        console.error("handleGetAllMediaItems error", error);
+      }
+    },
+  });
+}
+
+function relayMessage(
+  message: any,
+  sender: chrome.runtime.MessageSender
+): void {
+  const senderTabId = sender.tab!.id!;
+  const receiverTabId = tabMap[senderTabId];
+  if (!receiverTabId) {
+    console.error("No receiver tab found for sender", { senderTabId, tabMap })
+    return;
+  }
+  
+  chrome.tabs.sendMessage(receiverTabId, message);
 }
 
 function handleHealthCheck(

@@ -8,7 +8,9 @@ interface BaseMessageType {
     | "startDeletionTask"
     | "startDeletionTask.result"
     | "stopDeletionTask"
-    | "launchApp";
+    | "launchApp"
+    | "getAllMediaItems"
+    | "getAllMediaItems.result";
 }
 
 export interface HealthCheckMessageType extends BaseMessageType {
@@ -69,6 +71,23 @@ export interface LaunchAppMessageType extends BaseMessageType {
   action: "launchApp";
 }
 
+export interface GetAllMediaItemsMessageType extends BaseMessageType {
+  action: "getAllMediaItems";
+}
+
+export type GetAllMediaItemsResultMessageType = BaseMessageType & {
+  action: "getAllMediaItems.result";
+} & (
+    | {
+        success: true;
+        mediaItems: [any];
+      }
+    | {
+        success: false;
+        error: string;
+      }
+  );
+
 export type MessageType =
   | HealthCheckMessageType
   | HealthCheckResultMessageType
@@ -76,4 +95,6 @@ export type MessageType =
   | StartDeletionTaskResultMessageType
   | DeletePhotoMessageType
   | DeletePhotoResultMessageType
-  | LaunchAppMessageType;
+  | LaunchAppMessageType
+  | GetAllMediaItemsMessageType
+  | GetAllMediaItemsResultMessageType;
