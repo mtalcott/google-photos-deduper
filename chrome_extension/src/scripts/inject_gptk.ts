@@ -13,3 +13,4 @@ function injectScript(file_path, tag) {
     node.appendChild(script);
 }
 injectScript(chrome.runtime.getURL('src/scripts/google_photos_toolkit.user.js'), 'body');
+injectScript(chrome.runtime.getURL('src/scripts/response_parser.user.js'), 'body');

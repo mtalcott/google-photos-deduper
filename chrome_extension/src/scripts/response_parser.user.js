@@ -1,0 +1,1 @@
+../../Google-Photos-Toolkit/tools/response_parser.user.js

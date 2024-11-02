@@ -14,6 +14,9 @@
     "128": "public/logo128.png"
   },
   "permissions": ["activeTab", "windows", "tabs", "scripting"],
+  "host_permissions": [
+    "https://photos.google.com/*"
+  ],
   "background": {
     "service_worker": "src/service_worker.ts",
     "type": "module"
@@ -33,7 +36,10 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/scripts/google_photos_toolkit.user.js"],
+      "resources": [
+        "src/scripts/google_photos_toolkit.user.js",
+        "src/scripts/response_parser.user.js"
+      ],
       "matches": ["https://photos.google.com/*"]
     }
   ]
