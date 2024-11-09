@@ -51,7 +51,7 @@ function handleDeletePhoto(
     }
 
     try {
-      const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+      const confirmButton = await waitForElement("[data-mdc-dialog-button-default]");
       confirmButton.click();
     } catch (error) {
       chrome.runtime.sendMessage({
