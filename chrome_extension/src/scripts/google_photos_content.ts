@@ -6,6 +6,7 @@ import {
   LaunchAppMessageType
 } from "types";
 
+// Listen for incoming messages from Chrome runtime from service worker
 chrome.runtime.onMessage.addListener(
   (message: DeletePhotoMessageType, sender) => {
     if (message?.app !== "GooglePhotosDeduper") {
@@ -14,13 +15,24 @@ chrome.runtime.onMessage.addListener(
       return;
     }
 
-    console.log("[google_photos_content] message received", message);
-
     if (message?.action === "deletePhoto") {
       handleDeletePhoto(message, sender);
     }
   }
 );
+
+// Listen for incoming messages on window from injected script
+window.addEventListener("message", async (message) => {
+  if (message.data?.app !== "GooglePhotosDeduper") {
+    // Filter out messages not intended for our app
+    // TODO: more thorough vetting
+    return;
+  }
+
+  if (message.data?.action === "getAllMediaItems.result") {
+    chrome.runtime.sendMessage(message.data);
+  }
+});
 
 // Add GPD button to page
 if(document.readyState === 'loading') {

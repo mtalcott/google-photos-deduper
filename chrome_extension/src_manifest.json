@@ -28,7 +28,7 @@
     },
     {
       "js": [
-        "src/scripts/inject_gptk.ts",
+        "src/scripts/inject_scripts.ts",
         "src/scripts/google_photos_content.ts"
       ],
       "matches": ["https://photos.google.com/*"]
@@ -38,7 +38,8 @@
     {
       "resources": [
         "src/scripts/google_photos_toolkit.user.js",
-        "src/scripts/response_parser.user.js"
+        "src/scripts/response_parser.user.js",
+        "src/scripts/google_photos_injected.js"
       ],
       "matches": ["https://photos.google.com/*"]
     }

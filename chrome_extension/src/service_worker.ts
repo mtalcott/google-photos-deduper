@@ -20,12 +20,12 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
 
-  console.log("[service_worker] message received", message);
-
   if (message?.action === "launchApp") {
     handleLaunchApp(message as LaunchAppMessageType, sender);
   } else if (message?.action === "getAllMediaItems") {
     handleGetAllMediaItems(message as GetAllMediaItemsMessageType, sender);
+  } else if (message?.action === "getAllMediaItems.result") {
+    handleGetAllMediaItemsResult(message, sender);
   } else if (message?.action === "healthCheck") {
     handleHealthCheck(message as HealthCheckMessageType, sender);
   } else if (message?.action === "startDeletionTask") {
@@ -52,33 +52,30 @@ async function handleGetAllMediaItems(
 ): void {
   const senderTabId = sender.tab!.id!;
   const receiverTabId = tabMap[senderTabId];
-
-  console.log("handleGetAllMediaItems");
   
   await chrome.scripting.executeScript({
     target: { tabId: receiverTabId },
     func: async () => {
       try {
-        console.log("handleGetAllMediaItems!");
-        let nextPageId = null;
-        let mediaItems = [];
-        let gptkApi = window.gptkApi;
-        console.log(window);
-        do {
-          const page = await gptkApi.getItemsByUploadedDate(nextPageId);
-          console.log("handleGetAllMediaItems page", page);
-          for (const item of page.items) {
-            // const itemInfo = await gptkApi.getItemInfoExt(item.mediaKey);
-            mediaItems.push(item)
-          }
-          nextPageId = page.nextPageId;
-        } while (nextPageId);
-        console.log('handleGetAllMediaItems', { mediaItems });
+        window.postMessage({
+          app: "GooglePhotosDeduper",
+          action: "getAllMediaItems"
+        });
       } catch (error: any) {
         console.error("handleGetAllMediaItems error", error);
       }
     },
   });
+}
+
+async function handleGetAllMediaItemsResult(
+  message,
+  sender,
+): void {
+  const senderTabId = sender.tab!.id!;
+  const receiverTabId = tabMap[senderTabId];
+  
+  console.log('handleGetAllMediaItemsResult', message)
 }
 
 function relayMessage(
