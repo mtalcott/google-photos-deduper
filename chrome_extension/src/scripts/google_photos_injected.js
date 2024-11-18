@@ -1,12 +1,13 @@
 // Runs on Google Photos web app pages.
-// Because this script is added directly
-//   to the page, it has access to window variables that a Chrome extension
-//   content script does not (see https://developer.chrome.com/docs/extensions/reference/manifest/content-scripts#world-timings).
+// Because this script is added directly to the page, it has access to window
+//   variables that a Chrome extension content script does not
+//   (see https://developer.chrome.com/docs/extensions/reference/manifest/content-scripts#world-timings).
 //   This is necessary to be able to access GPTK's `window.gptkApi`.
-// Unfortunately, CRXJS doesn't support compilation of web_accessible_resources
-//   (see https://github.com/crxjs/chrome-extension-tools/discussions/616), and
-//   also doesn't support `world: "MAIN"` (see https://github.com/crxjs/chrome-extension-tools/issues/695)
-//   so JS and not TS it is.
+// Unfortunately, CRXJS doesn't support doesn't support `world: "MAIN"`
+//   (see https://github.com/crxjs/chrome-extension-tools/issues/695) nor
+//   compilation of web_accessible_resources
+//   (see https://github.com/crxjs/chrome-extension-tools/discussions/616), so
+//   JS and not TS it is.
 
 // Listen for incoming messages on window from servaice worker executeScript calls
 window.addEventListener("message", async (message) => {
@@ -33,8 +34,9 @@ async function getAllMediaItems() {
       // const itemInfo = await gptkApi.getItemInfoExt(item.mediaKey);
       mediaItems.push(item);
     }
+    console.log(`Retrieved ${mediaItems.length} mediaItems`)
     nextPageId = page.nextPageId;
-  } while (nextPageId);
+  } while (nextPageId && mediaItems.length <= 10_000);
 
   window.postMessage({
     app: "GooglePhotosDeduper",

@@ -34,40 +34,6 @@ window.addEventListener("message", async (message) => {
   }
 });
 
-// Add GPD button to page
-if(document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    addButtonToPage();
-  });
-} else {
-  addButtonToPage();
-}
-
-function addButtonToPage() {
-  const button = document.createElement('button');
-  button.innerText = 'Launch Google Photos Deduper';
-  button.id = 'launch-gpd-button';
-  button.style.position = 'fixed';
-  button.style.top = '21px';
-  button.style.right = '350px';
-  button.style.zIndex = "200";
-
-  button.addEventListener('click', () => {
-    launchApp();
-  });
-
-  document.body.appendChild(button);
-  console.debug("GPD: Added button to page", button);
-}
-
-function launchApp() {
-  const message: LaunchAppMessageType = {
-    app: "GooglePhotosDeduper",
-    action: "launchApp",
-  }
-  chrome.runtime.sendMessage(message);
-}
-
 function handleDeletePhoto(
   message: DeletePhotoMessageType,
   _sender: chrome.runtime.MessageSender
