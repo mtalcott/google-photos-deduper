@@ -91,7 +91,7 @@ export default function TaskResults(props: TaskResultsProps) {
                   height={height}
                   width={width}
                   itemCount={groupsWithDuplicates.length}
-                  itemSize={263}
+                  itemSize={410}
                 >
                   {({ index, style }) => (
                     <ResultRow
@@ -195,7 +195,7 @@ function MediaItemCard({
       >
         <CardMedia
           component="img"
-          height="100"
+          height="200"
           image={mediaItem.imageUrl}
           alt={mediaItem.filename}
         />
@@ -212,6 +212,10 @@ function MediaItemCard({
           />
           <MediaItemCardField
             field="dimensions"
+            {...{ mediaItem, isOriginal, originalMediaItem }}
+          />
+          <MediaItemCardField
+            field="createdAt"
             {...{ mediaItem, isOriginal, originalMediaItem }}
           />
           {mediaItem.error && (
@@ -252,7 +256,8 @@ interface MediaItemCardFieldProps {
     | "size"
     | "dimensions"
     | "deletedAt"
-    | "error";
+    | "error"
+    | "createdAt";
   mediaItem: MediaItemType;
   isOriginal: boolean;
   originalMediaItem: MediaItemType;
@@ -312,6 +317,11 @@ function MediaItemCardField({
     IconComponent = ErrorIcon;
     color = "error.main";
     text = mediaItem.error || "";
+  } else if (field === "createdAt") {
+    IconComponent = CheckCircleIcon;
+    color = "success.main";
+    tooltip = new Date(mediaItem.createdAt!).toLocaleString();
+    text = `Created At: ${tooltip}`; // Display the tooltip information in the text.
   }
 
   return (

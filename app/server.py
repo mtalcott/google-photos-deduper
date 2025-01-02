@@ -193,6 +193,9 @@ def media_item_for_display(media_item):
         ]
     )
 
+    media_metadata = media_item.get("mediaMetadata", {})
+    m["createdAt"] = media_metadata.get("creationTime")
+
     return m
 
 

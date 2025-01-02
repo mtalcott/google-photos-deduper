@@ -6,3 +6,4 @@ log/*.log*
 # WSL Zone.Identifier files
 *:Zone.Identifier
 .DS_Store
+client.json

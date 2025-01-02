@@ -74,4 +74,5 @@ export interface MediaItemType {
   deletedAt?: string;
   userUrl?: URL;
   error?: string; // Used for displaying errors on media item cards
+  createdAt?: string;
 }
