@@ -1,3 +1,6 @@
+> [!WARNING]  
+> **Unfortunately, due to [breaking changes in the Google Photos API](https://developers.google.com/photos/support/updates) this tool will stop working on March 31, 2025.** Discussion [here](https://github.com/mtalcott/google-photos-deduper/discussions/65).
+
 # Google Photos Deduper
 
 [![Python tests build badge](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/mtalcott/google-photos-deduper/actions/workflows/python-tests.yml?query=branch%3Amain)
