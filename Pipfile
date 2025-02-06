@@ -15,8 +15,7 @@ gunicorn = "*"
 flask-cors = "*"
 celery = {extras = [ "redis",]}
 tqdm = "*"
-install = "*"
-mediapipe = "*"
+mediapipe = "0.10.18" # Latest (0.10.20) fails to install on Docker ¯\_(ツ)_/¯
 torch = "*"
 
 [dev-packages]
