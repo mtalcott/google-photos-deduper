@@ -1,8 +1,12 @@
+import pytest
 import app.tasks
 import app.config
 from unittest.mock import Mock
 
 
+@pytest.mark.skip(
+    reason="Testing to see if this is the reason Github Action never completes"
+)
 def test_process_duplicates(
     mocker,
     celery_app,
