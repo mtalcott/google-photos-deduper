@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 
 @pytest.mark.skip(
-    reason="Testing to see if this is the reason Github Action never completes"
+    reason="TODO: This test is now causing Github Action to hang and eventually fail. Probably due to multithreading dependency. Fix it!"
 )
 def test_process_duplicates(
     mocker,
