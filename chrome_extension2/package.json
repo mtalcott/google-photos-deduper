@@ -1,19 +1,22 @@
 {
-  "name": "chrome-extension2",
+  "name": "google-photos-deduper",
   "displayName": "Google Photos Deduper",
-  "version": "1.0.0",
-  "description": "Chrome extension to remove duplicates from Google Photos",
+  "version": "2.0.0",
+  "description": "Find and remove duplicate photos from Google Photos",
   "author": "Mack Talcott",
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
-    "package": "plasmo package"
+    "package": "plasmo package",
+    "build:gptk": "cd Google-Photos-Toolkit && npm run build"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.18",
     "@plasmohq/messaging": "^0.6.2",
     "plasmo": "0.89.4",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "react-window": "^1.8.10"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
@@ -21,20 +24,32 @@
     "@types/node": "20.11.5",
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
+    "@types/react-window": "^1.8.8",
     "prettier": "3.2.4",
     "typescript": "5.3.3"
   },
   "manifest": {
     "permissions": [
       "activeTab",
-      "windows",
       "tabs",
-      "scripting"
+      "scripting",
+      "storage",
+      "unlimitedStorage"
     ],
     "host_permissions": [
-      "https://*/*",
-      "http://*/*",
       "https://photos.google.com/*"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "scripts/unsafewindow-shim.js",
+          "scripts/google-photos-toolkit.user.js",
+          "scripts/google-photos-commands.js"
+        ],
+        "matches": [
+          "https://photos.google.com/*"
+        ]
+      }
     ]
   }
 }
