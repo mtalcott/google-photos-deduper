@@ -1,5 +1,7 @@
-import { useEffect, useReducer, useCallback } from "react"
+import { useEffect, useReducer, useCallback, useRef } from "react"
 import { APP_ID } from "../lib/types"
+import { detectDuplicates } from "../lib/duplicate-detector"
+import type { DetectionProgress } from "../lib/duplicate-detector"
 import type {
   AppMessage,
   GpdMediaItem,
@@ -165,22 +167,13 @@ export default function App() {
           const result = message as GptkResultMessage
           if (result.command === "getAllMediaItems") {
             if (result.success) {
+              const items = result.data as GpdMediaItem[]
               dispatch({
                 type: "SCAN_MEDIA_FETCHED",
-                mediaItems: result.data as GpdMediaItem[],
+                mediaItems: items,
               })
-              // TODO: Trigger MediaPipe processing here
-              // For now, just show results without grouping
-              const items = result.data as GpdMediaItem[]
-              const mediaItemMap: Record<string, GpdMediaItem> = {}
-              for (const item of items) {
-                mediaItemMap[item.mediaKey] = item
-              }
-              dispatch({
-                type: "SCAN_COMPLETE",
-                mediaItems: mediaItemMap,
-                groups: [], // Will be populated by MediaPipe in Phase 3
-              })
+              // Run MediaPipe duplicate detection in the app tab
+              runDuplicateDetection(items)
             } else {
               dispatch({ type: "SCAN_ERROR", error: result.error || "Scan failed" })
             }
@@ -205,6 +198,58 @@ export default function App() {
 
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
+  }, [])
+
+  // Keep a ref to settings so async callbacks see latest values
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+
+  // Run MediaPipe duplicate detection on fetched media items
+  const runDuplicateDetection = useCallback(async (items: GpdMediaItem[]) => {
+    try {
+      const groups = await detectDuplicates(
+        items,
+        settingsRef.current.similarityThreshold,
+        (progress: DetectionProgress) => {
+          dispatch({
+            type: "SCAN_PROGRESS",
+            payload: {
+              app: APP_ID,
+              action: "gptkProgress",
+              requestId: "",
+              itemsProcessed: progress.current,
+              message: `${progress.phase}: ${progress.current}/${progress.total}`,
+            },
+          })
+        }
+      )
+
+      const mediaItemMap: Record<string, GpdMediaItem> = {}
+      for (const item of items) {
+        mediaItemMap[item.mediaKey] = item
+      }
+
+      dispatch({
+        type: "SCAN_COMPLETE",
+        mediaItems: mediaItemMap,
+        groups,
+      })
+
+      // Persist results
+      chrome.storage.local.set({
+        scanResults: {
+          mediaItems: mediaItemMap,
+          groups,
+          scanDate: Date.now(),
+          totalItems: items.length,
+        },
+      })
+    } catch (error) {
+      dispatch({
+        type: "SCAN_ERROR",
+        error: `Duplicate detection failed: ${error}`,
+      })
+    }
   }, [])
 
   // Health check on mount
