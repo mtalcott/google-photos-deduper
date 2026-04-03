@@ -6,3 +6,8 @@ log/*.log*
 # WSL Zone.Identifier files
 *:Zone.Identifier
 .DS_Store
+
+# Chrome extension
+chrome_extension2/build/
+chrome_extension2/node_modules/
+chrome_extension2/scripts/google-photos-toolkit.user.js
