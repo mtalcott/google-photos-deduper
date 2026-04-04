@@ -441,6 +441,10 @@ export default function App() {
 
     if (dedupKeys.length === 0) return
 
+    if (!confirm(`Move ${dedupKeys.length} duplicate${dedupKeys.length !== 1 ? "s" : ""} to trash? This can be undone from the Google Photos trash.`)) {
+      return
+    }
+
     const requestId = generateRequestId()
     dispatch({
       type: "TRASH_STARTED",

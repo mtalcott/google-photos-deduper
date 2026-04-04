@@ -73,6 +73,7 @@ async function getAllMediaItems(requestId, args) {
             resHeight: item.resHeight,
             duration: item.duration,
             isOwned: item.isOwned,
+            fileName: item.descriptionShort || null,
           });
         }
       }
@@ -101,10 +102,14 @@ async function trashItems(requestId, args) {
 
   try {
     const dedupKeys = args.dedupKeys;
+    const mediaKeysToTrash = args.mediaKeysToTrash || [];
     // gptkApiUtils.moveToTrash expects MediaItem[] with dedupKey property
     const fakeItems = dedupKeys.map((dedupKey) => ({ dedupKey }));
     await gptkApiUtils.moveToTrash(fakeItems);
-    postResult("trashItems", requestId, { trashedCount: dedupKeys.length });
+    postResult("trashItems", requestId, {
+      trashedCount: dedupKeys.length,
+      trashedKeys: mediaKeysToTrash,
+    });
   } catch (error) {
     postError("trashItems", requestId, error);
   }

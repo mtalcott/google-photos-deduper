@@ -122,7 +122,10 @@ export function DuplicateGroups({
                     />
                     <div style={styles.thumbnailInfo}>
                       <span style={styles.fileName}>
-                        {item.fileName || "Untitled"}
+                        {item.fileName ||
+                          (item.timestamp
+                            ? new Date(item.timestamp).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                            : "Untitled")}
                       </span>
                       {item.resWidth && item.resHeight && (
                         <span style={styles.dimensions}>
