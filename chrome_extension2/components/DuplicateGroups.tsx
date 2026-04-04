@@ -39,9 +39,20 @@ function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
 interface DuplicateGroupsProps {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
+  selectedGroupIds: Set<string>
+  onToggleGroup: (groupId: string) => void
+  getOriginal: (group: DuplicateGroup) => string
+  onSetOriginal: (groupId: string, mediaKey: string) => void
 }
 
-export function DuplicateGroups({ groups, mediaItems }: DuplicateGroupsProps) {
+export function DuplicateGroups({
+  groups,
+  mediaItems,
+  selectedGroupIds,
+  onToggleGroup,
+  getOriginal,
+  onSetOriginal,
+}: DuplicateGroupsProps) {
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
     return (
@@ -61,53 +72,76 @@ export function DuplicateGroups({ groups, mediaItems }: DuplicateGroupsProps) {
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
       </h3>
 
-      {groups.map((group) => (
-        <div key={group.id} style={styles.group}>
-          <div style={styles.groupHeader}>
-            <span style={styles.groupTitle}>
-              Group: {group.mediaKeys.length} items
-            </span>
-            <span style={styles.similarity}>
-              {Math.round(group.similarity * 100)}% similar
-            </span>
-          </div>
-          <div style={styles.thumbnails}>
-            {group.mediaKeys.map((key) => {
-              const item = mediaItems[key]
-              if (!item) return null
-              const isOriginal = key === group.originalMediaKey
-              return (
-                <div
-                  key={key}
-                  style={{
-                    ...styles.thumbnailCard,
-                    border: isOriginal
-                      ? "2px solid #1a73e8"
-                      : "2px solid transparent",
-                  }}>
-                  <ThumbnailImage
-                    src={item.thumb + "=w200-h200"}
-                    alt={item.fileName || item.mediaKey}
-                  />
-                  <div style={styles.thumbnailInfo}>
-                    <span style={styles.fileName}>
-                      {item.fileName || "Untitled"}
-                    </span>
-                    {item.resWidth && item.resHeight && (
-                      <span style={styles.dimensions}>
-                        {item.resWidth}x{item.resHeight}
+      {groups.map((group) => {
+        const isSelected = selectedGroupIds.has(group.id)
+        const original = getOriginal(group)
+        return (
+          <div
+            key={group.id}
+            style={{
+              ...styles.group,
+              opacity: isSelected ? 1 : 0.6,
+            }}>
+            <div
+              style={styles.groupHeader}
+              onClick={() => onToggleGroup(group.id)}>
+              <div style={styles.groupHeaderLeft}>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggleGroup(group.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={styles.checkbox}
+                />
+                <span style={styles.groupTitle}>
+                  Group: {group.mediaKeys.length} items
+                </span>
+              </div>
+              <span style={styles.similarity}>
+                {Math.round(group.similarity * 100)}% similar
+              </span>
+            </div>
+            <div style={styles.thumbnails}>
+              {group.mediaKeys.map((key) => {
+                const item = mediaItems[key]
+                if (!item) return null
+                const isOriginal = key === original
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      ...styles.thumbnailCard,
+                      border: isOriginal
+                        ? "2px solid #1a73e8"
+                        : "2px solid #e0e0e0",
+                    }}
+                    onClick={() => onSetOriginal(group.id, key)}>
+                    <ThumbnailImage
+                      src={item.thumb + "=w200-h200"}
+                      alt={item.fileName || item.mediaKey}
+                    />
+                    <div style={styles.thumbnailInfo}>
+                      <span style={styles.fileName}>
+                        {item.fileName || "Untitled"}
                       </span>
-                    )}
-                    {isOriginal && (
-                      <span style={styles.originalBadge}>Original</span>
-                    )}
+                      {item.resWidth && item.resHeight && (
+                        <span style={styles.dimensions}>
+                          {item.resWidth}x{item.resHeight}
+                        </span>
+                      )}
+                      {isOriginal ? (
+                        <span style={styles.originalBadge}>Keep</span>
+                      ) : isSelected ? (
+                        <span style={styles.trashBadge}>Trash</span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -121,6 +155,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     marginBottom: 16,
     overflow: "hidden",
+    transition: "opacity 0.15s",
   },
   groupHeader: {
     display: "flex",
@@ -128,6 +163,18 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     padding: "12px 16px",
     backgroundColor: "#f5f5f5",
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  groupHeaderLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  checkbox: {
+    width: 16,
+    height: 16,
+    cursor: "pointer",
   },
   groupTitle: { fontWeight: 500, fontSize: 14 },
   similarity: { fontSize: 13, color: "#5f6368" },
@@ -142,6 +189,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     overflow: "hidden",
     cursor: "pointer",
+    transition: "border-color 0.15s",
   },
   thumbnailImg: {
     width: "100%",
@@ -171,5 +219,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 500,
     marginTop: 2,
+    width: "fit-content",
+  },
+  trashBadge: {
+    display: "inline-block",
+    backgroundColor: "#fce8e6",
+    color: "#c62828",
+    padding: "2px 6px",
+    borderRadius: 3,
+    fontSize: 11,
+    fontWeight: 500,
+    marginTop: 2,
+    width: "fit-content",
   },
 }

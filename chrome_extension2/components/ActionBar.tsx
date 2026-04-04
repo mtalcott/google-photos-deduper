@@ -1,86 +1,57 @@
-import { useState } from "react"
-import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
-
 interface ActionBarProps {
-  groups: DuplicateGroup[]
-  mediaItems: Record<string, GpdMediaItem>
-  onTrash: (dedupKeys: string[]) => void
   totalItems: number
+  groupCount: number
+  duplicateCount: number
+  onSelectAll: () => void
+  onDeselectAll: () => void
+  onTrash: () => void
+  onRescan: () => void
 }
 
 export function ActionBar({
-  groups,
-  mediaItems,
-  onTrash,
   totalItems,
+  groupCount,
+  duplicateCount,
+  onSelectAll,
+  onDeselectAll,
+  onTrash,
+  onRescan,
 }: ActionBarProps) {
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
-    () => new Set(groups.map((g) => g.id))
-  )
-
-  const duplicateCount = groups.reduce((sum, group) => {
-    if (!selectedGroupIds.has(group.id)) return sum
-    // Count all items except the original
-    return sum + group.mediaKeys.filter((k) => k !== group.originalMediaKey).length
-  }, 0)
-
-  const handleSelectAll = () => {
-    setSelectedGroupIds(new Set(groups.map((g) => g.id)))
-  }
-
-  const handleDeselectAll = () => {
-    setSelectedGroupIds(new Set())
-  }
-
-  const handleTrash = () => {
-    const dedupKeys: string[] = []
-    for (const group of groups) {
-      if (!selectedGroupIds.has(group.id)) continue
-      for (const key of group.mediaKeys) {
-        if (key === group.originalMediaKey) continue
-        const item = mediaItems[key]
-        if (item?.dedupKey) {
-          dedupKeys.push(item.dedupKey)
-        }
-      }
-    }
-    if (dedupKeys.length > 0) {
-      onTrash(dedupKeys)
-    }
-  }
-
   return (
     <div style={styles.bar}>
       <div style={styles.stats}>
-        <span>
-          {totalItems.toLocaleString()} total items scanned
-        </span>
+        <span>{totalItems.toLocaleString()} total items scanned</span>
         <span style={styles.separator}>|</span>
         <span>
-          {groups.length} duplicate group{groups.length !== 1 ? "s" : ""}
+          {groupCount} duplicate group{groupCount !== 1 ? "s" : ""}
         </span>
       </div>
 
-      {groups.length > 0 && (
-        <div style={styles.actions}>
-          <button style={styles.textButton} onClick={handleSelectAll}>
-            Select All
-          </button>
-          <button style={styles.textButton} onClick={handleDeselectAll}>
-            Deselect All
-          </button>
-          <button
-            style={{
-              ...styles.trashButton,
-              opacity: duplicateCount === 0 ? 0.5 : 1,
-            }}
-            onClick={handleTrash}
-            disabled={duplicateCount === 0}>
-            Move {duplicateCount} Duplicate{duplicateCount !== 1 ? "s" : ""} to
-            Trash
-          </button>
-        </div>
-      )}
+      <div style={styles.actions}>
+        <button style={styles.textButton} onClick={onRescan}>
+          Re-scan
+        </button>
+        {groupCount > 0 && (
+          <>
+            <button style={styles.textButton} onClick={onSelectAll}>
+              Select All
+            </button>
+            <button style={styles.textButton} onClick={onDeselectAll}>
+              Deselect All
+            </button>
+            <button
+              style={{
+                ...styles.trashButton,
+                opacity: duplicateCount === 0 ? 0.5 : 1,
+              }}
+              onClick={onTrash}
+              disabled={duplicateCount === 0}>
+              Move {duplicateCount} Duplicate
+              {duplicateCount !== 1 ? "s" : ""} to Trash
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -95,6 +66,10 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
     flexWrap: "wrap",
     gap: 12,
+    position: "sticky",
+    top: 0,
+    backgroundColor: "white",
+    zIndex: 10,
   },
   stats: { fontSize: 14, color: "#5f6368" },
   separator: { margin: "0 8px" },
