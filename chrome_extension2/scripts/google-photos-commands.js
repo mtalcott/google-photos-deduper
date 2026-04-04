@@ -94,23 +94,26 @@ async function getAllMediaItems(requestId, args) {
 // ============================================================
 
 async function trashItems(requestId, args) {
-  const gptkApiUtils = window.gptkApiUtils;
-  if (!gptkApiUtils) {
-    postError("trashItems", requestId, "GPTK ApiUtils not available. Reload the Google Photos page.");
+  // Call api.moveItemsToTrash directly instead of gptkApiUtils.moveToTrash,
+  // because the latter goes through executeWithConcurrency which checks
+  // gptkCore.isProcessRunning (always false when called from extension).
+  const api = window.gptkApiUtils?.api;
+  if (!api) {
+    postError("trashItems", requestId, "GPTK API not available. Reload the Google Photos page.");
     return;
   }
 
   try {
     const dedupKeys = args.dedupKeys;
     const mediaKeysToTrash = args.mediaKeysToTrash || [];
-    // gptkApiUtils.moveToTrash expects MediaItem[] with dedupKey property
-    const fakeItems = dedupKeys.map((dedupKey) => ({ dedupKey }));
-    await gptkApiUtils.moveToTrash(fakeItems);
+    console.log("GPD: Trashing", dedupKeys.length, "items via api.moveItemsToTrash");
+    await api.moveItemsToTrash(dedupKeys);
     postResult("trashItems", requestId, {
       trashedCount: dedupKeys.length,
       trashedKeys: mediaKeysToTrash,
     });
   } catch (error) {
+    console.error("GPD: Trash error", error);
     postError("trashItems", requestId, error);
   }
 }

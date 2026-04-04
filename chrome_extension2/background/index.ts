@@ -23,12 +23,30 @@ const pendingCommands: Record<
 > = {}
 
 // ============================================================
-// Find or detect Google Photos tab
+// Find tabs
 // ============================================================
 
 async function findGooglePhotosTab(): Promise<chrome.tabs.Tab | null> {
   const tabs = await chrome.tabs.query({ url: "https://photos.google.com/*" })
   return tabs.length > 0 ? tabs[0] : null
+}
+
+/**
+ * Get the sender's tab ID. For content scripts, sender.tab is set.
+ * For extension pages (tabs/app.html), sender.tab is undefined —
+ * we resolve it from sender.url via chrome.tabs.query.
+ */
+async function getSenderTabId(
+  sender: chrome.runtime.MessageSender
+): Promise<number | null> {
+  if (sender.tab?.id) return sender.tab.id
+
+  // Extension page: find tab by URL
+  if (sender.url) {
+    const tabs = await chrome.tabs.query({ url: sender.url })
+    if (tabs.length > 0 && tabs[0].id) return tabs[0].id
+  }
+  return null
 }
 
 // ============================================================
@@ -107,10 +125,12 @@ async function handleLaunchApp(
 async function handleHealthCheck(
   sender: chrome.runtime.MessageSender
 ): Promise<void> {
+  const senderTabId = await getSenderTabId(sender)
+
   const gpTab = await findGooglePhotosTab()
   if (!gpTab?.id) {
-    if (sender.tab?.id) {
-      chrome.tabs.sendMessage(sender.tab.id, {
+    if (senderTabId) {
+      chrome.tabs.sendMessage(senderTabId, {
         app: APP_ID,
         action: "healthCheck.result",
         success: false,
@@ -121,15 +141,15 @@ async function handleHealthCheck(
   }
 
   // Map the app tab to the GP tab
-  if (sender.tab?.id && gpTab.id) {
-    tabMap[sender.tab.id] = gpTab.id
-    tabMap[gpTab.id] = sender.tab.id
+  if (senderTabId && gpTab.id) {
+    tabMap[senderTabId] = gpTab.id
+    tabMap[gpTab.id] = senderTabId
   }
 
   try {
     const result = await sendGptkCommand(gpTab.id, "healthCheck")
-    if (sender.tab?.id) {
-      chrome.tabs.sendMessage(sender.tab.id, {
+    if (senderTabId) {
+      chrome.tabs.sendMessage(senderTabId, {
         app: APP_ID,
         action: "healthCheck.result",
         success: true,
@@ -137,8 +157,8 @@ async function handleHealthCheck(
       })
     }
   } catch {
-    if (sender.tab?.id) {
-      chrome.tabs.sendMessage(sender.tab.id, {
+    if (senderTabId) {
+      chrome.tabs.sendMessage(senderTabId, {
         app: APP_ID,
         action: "healthCheck.result",
         success: false,
@@ -152,7 +172,7 @@ async function handleGptkCommand(
   message: GptkCommandMessage,
   sender: chrome.runtime.MessageSender
 ): Promise<void> {
-  const senderTabId = sender.tab?.id
+  const senderTabId = await getSenderTabId(sender)
   if (!senderTabId) return
 
   // Find the GP tab for this sender

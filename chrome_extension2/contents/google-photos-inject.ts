@@ -12,7 +12,8 @@ export const config: PlasmoCSConfig = {
 function injectScript(fileName: string): void {
   const url = chrome.runtime.getURL(fileName)
   const script = document.createElement("script")
-  script.src = url
+  // Cache-bust to ensure latest version after extension reload
+  script.src = url + "?v=" + chrome.runtime.getManifest().version + "-" + Date.now()
   script.type = "text/javascript"
   ;(document.head || document.documentElement).appendChild(script)
 }

@@ -356,16 +356,6 @@ export default function App() {
           mediaItems: mediaItemMap,
           groups,
         })
-
-        // Persist results
-        chrome.storage.local.set({
-          scanResults: {
-            mediaItems: mediaItemMap,
-            groups,
-            scanDate: Date.now(),
-            totalItems: items.length,
-          },
-        })
       } catch (error) {
         dispatch({
           type: "SCAN_ERROR",
@@ -400,6 +390,22 @@ export default function App() {
       }
     )
   }, [])
+
+  // Persist scan results when they change (after scan or trash)
+  const mediaItems = state.status === "results" ? state.mediaItems : null
+  const totalItems = state.status === "results" ? state.totalItems : 0
+  useEffect(() => {
+    if (groups.length > 0 && mediaItems) {
+      chrome.storage.local.set({
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: Date.now(),
+          totalItems,
+        },
+      })
+    }
+  }, [groups, mediaItems, totalItems])
 
   // Save settings on change
   useEffect(() => {
