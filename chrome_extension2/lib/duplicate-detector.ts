@@ -6,7 +6,7 @@
 // 2. Compute L2-normalized embeddings via MediaPipe MobileNet V3
 // 3. Group duplicates using fast community detection (cosine similarity)
 
-import { ImageEmbedder, FilesetResolver } from "@mediapipe/tasks-vision"
+import { ImageEmbedder } from "@mediapipe/tasks-vision"
 import type { GpdMediaItem, DuplicateGroup } from "./types"
 
 const MODEL_URL =
@@ -34,6 +34,7 @@ export async function detectDuplicates(
 ): Promise<DuplicateGroup[]> {
   // Filter to items with thumbnails (photos only, skip videos)
   const candidates = mediaItems.filter((item) => item.thumb && !item.duration)
+  console.log(`[GPD] detectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates`)
   if (candidates.length < 2) return []
 
   // Step 1: Download thumbnails
@@ -125,16 +126,48 @@ async function computeEmbeddings(
   blobs: (Blob | null)[],
   onProgress?: ProgressCallback
 ): Promise<{ embeddings: Float32Array[]; validIndices: number[] }> {
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-  )
-
-  const embedder = await ImageEmbedder.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_URL },
-    quantize: false,
-    l2Normalize: true,
-    runningMode: "IMAGE",
+  // MediaPipe's createFromOptions internally injects a <script crossOrigin="anonymous">
+  // tag to load the WASM loader JS, which is blocked by extension CSP (script-src 'self').
+  // Workaround: pre-load the JS ourselves from bundled assets (same-origin = CSP-safe),
+  // then pass wasmLoaderPath: "" so MediaPipe skips its dynamic injection.
+  const jsUrl = chrome.runtime.getURL("scripts/vision_wasm_internal.js")
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = jsUrl
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error("Failed to load MediaPipe WASM loader script"))
+    document.head.appendChild(script)
   })
+
+  const vision = {
+    wasmLoaderPath: "",  // Skip MediaPipe's dynamic script injection
+    wasmBinaryPath: chrome.runtime.getURL("scripts/vision_wasm_internal.wasm"),
+  }
+
+  // Fetch model as ArrayBuffer — modelAssetPath fails in extension context
+  let modelBuffer: ArrayBuffer
+  try {
+    const resp = await fetch(MODEL_URL)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    modelBuffer = await resp.arrayBuffer()
+  } catch (e) {
+    throw new Error(`Failed to download model: ${e instanceof Error ? e.message : e}`)
+  }
+
+  let embedder
+  try {
+    embedder = await ImageEmbedder.createFromOptions(vision, {
+      baseOptions: { modelAssetBuffer: new Uint8Array(modelBuffer) },
+      quantize: false,
+      l2Normalize: true,
+      runningMode: "IMAGE",
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message
+      : e instanceof Event ? `Event(${(e as ErrorEvent).message || e.type})`
+      : String(e)
+    throw new Error(`Failed to create ImageEmbedder: ${msg}`)
+  }
 
   const embeddings: Float32Array[] = []
   const validIndices: number[] = []

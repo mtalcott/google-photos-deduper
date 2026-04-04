@@ -6,9 +6,10 @@
   "author": "Mack Talcott",
   "scripts": {
     "build:gptk": "cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js",
-    "dev": "npm run build:gptk && plasmo dev",
-    "build": "npm run build:gptk && plasmo build",
-    "package": "npm run build:gptk && plasmo package"
+    "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
+    "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
+    "build": "npm run build:gptk && npm run copy:wasm && plasmo build",
+    "package": "npm run build:gptk && npm run copy:wasm && plasmo package"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.18",
@@ -37,14 +38,23 @@
       "unlimitedStorage"
     ],
     "host_permissions": [
-      "https://photos.google.com/*"
+      "https://photos.google.com/*",
+      "https://*.googleusercontent.com/*",
+      "https://*.usercontent.google.com/*",
+      "https://*.googleapis.com/*",
+      "https://cdn.jsdelivr.net/*"
     ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    },
     "web_accessible_resources": [
       {
         "resources": [
           "scripts/unsafewindow-shim.js",
           "scripts/google-photos-toolkit.user.js",
-          "scripts/google-photos-commands.js"
+          "scripts/google-photos-commands.js",
+          "scripts/vision_wasm_internal.js",
+          "scripts/vision_wasm_internal.wasm"
         ],
         "matches": [
           "https://photos.google.com/*"

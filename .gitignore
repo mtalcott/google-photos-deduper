@@ -11,3 +11,5 @@ log/*.log*
 chrome_extension2/build/
 chrome_extension2/node_modules/
 chrome_extension2/scripts/google-photos-toolkit.user.js
+# MediaPipe WASM files (copied from node_modules during build)
+chrome_extension2/scripts/vision_wasm_internal.*

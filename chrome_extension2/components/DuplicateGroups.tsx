@@ -1,4 +1,40 @@
+import { useState, useEffect } from "react"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
+
+/**
+ * Fetch a thumbnail via fetch() (which uses extension host_permissions + cookies)
+ * and return a blob URL that <img> can display.
+ */
+function useBlobUrl(url: string | undefined): string | undefined {
+  const [blobUrl, setBlobUrl] = useState<string>()
+  useEffect(() => {
+    if (!url) return
+    let revoked = false
+    fetch(url, { credentials: "include" })
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((blob) => {
+        if (blob && !revoked) setBlobUrl(URL.createObjectURL(blob))
+      })
+      .catch(() => {})
+    return () => {
+      revoked = true
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [url])
+  return blobUrl
+}
+
+function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
+  const blobUrl = useBlobUrl(src)
+  return (
+    <img
+      src={blobUrl || ""}
+      alt={alt}
+      style={styles.thumbnailImg}
+      loading="lazy"
+    />
+  )
+}
 
 interface DuplicateGroupsProps {
   groups: DuplicateGroup[]
@@ -49,11 +85,9 @@ export function DuplicateGroups({ groups, mediaItems }: DuplicateGroupsProps) {
                       ? "2px solid #1a73e8"
                       : "2px solid transparent",
                   }}>
-                  <img
+                  <ThumbnailImage
                     src={item.thumb + "=w200-h200"}
                     alt={item.fileName || item.mediaKey}
-                    style={styles.thumbnailImg}
-                    loading="lazy"
                   />
                   <div style={styles.thumbnailInfo}>
                     <span style={styles.fileName}>
