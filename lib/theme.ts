@@ -15,7 +15,14 @@ const theme = createTheme({
     divider: "#EEEEEE",
   },
   typography: {
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: [
+      "Roboto",
+      "-apple-system",
+      "BlinkMacSystemFont",
+      '"Segoe UI"',
+      "Arial",
+      "sans-serif",
+    ].join(","),
   },
   shape: {
     borderRadius: 6,

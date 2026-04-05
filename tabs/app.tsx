@@ -1,4 +1,3 @@
-import "@fontsource/dm-sans"
 import { useEffect, useReducer, useCallback, useRef, useState } from "react"
 import Alert from "@mui/material/Alert"
 import AppBar from "@mui/material/AppBar"
@@ -7,9 +6,10 @@ import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import CssBaseline from "@mui/material/CssBaseline"
 import IconButton from "@mui/material/IconButton"
+import Snackbar from "@mui/material/Snackbar"
 import Toolbar from "@mui/material/Toolbar"
 import Typography from "@mui/material/Typography"
-import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
+import CloseIcon from "@mui/icons-material/Close"
 import { ThemeProvider } from "@mui/material/styles"
 import theme from "../lib/theme"
 import { APP_ID } from "../lib/types"
@@ -93,6 +93,13 @@ type AppAction =
       groups: DuplicateGroup[]
       totalItems: number
     }
+  | {
+      type: "RESTORE_SNAPSHOT"
+      mediaItems: Record<string, GpdMediaItem>
+      groups: DuplicateGroup[]
+      totalItems: number
+    }
+  | { type: "GP_TAB_CLOSED" }
   | { type: "RESET" }
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -189,11 +196,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { status: "disconnected", error: action.error }
 
     case "LOAD_SAVED_RESULTS":
+    case "RESTORE_SNAPSHOT":
       return {
         status: "results",
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
+      }
+
+    case "GP_TAB_CLOSED":
+      return {
+        status: "disconnected",
+        error: "Google Photos tab was closed. Please reopen photos.google.com and retry.",
       }
 
     case "RESET":
@@ -236,6 +250,25 @@ export default function App() {
   const [originalOverrides, setOriginalOverrides] = useState<
     Record<string, string>
   >({})
+
+  // Undo trash state: stored after a successful trash operation
+  const [undoData, setUndoData] = useState<{
+    dedupKeys: string[]
+    count: number
+    snapshot: {
+      mediaItems: Record<string, GpdMediaItem>
+      groups: DuplicateGroup[]
+      totalItems: number
+    }
+  } | null>(null)
+
+  // Refs to capture pre-trash data for undo
+  const preTrashSnapshotRef = useRef<{
+    mediaItems: Record<string, GpdMediaItem>
+    groups: DuplicateGroup[]
+    totalItems: number
+  } | null>(null)
+  const pendingDedupKeysRef = useRef<string[] | null>(null)
 
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
   const groups =
@@ -308,19 +341,37 @@ export default function App() {
           } else if (result.command === "trashItems") {
             if (result.success) {
               const data = result.data as { trashedKeys: string[] }
-              dispatch({
-                type: "TRASH_COMPLETE",
-                trashedKeys: data.trashedKeys || [],
-              })
+              const trashedKeys = data.trashedKeys || []
+              dispatch({ type: "TRASH_COMPLETE", trashedKeys })
+              // Set undo data from the snapshot captured before trash
+              if (preTrashSnapshotRef.current && pendingDedupKeysRef.current) {
+                setUndoData({
+                  dedupKeys: pendingDedupKeysRef.current,
+                  count: pendingDedupKeysRef.current.length,
+                  snapshot: preTrashSnapshotRef.current,
+                })
+                preTrashSnapshotRef.current = null
+                pendingDedupKeysRef.current = null
+              }
             } else {
               dispatch({
                 type: "TRASH_ERROR",
                 error: result.error || "Trash failed",
               })
             }
+          } else if (result.command === "restoreItems") {
+            if (!result.success) {
+              // Optimistic restore already happened in UI; show a non-blocking alert
+              console.error("GPD: Restore failed:", result.error)
+            }
           }
           break
         }
+        case "gptkLog":
+          if ((message as { level?: string }).level === "error") {
+            dispatch({ type: "GP_TAB_CLOSED" })
+          }
+          break
         case "gptkProgress":
           dispatch({
             type: "SCAN_PROGRESS",
@@ -465,6 +516,15 @@ export default function App() {
     }
 
     const requestId = generateRequestId()
+
+    // Capture snapshot for undo
+    preTrashSnapshotRef.current = {
+      mediaItems: state.mediaItems,
+      groups: state.groups,
+      totalItems: state.totalItems,
+    }
+    pendingDedupKeysRef.current = dedupKeys
+
     dispatch({
       type: "TRASH_STARTED",
       totalToTrash: dedupKeys.length,
@@ -487,6 +547,30 @@ export default function App() {
     sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
   }, [])
 
+  const handleUndo = useCallback(() => {
+    if (!undoData) return
+    // Optimistically restore the UI to the pre-trash state
+    dispatch({
+      type: "RESTORE_SNAPSHOT",
+      mediaItems: undoData.snapshot.mediaItems,
+      groups: undoData.snapshot.groups,
+      totalItems: undoData.snapshot.totalItems,
+    })
+    // Call GPTK to restore from trash
+    sendToServiceWorker({
+      app: APP_ID,
+      action: "gptkCommand",
+      command: "restoreItems",
+      requestId: generateRequestId(),
+      args: { dedupKeys: undoData.dedupKeys },
+    })
+    setUndoData(null)
+  }, [undoData])
+
+  const handleUndoClose = useCallback(() => {
+    setUndoData(null)
+  }, [])
+
   // Compute duplicate count for ActionBar
   const duplicateCount =
     state.status === "results"
@@ -506,14 +590,9 @@ export default function App() {
       {/* Sticky header */}
       <AppBar position="sticky">
         <Toolbar>
-          <Typography variant="h6" fontWeight={600} sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" fontWeight={600}>
             Google Photos Deduper
           </Typography>
-          {state.status === "results" && (
-            <IconButton color="inherit" onClick={handleStartScan} title="Re-scan">
-              <RefreshRoundedIcon />
-            </IconButton>
-          )}
         </Toolbar>
       </AppBar>
 
@@ -620,6 +699,25 @@ export default function App() {
           </Box>
         )}
       </Box>
+
+      {/* Undo trash snackbar */}
+      <Snackbar
+        open={!!undoData}
+        autoHideDuration={8000}
+        onClose={handleUndoClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        message={undoData ? `${undoData.count} item${undoData.count !== 1 ? "s" : ""} moved to trash` : ""}
+        action={
+          <>
+            <Button color="secondary" size="small" onClick={handleUndo}>
+              Undo
+            </Button>
+            <IconButton size="small" color="inherit" onClick={handleUndoClose}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </>
+        }
+      />
     </ThemeProvider>
   )
 }

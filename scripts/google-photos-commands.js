@@ -119,6 +119,31 @@ async function trashItems(requestId, args) {
 }
 
 // ============================================================
+// Command: restoreItems
+// Restores items from trash via GPTK's batch API.
+// ============================================================
+
+async function restoreItems(requestId, args) {
+  // Call api.restoreFromTrash directly (same reason as trashItems —
+  // executeWithConcurrency checks isProcessRunning which is always false here).
+  const api = window.gptkApiUtils?.api;
+  if (!api) {
+    postError("restoreItems", requestId, "GPTK API not available. Reload the Google Photos page.");
+    return;
+  }
+
+  try {
+    const dedupKeys = args.dedupKeys;
+    console.log("GPD: Restoring", dedupKeys.length, "items from trash");
+    await api.restoreFromTrash(dedupKeys);
+    postResult("restoreItems", requestId, { restoredCount: dedupKeys.length });
+  } catch (error) {
+    console.error("GPD: Restore error", error);
+    postError("restoreItems", requestId, error);
+  }
+}
+
+// ============================================================
 // Command: healthCheck
 // Verifies GPTK is loaded and WIZ_global_data is available.
 // ============================================================
@@ -147,6 +172,9 @@ window.addEventListener("message", async (event) => {
       break;
     case "trashItems":
       await trashItems(requestId, args);
+      break;
+    case "restoreItems":
+      await restoreItems(requestId, args);
       break;
     case "healthCheck":
       healthCheck(requestId);

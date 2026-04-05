@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 
 interface ActionBarProps {
   totalItems: number
@@ -24,6 +25,7 @@ export function ActionBar({
   onSelectAll,
   onDeselectAll,
   onTrash,
+  onRescan,
 }: ActionBarProps) {
   return (
     <Paper
@@ -54,6 +56,13 @@ export function ActionBar({
 
       {groupCount > 0 && (
         <Stack direction="row" spacing={1} alignItems="center">
+          <Button
+            size="small"
+            startIcon={<RefreshRoundedIcon />}
+            onClick={onRescan}>
+            Re-scan
+          </Button>
+          <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
           <Button
             size="small"
             startIcon={<CheckBoxOutlinedIcon />}
