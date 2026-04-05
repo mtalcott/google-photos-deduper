@@ -1,3 +1,11 @@
+import Alert from "@mui/material/Alert"
+import Box from "@mui/material/Box"
+import Button from "@mui/material/Button"
+import Paper from "@mui/material/Paper"
+import Slider from "@mui/material/Slider"
+import Typography from "@mui/material/Typography"
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded"
 import type { ScanSettings } from "../lib/types"
 
 interface ScanConfigProps {
@@ -15,85 +23,67 @@ export function ScanConfig({
 }: ScanConfigProps) {
   if (!hasGptk) {
     return (
-      <div style={styles.container}>
-        <div style={styles.warning}>
-          <p>
-            GPTK is not loaded on the Google Photos page. Please reload
-            photos.google.com and try again.
-          </p>
-        </div>
-      </div>
+      <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
+        <Alert severity="warning" icon={<WarningAmberRoundedIcon />}>
+          GPTK is not loaded on the Google Photos page. Please reload
+          photos.google.com and try again.
+        </Alert>
+      </Box>
     )
   }
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.heading}>Scan for Duplicates</h2>
-      <p style={styles.description}>
-        Scan your Google Photos library to find duplicate images using AI-powered
-        image comparison.
-      </p>
+    <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 4,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+        }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Scan for Duplicates
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+          Scan your Google Photos library to find duplicate images using
+          AI-powered image comparison.
+        </Typography>
 
-      <div style={styles.field}>
-        <label style={styles.label}>
-          Similarity Threshold: {settings.similarityThreshold}
-        </label>
-        <input
-          type="range"
-          min={0.9}
-          max={1.0}
-          step={0.01}
-          value={settings.similarityThreshold}
-          onChange={(e) =>
-            onSettingsChange({
-              similarityThreshold: parseFloat(e.target.value),
-            })
-          }
-          style={styles.slider}
-        />
-        <div style={styles.sliderLabels}>
-          <span>More matches</span>
-          <span>Exact only</span>
-        </div>
-      </div>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="body2" fontWeight={500} sx={{ mb: 2 }}>
+            Similarity Threshold:{" "}
+            <strong>{settings.similarityThreshold}</strong>
+          </Typography>
+          <Slider
+            min={0.9}
+            max={1.0}
+            step={0.01}
+            value={settings.similarityThreshold}
+            valueLabelDisplay="auto"
+            onChange={(_, value) =>
+              onSettingsChange({ similarityThreshold: value as number })
+            }
+          />
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              More matches
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Exact only
+            </Typography>
+          </Box>
+        </Box>
 
-      <button style={styles.button} onClick={onStartScan}>
-        Scan Library
-      </button>
-    </div>
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          startIcon={<SearchRoundedIcon />}
+          onClick={onStartScan}>
+          Scan Library
+        </Button>
+      </Paper>
+    </Box>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: 480, margin: "0 auto", padding: 24 },
-  heading: { fontSize: 20, fontWeight: 600, marginBottom: 8 },
-  description: { color: "#5f6368", marginBottom: 24, lineHeight: 1.5 },
-  field: { marginBottom: 24 },
-  label: { display: "block", marginBottom: 8, fontWeight: 500 },
-  slider: { width: "100%" },
-  sliderLabels: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 12,
-    color: "#5f6368",
-    marginTop: 4,
-  },
-  button: {
-    padding: "12px 32px",
-    fontSize: 14,
-    fontWeight: 500,
-    backgroundColor: "#1a73e8",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-    width: "100%",
-  },
-  warning: {
-    backgroundColor: "#fff3e0",
-    border: "1px solid #ff9800",
-    borderRadius: 4,
-    padding: 16,
-    color: "#e65100",
-  },
 }

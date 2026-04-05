@@ -1,4 +1,13 @@
 import { useState, useEffect } from "react"
+import Box from "@mui/material/Box"
+import Card from "@mui/material/Card"
+import CardActionArea from "@mui/material/CardActionArea"
+import CardContent from "@mui/material/CardContent"
+import CardMedia from "@mui/material/CardMedia"
+import Checkbox from "@mui/material/Checkbox"
+import Chip from "@mui/material/Chip"
+import Paper from "@mui/material/Paper"
+import Typography from "@mui/material/Typography"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
 /**
@@ -27,11 +36,11 @@ function useBlobUrl(url: string | undefined): string | undefined {
 function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
   const blobUrl = useBlobUrl(src)
   return (
-    <img
-      src={blobUrl || ""}
+    <CardMedia
+      component="img"
+      image={blobUrl || ""}
       alt={alt}
-      style={styles.thumbnailImg}
-      loading="lazy"
+      sx={{ height: 120, objectFit: "cover" }}
     />
   )
 }
@@ -56,183 +65,159 @@ export function DuplicateGroups({
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
     return (
-      <div style={styles.empty}>
-        <h3>No duplicates found</h3>
-        <p>
-          Scanned {totalItems.toLocaleString()} items. No duplicate groups were
+      <Box sx={{ textAlign: "center", py: 8 }}>
+        <Typography variant="h6" color="text.secondary" gutterBottom>
+          No duplicates found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Scanned {totalItems.toLocaleString()} items. No duplicate groups
           detected at the current similarity threshold.
-        </p>
-      </div>
+        </Typography>
+      </Box>
     )
   }
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.heading}>
+    <Box sx={{ pb: 6 }}>
+      <Typography variant="h6" fontWeight={600} sx={{ px: 0, py: 2 }}>
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
-      </h3>
+      </Typography>
 
       {groups.map((group) => {
         const isSelected = selectedGroupIds.has(group.id)
         const original = getOriginal(group)
+
         return (
-          <div
+          <Paper
             key={group.id}
-            style={{
-              ...styles.group,
-              opacity: isSelected ? 1 : 0.6,
+            variant="outlined"
+            sx={{
+              mb: 2,
+              overflow: "hidden",
+              borderRadius: 2,
+              opacity: isSelected ? 1 : 0.55,
+              transition: "opacity 0.15s",
             }}>
-            <div
-              style={styles.groupHeader}
-              onClick={() => onToggleGroup(group.id)}>
-              <div style={styles.groupHeaderLeft}>
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggleGroup(group.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  style={styles.checkbox}
-                />
-                <span style={styles.groupTitle}>
-                  Group: {group.mediaKeys.length} items
-                </span>
-              </div>
-              <span style={styles.similarity}>
-                {Math.round(group.similarity * 100)}% similar
-              </span>
-            </div>
-            <div style={styles.thumbnails}>
+            {/* Group header */}
+            <Box
+              onClick={() => onToggleGroup(group.id)}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                px: 1.5,
+                py: 1,
+                backgroundColor: "grey.50",
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                cursor: "pointer",
+                userSelect: "none",
+              }}>
+              <Checkbox
+                size="small"
+                checked={isSelected}
+                onChange={() => onToggleGroup(group.id)}
+                onClick={(e) => e.stopPropagation()}
+                sx={{ p: 0.5, mr: 0.5 }}
+              />
+              <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                {group.mediaKeys.length} photos
+              </Typography>
+              <Chip
+                label={`${Math.round(group.similarity * 100)}% similar`}
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: 11 }}
+              />
+            </Box>
+
+            {/* Thumbnails */}
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 1.5,
+                p: 1.5,
+              }}>
               {group.mediaKeys.map((key) => {
                 const item = mediaItems[key]
                 if (!item) return null
                 const isOriginal = key === original
+
                 return (
-                  <div
+                  <Card
                     key={key}
-                    style={{
-                      ...styles.thumbnailCard,
-                      border: isOriginal
-                        ? "2px solid #1a73e8"
-                        : "2px solid #e0e0e0",
-                    }}
-                    onClick={() => onSetOriginal(group.id, key)}>
-                    <ThumbnailImage
-                      src={item.thumb + "=w200-h200"}
-                      alt={item.fileName || item.mediaKey}
-                    />
-                    <div style={styles.thumbnailInfo}>
-                      <span style={styles.fileName}>
-                        {item.fileName ||
-                          (item.timestamp
-                            ? new Date(item.timestamp).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-                            : "Untitled")}
-                      </span>
-                      {item.resWidth && item.resHeight && (
-                        <span style={styles.dimensions}>
-                          {item.resWidth}x{item.resHeight}
-                        </span>
-                      )}
-                      {isOriginal ? (
-                        <span style={styles.originalBadge}>Keep</span>
-                      ) : isSelected ? (
-                        <span style={styles.trashBadge}>Trash</span>
-                      ) : null}
-                    </div>
-                  </div>
+                    variant="outlined"
+                    sx={{
+                      width: 160,
+                      flexShrink: 0,
+                      borderColor: isOriginal ? "primary.main" : "divider",
+                      borderWidth: isOriginal ? 2 : 1,
+                      transition: "border-color 0.15s",
+                    }}>
+                    <CardActionArea onClick={() => onSetOriginal(group.id, key)}>
+                      <ThumbnailImage
+                        src={item.thumb + "=w200-h200"}
+                        alt={item.fileName || item.mediaKey}
+                      />
+                      <CardContent
+                        sx={{
+                          p: 1,
+                          "&:last-child": { pb: 1 },
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 0.5,
+                        }}>
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          noWrap
+                          title={item.fileName}>
+                          {item.fileName ||
+                            (item.timestamp
+                              ? new Date(item.timestamp).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )
+                              : "Untitled")}
+                        </Typography>
+                        {item.resWidth && item.resHeight && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontFamily: "monospace" }}>
+                            {item.resWidth}×{item.resHeight}
+                          </Typography>
+                        )}
+                        {isOriginal ? (
+                          <Chip
+                            label="Keep"
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ width: "fit-content", height: 20, fontSize: 11 }}
+                          />
+                        ) : isSelected ? (
+                          <Chip
+                            label="Trash"
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            sx={{ width: "fit-content", height: 20, fontSize: 11 }}
+                          />
+                        ) : null}
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
                 )
               })}
-            </div>
-          </div>
+            </Box>
+          </Paper>
         )
       })}
-    </div>
+    </Box>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { padding: "0 0 48px" },
-  empty: { textAlign: "center", padding: 48, color: "#5f6368" },
-  heading: { fontSize: 18, fontWeight: 600, marginBottom: 16 },
-  group: {
-    border: "1px solid #e0e0e0",
-    borderRadius: 8,
-    marginBottom: 16,
-    overflow: "hidden",
-    transition: "opacity 0.15s",
-  },
-  groupHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 16px",
-    backgroundColor: "#f5f5f5",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  groupHeaderLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  checkbox: {
-    width: 16,
-    height: 16,
-    cursor: "pointer",
-  },
-  groupTitle: { fontWeight: 500, fontSize: 14 },
-  similarity: { fontSize: 13, color: "#5f6368" },
-  thumbnails: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-    padding: 16,
-  },
-  thumbnailCard: {
-    width: 160,
-    borderRadius: 4,
-    overflow: "hidden",
-    cursor: "pointer",
-    transition: "border-color 0.15s",
-  },
-  thumbnailImg: {
-    width: "100%",
-    height: 120,
-    objectFit: "cover",
-    display: "block",
-  },
-  thumbnailInfo: {
-    padding: "8px 8px 4px",
-    fontSize: 12,
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  fileName: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  dimensions: { color: "#5f6368" },
-  originalBadge: {
-    display: "inline-block",
-    backgroundColor: "#e8f0fe",
-    color: "#1a73e8",
-    padding: "2px 6px",
-    borderRadius: 3,
-    fontSize: 11,
-    fontWeight: 500,
-    marginTop: 2,
-    width: "fit-content",
-  },
-  trashBadge: {
-    display: "inline-block",
-    backgroundColor: "#fce8e6",
-    color: "#c62828",
-    padding: "2px 6px",
-    borderRadius: 3,
-    fontSize: 11,
-    fontWeight: 500,
-    marginTop: 2,
-    width: "fit-content",
-  },
 }

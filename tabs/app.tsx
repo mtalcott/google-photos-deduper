@@ -1,4 +1,15 @@
+import "@fontsource/dm-sans"
 import { useEffect, useReducer, useCallback, useRef, useState } from "react"
+import Alert from "@mui/material/Alert"
+import AppBar from "@mui/material/AppBar"
+import Box from "@mui/material/Box"
+import Button from "@mui/material/Button"
+import CircularProgress from "@mui/material/CircularProgress"
+import CssBaseline from "@mui/material/CssBaseline"
+import Toolbar from "@mui/material/Toolbar"
+import Typography from "@mui/material/Typography"
+import { ThemeProvider } from "@mui/material/styles"
+import theme from "../lib/theme"
 import { APP_ID } from "../lib/types"
 import { detectDuplicates } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
@@ -487,32 +498,45 @@ export default function App() {
       : 0
 
   return (
-    <div style={styles.container}>
-      <style>{`
-        @keyframes indeterminate {
-          0% { transform: translateX(-100%) scaleX(0.5); }
-          50% { transform: translateX(0%) scaleX(0.5); }
-          100% { transform: translateX(100%) scaleX(0.5); }
-        }
-      `}</style>
-      <header style={styles.header}>
-        <h1 style={styles.title}>Google Photos Deduper</h1>
-      </header>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
 
-      <main style={styles.main}>
+      {/* Sticky header */}
+      <AppBar position="sticky" color="default" elevation={0}>
+        <Toolbar variant="dense">
+          <Typography variant="h6" fontWeight={600} color="text.primary">
+            Google Photos Deduper
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{ maxWidth: 1200, mx: "auto", px: 3, minHeight: "60vh" }}>
+
         {state.status === "connecting" && (
-          <div style={styles.center}>
-            <p>Connecting to Google Photos...</p>
-          </div>
+          <Box sx={{ display: "flex", justifyContent: "center", pt: 10 }}>
+            <CircularProgress />
+          </Box>
         )}
 
         {state.status === "disconnected" && (
-          <div style={styles.center}>
-            <p style={styles.error}>{state.error}</p>
-            <button style={styles.button} onClick={handleRetry}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              pt: 8,
+              gap: 2,
+            }}>
+            <Alert severity="error" sx={{ maxWidth: 480, width: "100%" }}>
+              {state.error}
+            </Alert>
+            <Button variant="contained" onClick={handleRetry}>
               Retry Connection
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
 
         {state.status === "connected" && (
@@ -534,14 +558,21 @@ export default function App() {
         )}
 
         {state.status === "results" && groups.length === 0 && (
-          <div style={styles.center}>
-            <p style={{ fontSize: 16, color: "#5f6368" }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              pt: 8,
+              gap: 2,
+            }}>
+            <Typography variant="h6" color="text.secondary">
               No duplicates found in your library.
-            </p>
-            <button style={styles.button} onClick={handleStartScan}>
+            </Typography>
+            <Button variant="contained" onClick={handleStartScan}>
               Re-scan
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
 
         {state.status === "results" && groups.length > 0 && (
@@ -567,62 +598,21 @@ export default function App() {
         )}
 
         {state.status === "trashing" && (
-          <div style={styles.center}>
-            <p>
-              Moving items to trash... {state.trashedCount}/
-              {state.totalToTrash}
-            </p>
-          </div>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              pt: 8,
+              gap: 2,
+            }}>
+            <CircularProgress size={28} />
+            <Typography variant="body2" color="text.secondary">
+              Moving items to trash… {state.trashedCount}/{state.totalToTrash}
+            </Typography>
+          </Box>
         )}
-      </main>
-    </div>
+      </Box>
+    </ThemeProvider>
   )
-}
-
-// ============================================================
-// Inline styles
-// ============================================================
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    maxWidth: 1200,
-    margin: "0 auto",
-    padding: "0 24px",
-  },
-  header: {
-    borderBottom: "1px solid #e0e0e0",
-    paddingBottom: 16,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 600,
-    margin: "16px 0",
-  },
-  main: {
-    minHeight: "60vh",
-  },
-  center: {
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 48,
-    gap: 16,
-  },
-  error: {
-    color: "#c62828",
-  },
-  button: {
-    padding: "10px 24px",
-    fontSize: 14,
-    fontWeight: 500,
-    backgroundColor: "#1a73e8",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-  },
 }

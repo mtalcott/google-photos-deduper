@@ -1,3 +1,12 @@
+import Box from "@mui/material/Box"
+import Button from "@mui/material/Button"
+import Divider from "@mui/material/Divider"
+import Paper from "@mui/material/Paper"
+import Stack from "@mui/material/Stack"
+import Typography from "@mui/material/Typography"
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
+
 interface ActionBarProps {
   totalItems: number
   groupCount: number
@@ -18,80 +27,63 @@ export function ActionBar({
   onRescan,
 }: ActionBarProps) {
   return (
-    <div style={styles.bar}>
-      <div style={styles.stats}>
-        <span>{totalItems.toLocaleString()} total items scanned</span>
-        <span style={styles.separator}>|</span>
-        <span>
+    <Paper
+      elevation={2}
+      sx={{
+        position: "sticky",
+        top: 0,
+        zIndex: 10,
+        px: 3,
+        py: 1.5,
+        borderRadius: 0,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 1.5,
+      }}>
+      <Stack direction="row" alignItems="center" spacing={0} sx={{ color: "text.secondary" }}>
+        <Typography variant="body2">
+          {totalItems.toLocaleString()} items scanned
+        </Typography>
+        <Divider orientation="vertical" flexItem sx={{ mx: 1.5, my: 0.5 }} />
+        <Typography variant="body2">
           {groupCount} duplicate group{groupCount !== 1 ? "s" : ""}
-        </span>
-      </div>
+        </Typography>
+      </Stack>
 
-      <div style={styles.actions}>
-        <button style={styles.textButton} onClick={onRescan}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button
+          size="small"
+          startIcon={<RefreshRoundedIcon />}
+          onClick={onRescan}>
           Re-scan
-        </button>
+        </Button>
+
         {groupCount > 0 && (
           <>
-            <button style={styles.textButton} onClick={onSelectAll}>
+            <Button size="small" onClick={onSelectAll}>
               Select All
-            </button>
-            <button style={styles.textButton} onClick={onDeselectAll}>
+            </Button>
+            <Button size="small" onClick={onDeselectAll}>
               Deselect All
-            </button>
-            <button
-              style={{
-                ...styles.trashButton,
-                opacity: duplicateCount === 0 ? 0.5 : 1,
-              }}
-              onClick={onTrash}
-              disabled={duplicateCount === 0}>
+            </Button>
+            <Box sx={{ width: 1, bgcolor: "divider", alignSelf: "stretch" }} />
+            <Button
+              variant="contained"
+              color="error"
+              size="medium"
+              startIcon={<DeleteOutlineRoundedIcon />}
+              disabled={duplicateCount === 0}
+              onClick={onTrash}>
               Move {duplicateCount} Duplicate
               {duplicateCount !== 1 ? "s" : ""} to Trash
-            </button>
+            </Button>
           </>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Paper>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  bar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "12px 0",
-    borderBottom: "1px solid #e0e0e0",
-    marginBottom: 16,
-    flexWrap: "wrap",
-    gap: 12,
-    position: "sticky",
-    top: 0,
-    backgroundColor: "white",
-    zIndex: 10,
-  },
-  stats: { fontSize: 14, color: "#5f6368" },
-  separator: { margin: "0 8px" },
-  actions: { display: "flex", gap: 8, alignItems: "center" },
-  textButton: {
-    padding: "6px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    backgroundColor: "transparent",
-    color: "#1a73e8",
-    border: "1px solid #dadce0",
-    borderRadius: 4,
-    cursor: "pointer",
-  },
-  trashButton: {
-    padding: "8px 16px",
-    fontSize: 13,
-    fontWeight: 500,
-    backgroundColor: "#c62828",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-  },
 }

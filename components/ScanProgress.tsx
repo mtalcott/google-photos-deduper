@@ -1,3 +1,7 @@
+import Box from "@mui/material/Box"
+import CircularProgress from "@mui/material/CircularProgress"
+import LinearProgress from "@mui/material/LinearProgress"
+import Typography from "@mui/material/Typography"
 import type { ScanPhase } from "../lib/types"
 
 interface ScanProgressProps {
@@ -23,64 +27,42 @@ export function ScanProgress({
 }: ScanProgressProps) {
   const progress =
     totalEstimate > 0 ? Math.round((itemsProcessed / totalEstimate) * 100) : 0
+  const isDeterminate = totalEstimate > 0
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.heading}>Scanning Library</h2>
+    <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
+      <Typography variant="h5" fontWeight={600} gutterBottom>
+        Scanning Library
+      </Typography>
 
-      <div style={styles.phaseIndicator}>
-        <span style={styles.phaseLabel}>{PHASE_LABELS[phase]}</span>
-      </div>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <CircularProgress size={14} thickness={5} />
+        <Typography variant="body2" color="text.secondary">
+          {PHASE_LABELS[phase]}
+        </Typography>
+      </Box>
 
-      <div style={styles.progressBar}>
-        <div
-          style={{
-            ...styles.progressFill,
-            width: totalEstimate > 0 ? `${progress}%` : "100%",
-            animation:
-              totalEstimate === 0 ? "indeterminate 1.5s infinite ease-in-out" : undefined,
-          }}
-        />
-      </div>
+      <LinearProgress
+        variant={isDeterminate ? "determinate" : "indeterminate"}
+        value={progress}
+        sx={{ mb: 1 }}
+      />
 
-      <div style={styles.stats}>
-        <span>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+        <Typography variant="caption" color="text.secondary">
           {itemsProcessed.toLocaleString()} items processed
-          {totalEstimate > 0 && ` / ${totalEstimate.toLocaleString()}`}
-        </span>
-        {totalEstimate > 0 && <span>{progress}%</span>}
-      </div>
+          {isDeterminate && ` / ${totalEstimate.toLocaleString()}`}
+        </Typography>
+        {isDeterminate && (
+          <Typography variant="caption" color="text.secondary">
+            {progress}%
+          </Typography>
+        )}
+      </Box>
 
-      <p style={styles.message}>{message}</p>
-    </div>
+      <Typography variant="caption" color="text.secondary" fontStyle="italic">
+        {message}
+      </Typography>
+    </Box>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: 480, margin: "0 auto", padding: 24 },
-  heading: { fontSize: 20, fontWeight: 600, marginBottom: 16 },
-  phaseIndicator: { marginBottom: 16 },
-  phaseLabel: { fontSize: 14, color: "#5f6368", fontWeight: 500 },
-  progressBar: {
-    width: "100%",
-    height: 8,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#1a73e8",
-    borderRadius: 4,
-    transition: "width 0.3s ease",
-  },
-  stats: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: 13,
-    color: "#5f6368",
-    marginBottom: 16,
-  },
-  message: { fontSize: 13, color: "#5f6368", fontStyle: "italic" },
 }
