@@ -224,8 +224,10 @@ async function computeEmbeddings(
  * Find communities of similar embeddings using cosine similarity.
  * Returns groups of indices (into the embeddings array) where all
  * pairwise similarities exceed the threshold.
+ *
+ * Exported for unit testing.
  */
-function communityDetection(
+export function communityDetection(
   embeddings: Float32Array[],
   threshold: number,
   minCommunitySize = 2,
@@ -307,8 +309,10 @@ function communityDetection(
  * Matrix multiplication: A[startA:endA] x B[startB:endB]^T
  * A and B are arrays of Float32Array (rows).
  * Returns a flat Float32Array of shape [endA-startA, endB-startB].
+ *
+ * Exported for unit testing.
  */
-function matMul(
+export function matMul(
   A: Float32Array[],
   startA: number,
   endA: number,
@@ -338,8 +342,10 @@ function matMul(
 
 /**
  * Find top-k largest values and their indices in a Float32Array.
+ *
+ * Exported for unit testing.
  */
-function topK(
+export function topK(
   arr: Float32Array,
   k: number
 ): { values: number[]; indices: number[] } {
