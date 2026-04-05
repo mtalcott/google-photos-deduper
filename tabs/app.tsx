@@ -258,11 +258,11 @@ export default function App() {
         if (result.settings) {
           setSettings(result.settings)
         }
-        if (result.scanResults?.groups?.length) {
+        if (result.scanResults?.totalItems) {
           dispatch({
             type: "LOAD_SAVED_RESULTS",
             mediaItems: result.scanResults.mediaItems,
-            groups: result.scanResults.groups,
+            groups: result.scanResults.groups ?? [],
             totalItems: result.scanResults.totalItems,
           })
         }

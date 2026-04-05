@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    exclude: ["tests/e2e/**"],
   },
   resolve: {
     alias: {

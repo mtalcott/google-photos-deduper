@@ -92,7 +92,16 @@ describe("HEALTH_CHECK_RESULT", () => {
       type: "HEALTH_CHECK_RESULT",
       payload: { app: APP_ID, action: "healthCheck.result", success: true, hasGptk: true },
     })
-    // Still in results — health check should not reset the UI
+    expect(next.status).toBe("results")
+    expect(next).toBe(resultsState)
+  })
+
+  it("does NOT disconnect from results when health check fails (GP tab not open)", () => {
+    // User has results; GP tab closed or not open. They can still view results.
+    const next = appReducer(resultsState, {
+      type: "HEALTH_CHECK_RESULT",
+      payload: { app: APP_ID, action: "healthCheck.result", success: false, hasGptk: false },
+    })
     expect(next.status).toBe("results")
     expect(next).toBe(resultsState)
   })

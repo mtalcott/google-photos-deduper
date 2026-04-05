@@ -84,9 +84,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "HEALTH_CHECK_RESULT":
       if (action.payload.success) {
+        // Don't downgrade from results — just confirm GP is still available
         if (state.status === "results") return state
         return { status: "connected", hasGptk: action.payload.hasGptk }
       }
+      // Don't disconnect if already showing results — user can still view them
+      // and GP tab will be required again only when they start a new scan/trash
+      if (state.status === "results") return state
       return {
         status: "disconnected",
         error:

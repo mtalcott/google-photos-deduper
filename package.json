@@ -9,6 +9,7 @@
     "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
     "build": "npm run build:gptk && npm run copy:wasm && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/chrome": "0.0.258",
