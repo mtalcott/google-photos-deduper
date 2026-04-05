@@ -6,8 +6,10 @@ import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import CssBaseline from "@mui/material/CssBaseline"
+import IconButton from "@mui/material/IconButton"
 import Toolbar from "@mui/material/Toolbar"
 import Typography from "@mui/material/Typography"
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 import { ThemeProvider } from "@mui/material/styles"
 import theme from "../lib/theme"
 import { APP_ID } from "../lib/types"
@@ -502,11 +504,16 @@ export default function App() {
       <CssBaseline />
 
       {/* Sticky header */}
-      <AppBar position="sticky" color="default" elevation={0}>
-        <Toolbar variant="dense">
-          <Typography variant="h6" fontWeight={600} color="text.primary">
+      <AppBar position="sticky">
+        <Toolbar>
+          <Typography variant="h6" fontWeight={600} sx={{ flexGrow: 1 }}>
             Google Photos Deduper
           </Typography>
+          {state.status === "results" && (
+            <IconButton color="inherit" onClick={handleStartScan} title="Re-scan">
+              <RefreshRoundedIcon />
+            </IconButton>
+          )}
         </Toolbar>
       </AppBar>
 

@@ -1,11 +1,11 @@
-import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import Divider from "@mui/material/Divider"
 import Paper from "@mui/material/Paper"
 import Stack from "@mui/material/Stack"
 import Typography from "@mui/material/Typography"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
-import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
+import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
+import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
 
 interface ActionBarProps {
   totalItems: number
@@ -24,17 +24,16 @@ export function ActionBar({
   onSelectAll,
   onDeselectAll,
   onTrash,
-  onRescan,
 }: ActionBarProps) {
   return (
     <Paper
-      elevation={2}
+      elevation={1}
       sx={{
         position: "sticky",
-        top: 0,
-        zIndex: 10,
+        top: 64, // below the AppBar (64px standard Toolbar height)
+        zIndex: 9,
         px: 3,
-        py: 1.5,
+        py: 1,
         borderRadius: 0,
         borderBottom: "1px solid",
         borderColor: "divider",
@@ -44,46 +43,41 @@ export function ActionBar({
         flexWrap: "wrap",
         gap: 1.5,
       }}>
-      <Stack direction="row" alignItems="center" spacing={0} sx={{ color: "text.secondary" }}>
-        <Typography variant="body2">
+      <Stack direction="row" alignItems="center" divider={<Divider orientation="vertical" flexItem />} spacing={1.5}>
+        <Typography variant="body2" color="text.secondary">
           {totalItems.toLocaleString()} items scanned
         </Typography>
-        <Divider orientation="vertical" flexItem sx={{ mx: 1.5, my: 0.5 }} />
-        <Typography variant="body2">
+        <Typography variant="body2" color="text.secondary">
           {groupCount} duplicate group{groupCount !== 1 ? "s" : ""}
         </Typography>
       </Stack>
 
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Button
-          size="small"
-          startIcon={<RefreshRoundedIcon />}
-          onClick={onRescan}>
-          Re-scan
-        </Button>
-
-        {groupCount > 0 && (
-          <>
-            <Button size="small" onClick={onSelectAll}>
-              Select All
-            </Button>
-            <Button size="small" onClick={onDeselectAll}>
-              Deselect All
-            </Button>
-            <Box sx={{ width: 1, bgcolor: "divider", alignSelf: "stretch" }} />
-            <Button
-              variant="contained"
-              color="error"
-              size="medium"
-              startIcon={<DeleteOutlineRoundedIcon />}
-              disabled={duplicateCount === 0}
-              onClick={onTrash}>
-              Move {duplicateCount} Duplicate
-              {duplicateCount !== 1 ? "s" : ""} to Trash
-            </Button>
-          </>
-        )}
-      </Stack>
+      {groupCount > 0 && (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button
+            size="small"
+            startIcon={<CheckBoxOutlinedIcon />}
+            onClick={onSelectAll}>
+            Select All
+          </Button>
+          <Button
+            size="small"
+            startIcon={<CheckBoxOutlineBlankIcon />}
+            onClick={onDeselectAll}>
+            Deselect All
+          </Button>
+          <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
+          <Button
+            variant="contained"
+            color="error"
+            size="small"
+            startIcon={<DeleteOutlineRoundedIcon />}
+            disabled={duplicateCount === 0}
+            onClick={onTrash}>
+            Move {duplicateCount} Duplicate{duplicateCount !== 1 ? "s" : ""} to Trash
+          </Button>
+        </Stack>
+      )}
     </Paper>
   )
 }
