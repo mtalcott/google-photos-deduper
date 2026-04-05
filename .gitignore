@@ -20,6 +20,13 @@ __pycache__/
 .env
 .env*.local
 
+# E2E auth — contains Google session cookies, never commit
+.gp-auth.json
+
+# Playwright output
+test-results/
+playwright-report/
+
 # IDE / OS
 .vscode/settings.json
 .vscode/tasks.json

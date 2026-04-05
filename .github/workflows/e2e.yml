@@ -1,0 +1,57 @@
+name: Full E2E
+
+on:
+  # Run manually from the Actions tab
+  workflow_dispatch:
+  # Run weekly to catch auth cookie expiry and regressions
+  schedule:
+    - cron: "0 6 * * 1" # Monday 6am UTC
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Full E2E (Google Photos auth)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install GPTK dependencies
+        run: npm ci
+        working-directory: Google-Photos-Toolkit
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Install Playwright + system deps
+        run: npx playwright install chromium --with-deps
+
+      - name: Full E2E tests
+        env:
+          # Base64-encoded JSON of Google auth cookies.
+          # Generate locally: npm run auth:export → base64 -w0 .gp-auth.json
+          # Add to repo secrets as GP_AUTH_COOKIES. Expires every 2–4 weeks.
+          GP_AUTH_COOKIES: ${{ secrets.GP_AUTH_COOKIES }}
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
