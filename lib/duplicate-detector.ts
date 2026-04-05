@@ -140,7 +140,10 @@ async function computeEmbeddings(
   })
 
   const vision = {
-    wasmLoaderPath: "",  // Skip MediaPipe's dynamic script injection
+    // wasmLoaderPath: "" is an undocumented internal hook — MediaPipe skips
+    // dynamic script injection when this is empty. If MediaPipe changes this
+    // behavior in a future version, check WasmFileset handling in tasks-vision.
+    wasmLoaderPath: "",
     wasmBinaryPath: chrome.runtime.getURL("scripts/vision_wasm_internal.wasm"),
   }
 

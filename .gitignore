@@ -1,15 +1,27 @@
+# Dependencies
+node_modules/
+venv/
+
+# Build output
+build/
+.plasmo
+
+# Scripts generated at build time
+scripts/google-photos-toolkit.user.js
+scripts/vision_wasm_internal.*
+
+# Logs
+log/*.log*
+
+# Python
 __pycache__/
+
+# Env
+.env
+.env*.local
+
+# IDE / OS
 .vscode/settings.json
 .vscode/tasks.json
-.env
-log/*.log*
-# WSL Zone.Identifier files
-*:Zone.Identifier
 .DS_Store
-
-# Chrome extension
-chrome_extension2/build/
-chrome_extension2/node_modules/
-chrome_extension2/scripts/google-photos-toolkit.user.js
-# MediaPipe WASM files (copied from node_modules during build)
-chrome_extension2/scripts/vision_wasm_internal.*
+*:Zone.Identifier

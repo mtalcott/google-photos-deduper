@@ -488,6 +488,13 @@ export default function App() {
 
   return (
     <div style={styles.container}>
+      <style>{`
+        @keyframes indeterminate {
+          0% { transform: translateX(-100%) scaleX(0.5); }
+          50% { transform: translateX(0%) scaleX(0.5); }
+          100% { transform: translateX(100%) scaleX(0.5); }
+        }
+      `}</style>
       <header style={styles.header}>
         <h1 style={styles.title}>Google Photos Deduper</h1>
       </header>
@@ -526,7 +533,18 @@ export default function App() {
           />
         )}
 
-        {state.status === "results" && (
+        {state.status === "results" && groups.length === 0 && (
+          <div style={styles.center}>
+            <p style={{ fontSize: 16, color: "#5f6368" }}>
+              No duplicates found in your library.
+            </p>
+            <button style={styles.button} onClick={handleStartScan}>
+              Re-scan
+            </button>
+          </div>
+        )}
+
+        {state.status === "results" && groups.length > 0 && (
           <>
             <ActionBar
               totalItems={state.totalItems}
