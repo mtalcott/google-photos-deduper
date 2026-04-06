@@ -15,7 +15,7 @@ import type {
 
 export type AppState =
   | { status: "connecting" }
-  | { status: "connected"; hasGptk: boolean }
+  | { status: "connected"; hasGptk: boolean; accountEmail?: string }
   | { status: "disconnected"; error: string }
   | {
       status: "scanning"
@@ -25,12 +25,14 @@ export type AppState =
       message: string
       requestId: string
       hasGptk: boolean
+      accountEmail?: string
     }
   | {
       status: "results"
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      accountEmail?: string
     }
   | {
       status: "trashing"
@@ -43,7 +45,7 @@ export type AppState =
 
 export type AppAction =
   | { type: "HEALTH_CHECK_RESULT"; payload: HealthCheckResultMessage }
-  | { type: "SCAN_STARTED"; requestId: string; hasGptk: boolean }
+  | { type: "SCAN_STARTED"; requestId: string; hasGptk: boolean; accountEmail?: string }
   | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage }
   | { type: "SCAN_MEDIA_FETCHED"; mediaItems: GpdMediaItem[] }
   | {
@@ -87,8 +89,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "HEALTH_CHECK_RESULT":
       if (action.payload.success) {
         // Don't downgrade from results — just confirm GP is still available
-        if (state.status === "results") return state
-        return { status: "connected", hasGptk: action.payload.hasGptk }
+        if (state.status === "results") return { ...state, accountEmail: action.payload.accountEmail }
+        return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
       }
       // Don't disconnect if already showing results — user can still view them
       // and GP tab will be required again only when they start a new scan/trash
@@ -108,6 +110,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         message: "Starting scan...",
         requestId: action.requestId,
         hasGptk: action.hasGptk,
+        accountEmail: action.accountEmail,
       }
 
     case "SCAN_PROGRESS":
@@ -133,6 +136,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: Object.keys(action.mediaItems).length,
+        accountEmail: state.status === "scanning" ? state.accountEmail : undefined,
       }
 
     case "SCAN_ERROR":
@@ -140,7 +144,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SCAN_CANCELLED":
       if (state.status !== "scanning") return state
-      return { status: "connected", hasGptk: state.hasGptk }
+      return { status: "connected", hasGptk: state.hasGptk, accountEmail: state.accountEmail }
 
     case "TRASH_STARTED":
       return {

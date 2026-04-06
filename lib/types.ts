@@ -27,6 +27,7 @@ export interface HealthCheckResultMessage extends BaseMessage {
   action: "healthCheck.result";
   success: boolean;
   hasGptk: boolean;
+  accountEmail?: string;
 }
 
 // ============================================================

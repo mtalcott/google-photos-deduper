@@ -151,7 +151,9 @@ async function restoreItems(requestId, args) {
 function healthCheck(requestId) {
   const hasGptk = typeof window.gptkApi !== "undefined";
   const hasWizData = typeof window.WIZ_global_data !== "undefined";
-  postResult("healthCheck", requestId, { hasGptk, hasWizData });
+  // S06Grb is the signed-in account email in WIZ_global_data (stable across GP versions)
+  const accountEmail = hasWizData ? (window.WIZ_global_data.S06Grb || "") : "";
+  postResult("healthCheck", requestId, { hasGptk, hasWizData, accountEmail });
 }
 
 // ============================================================

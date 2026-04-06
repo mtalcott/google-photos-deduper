@@ -149,11 +149,13 @@ async function handleHealthCheck(
   try {
     const result = await sendGptkCommand(gpTab.id, "healthCheck")
     if (senderTabId) {
+      const r = result as { hasGptk: boolean; accountEmail?: string }
       chrome.tabs.sendMessage(senderTabId, {
         app: APP_ID,
         action: "healthCheck.result",
         success: true,
-        hasGptk: (result as { hasGptk: boolean }).hasGptk,
+        hasGptk: r.hasGptk,
+        accountEmail: r.accountEmail,
       })
     }
   } catch {

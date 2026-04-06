@@ -307,7 +307,8 @@ export default function App() {
 
     const requestId = generateRequestId()
     const hasGptk = state.status === "connected" ? state.hasGptk : true
-    dispatch({ type: "SCAN_STARTED", requestId, hasGptk })
+    const accountEmail = state.status === "connected" || state.status === "results" ? state.accountEmail : undefined
+    dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
 
     sendToServiceWorker({
       app: APP_ID,
@@ -434,9 +435,14 @@ export default function App() {
       {/* Sticky header */}
       <AppBar position="sticky">
         <Toolbar>
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={{ flexGrow: 1 }}>
             Google Photos Deduper
           </Typography>
+          {("accountEmail" in state) && state.accountEmail && (
+            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+              {state.accountEmail}
+            </Typography>
+          )}
         </Toolbar>
       </AppBar>
 
