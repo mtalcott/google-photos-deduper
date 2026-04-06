@@ -6,6 +6,11 @@ import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import CssBaseline from "@mui/material/CssBaseline"
+import Dialog from "@mui/material/Dialog"
+import DialogActions from "@mui/material/DialogActions"
+import DialogContent from "@mui/material/DialogContent"
+import DialogContentText from "@mui/material/DialogContentText"
+import DialogTitle from "@mui/material/DialogTitle"
 import IconButton from "@mui/material/IconButton"
 import Snackbar from "@mui/material/Snackbar"
 import Toolbar from "@mui/material/Toolbar"
@@ -66,6 +71,12 @@ export default function App() {
   const [originalOverrides, setOriginalOverrides] = useState<
     Record<string, string>
   >({})
+
+  // Confirm dialog state
+  const [trashConfirm, setTrashConfirm] = useState<{
+    dedupKeys: string[]
+    mediaKeysToTrash: string[]
+  } | null>(null)
 
   // Undo trash state: stored after a successful trash operation
   const [undoData, setUndoData] = useState<{
@@ -344,10 +355,13 @@ export default function App() {
     }
 
     if (dedupKeys.length === 0) return
+    setTrashConfirm({ dedupKeys, mediaKeysToTrash })
+  }, [state, selectedGroupIds, getOriginal])
 
-    if (!confirm(`Move ${dedupKeys.length} duplicate${dedupKeys.length !== 1 ? "s" : ""} to trash? This can be undone from the Google Photos trash.`)) {
-      return
-    }
+  const handleTrashConfirmed = useCallback(() => {
+    if (!trashConfirm || state.status !== "results") return
+    const { dedupKeys, mediaKeysToTrash } = trashConfirm
+    setTrashConfirm(null)
 
     const requestId = generateRequestId()
 
@@ -374,7 +388,7 @@ export default function App() {
       requestId,
       args: { dedupKeys, mediaKeysToTrash },
     })
-  }, [state, selectedGroupIds, getOriginal])
+  }, [trashConfirm, state])
 
   const handleCancelScan = useCallback(() => {
     scanAbortRef.current?.abort()
@@ -554,6 +568,23 @@ export default function App() {
           </Box>
         )}
       </Box>
+
+      {/* Trash confirm dialog */}
+      <Dialog open={!!trashConfirm} onClose={() => setTrashConfirm(null)}>
+        <DialogTitle>Move to Trash</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Move {trashConfirm?.dedupKeys.length} duplicate{trashConfirm?.dedupKeys.length !== 1 ? "s" : ""} to trash?
+            You can restore them from the Google Photos trash.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTrashConfirm(null)}>Cancel</Button>
+          <Button onClick={handleTrashConfirmed} variant="contained" color="error">
+            Move to Trash
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Undo trash snackbar */}
       <Snackbar
