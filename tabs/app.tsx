@@ -510,8 +510,8 @@ export default function App() {
             <Typography variant="h6" color="text.secondary">
               No duplicates found in your library.
             </Typography>
-            <Button variant="contained" onClick={handleStartScan}>
-              Re-scan
+            <Button variant="contained" onClick={handleRetry}>
+              Back to Scan
             </Button>
           </Box>
         )}
