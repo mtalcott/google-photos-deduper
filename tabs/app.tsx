@@ -589,7 +589,7 @@ export default function App() {
       {/* Undo trash snackbar */}
       <Snackbar
         open={!!undoData}
-        autoHideDuration={8000}
+        autoHideDuration={null}
         onClose={handleUndoClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         message={undoData ? `${undoData.count} item${undoData.count !== 1 ? "s" : ""} moved to trash` : ""}
