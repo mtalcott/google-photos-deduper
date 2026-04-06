@@ -1,1 +1,0 @@
-../../Google-Photos-Toolkit/google_photos_toolkit.user.js
