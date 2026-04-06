@@ -25,6 +25,8 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "@plasmohq/messaging": "^0.6.2",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
     "plasmo": "0.89.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",

@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useCallback, useRef, useState } from "react"
+import confetti from "canvas-confetti"
 import Alert from "@mui/material/Alert"
 import AppBar from "@mui/material/AppBar"
 import Box from "@mui/material/Box"
@@ -403,6 +404,16 @@ export default function App() {
   const handleUndoClose = useCallback(() => {
     setUndoData(null)
   }, [])
+
+  // Fire confetti when trash completes
+  useEffect(() => {
+    if (!undoData) return
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.7 },
+    })
+  }, [undoData])
 
   // Compute duplicate count for ActionBar
   const duplicateCount =
