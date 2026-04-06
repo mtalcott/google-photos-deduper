@@ -283,7 +283,8 @@ export default function App() {
   const mediaItems = state.status === "results" ? state.mediaItems : null
   const totalItems = state.status === "results" ? state.totalItems : 0
   useEffect(() => {
-    if (groups.length > 0 && mediaItems) {
+    if (!mediaItems) return
+    if (groups.length > 0) {
       chrome.storage.local.set({
         scanResults: {
           mediaItems,
@@ -292,6 +293,9 @@ export default function App() {
           totalItems,
         },
       })
+    } else {
+      // All duplicates removed — clear saved results so next open starts fresh
+      chrome.storage.local.remove("scanResults")
     }
   }, [groups, mediaItems, totalItems])
 
