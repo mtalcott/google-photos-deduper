@@ -27,6 +27,10 @@ __pycache__/
 test-results/
 playwright-report/
 
+# Claude Code
+.claude/settings.local.json
+.claude/skills/
+
 # IDE / OS
 .vscode/settings.json
 .vscode/tasks.json
