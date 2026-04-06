@@ -16,7 +16,7 @@ interface ScanProgressProps {
 const PHASE_LABELS: Record<ScanPhase, string> = {
   fetching: "Fetching media items",
   downloading_thumbnails: "Downloading thumbnails",
-  computing_embeddings: "Computing image embeddings",
+  computing_embeddings: "Computing image similarity",
   grouping: "Grouping duplicates",
   complete: "Complete",
 }
@@ -62,10 +62,6 @@ export function ScanProgress({
           </Typography>
         )}
       </Box>
-
-      <Typography variant="caption" color="text.secondary" fontStyle="italic">
-        {message}
-      </Typography>
 
       {onCancel && (
         <Box sx={{ mt: 3 }}>
