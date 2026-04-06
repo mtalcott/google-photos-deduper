@@ -85,6 +85,9 @@ export default function App() {
   } | null>(null)
   const pendingDedupKeysRef = useRef<string[] | null>(null)
 
+  // AbortController for the current scan (cancelled on user request or new scan)
+  const scanAbortRef = useRef<AbortController | null>(null)
+
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
   const groups =
     state.status === "results" || state.status === "trashing"
@@ -146,7 +149,7 @@ export default function App() {
                 type: "SCAN_MEDIA_FETCHED",
                 mediaItems: items,
               })
-              runDuplicateDetection(items)
+              runDuplicateDetection(items, scanAbortRef.current?.signal ?? new AbortController().signal)
             } else {
               dispatch({
                 type: "SCAN_ERROR",
@@ -206,7 +209,7 @@ export default function App() {
 
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
-    async (items: GpdMediaItem[]) => {
+    async (items: GpdMediaItem[], signal: AbortSignal) => {
       try {
         const groups = await detectDuplicates(
           items,
@@ -222,7 +225,8 @@ export default function App() {
                 message: `${progress.phase}: ${progress.current}/${progress.total}`,
               },
             })
-          }
+          },
+          signal
         )
 
         const mediaItemMap: Record<string, GpdMediaItem> = {}
@@ -236,10 +240,14 @@ export default function App() {
           groups,
         })
       } catch (error) {
-        dispatch({
-          type: "SCAN_ERROR",
-          error: `Duplicate detection failed: ${error}`,
-        })
+        if (error instanceof DOMException && error.name === "AbortError") {
+          dispatch({ type: "SCAN_CANCELLED" })
+        } else {
+          dispatch({
+            type: "SCAN_ERROR",
+            error: `Duplicate detection failed: ${error}`,
+          })
+        }
       }
     },
     []
@@ -292,8 +300,13 @@ export default function App() {
   }, [settings])
 
   const handleStartScan = useCallback(() => {
+    // Cancel any in-progress scan
+    scanAbortRef.current?.abort()
+    scanAbortRef.current = new AbortController()
+
     const requestId = generateRequestId()
-    dispatch({ type: "SCAN_STARTED", requestId })
+    const hasGptk = state.status === "connected" ? state.hasGptk : true
+    dispatch({ type: "SCAN_STARTED", requestId, hasGptk })
 
     sendToServiceWorker({
       app: APP_ID,
@@ -356,6 +369,11 @@ export default function App() {
       args: { dedupKeys, mediaKeysToTrash },
     })
   }, [state, selectedGroupIds, getOriginal])
+
+  const handleCancelScan = useCallback(() => {
+    scanAbortRef.current?.abort()
+    dispatch({ type: "SCAN_CANCELLED" })
+  }, [])
 
   const handleRetry = useCallback(() => {
     dispatch({ type: "RESET" })
@@ -455,6 +473,7 @@ export default function App() {
             itemsProcessed={state.itemsProcessed}
             totalEstimate={state.totalEstimate}
             message={state.message}
+            onCancel={handleCancelScan}
           />
         )}
 

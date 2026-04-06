@@ -30,7 +30,8 @@ type ProgressCallback = (progress: DetectionProgress) => void
 export async function detectDuplicates(
   mediaItems: GpdMediaItem[],
   threshold: number,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal
 ): Promise<DuplicateGroup[]> {
   // Filter to items with thumbnails (photos only, skip videos)
   const candidates = mediaItems.filter((item) => item.thumb && !item.duration)
@@ -38,12 +39,15 @@ export async function detectDuplicates(
   if (candidates.length < 2) return []
 
   // Step 1: Download thumbnails
-  const blobs = await fetchThumbnails(candidates, onProgress)
+  const blobs = await fetchThumbnails(candidates, onProgress, signal)
+
+  signal?.throwIfAborted()
 
   // Step 2: Compute embeddings
   const { embeddings, validIndices } = await computeEmbeddings(
     blobs,
-    onProgress
+    onProgress,
+    signal
   )
   if (embeddings.length < 2) return []
 
@@ -75,7 +79,8 @@ export async function detectDuplicates(
 
 async function fetchThumbnails(
   items: GpdMediaItem[],
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal
 ): Promise<(Blob | null)[]> {
   const concurrency = 20
   const blobs: (Blob | null)[] = new Array(items.length).fill(null)
@@ -85,6 +90,7 @@ async function fetchThumbnails(
 
   const worker = async () => {
     while (queue.length > 0) {
+      signal?.throwIfAborted()
       const entry = queue.shift()
       if (!entry) break
 
@@ -92,13 +98,14 @@ async function fetchThumbnails(
         const url = entry.item.thumb + `=h${THUMB_HEIGHT}`
         const response = await fetch(url, {
           credentials: "include",
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.any([AbortSignal.timeout(10000), ...(signal ? [signal] : [])]),
         })
         if (response.ok) {
           blobs[entry.index] = await response.blob()
         }
-      } catch {
-        // Skip failed downloads
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") throw e
+        // Skip other failed downloads
       }
 
       completed++
@@ -124,7 +131,8 @@ async function fetchThumbnails(
 
 async function computeEmbeddings(
   blobs: (Blob | null)[],
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal
 ): Promise<{ embeddings: Float32Array[]; validIndices: number[] }> {
   // MediaPipe's createFromOptions internally injects a <script crossOrigin="anonymous">
   // tag to load the WASM loader JS, which is blocked by extension CSP (script-src 'self').
@@ -176,6 +184,7 @@ async function computeEmbeddings(
   const validIndices: number[] = []
 
   for (let i = 0; i < blobs.length; i++) {
+    signal?.throwIfAborted()
     const blob = blobs[i]
     if (!blob) continue
 

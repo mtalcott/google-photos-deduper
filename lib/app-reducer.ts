@@ -24,6 +24,7 @@ export type AppState =
       totalEstimate: number
       message: string
       requestId: string
+      hasGptk: boolean
     }
   | {
       status: "results"
@@ -42,7 +43,7 @@ export type AppState =
 
 export type AppAction =
   | { type: "HEALTH_CHECK_RESULT"; payload: HealthCheckResultMessage }
-  | { type: "SCAN_STARTED"; requestId: string }
+  | { type: "SCAN_STARTED"; requestId: string; hasGptk: boolean }
   | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage }
   | { type: "SCAN_MEDIA_FETCHED"; mediaItems: GpdMediaItem[] }
   | {
@@ -51,6 +52,7 @@ export type AppAction =
       groups: DuplicateGroup[]
     }
   | { type: "SCAN_ERROR"; error: string }
+  | { type: "SCAN_CANCELLED" }
   | {
       type: "TRASH_STARTED"
       totalToTrash: number
@@ -105,6 +107,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         totalEstimate: 0,
         message: "Starting scan...",
         requestId: action.requestId,
+        hasGptk: action.hasGptk,
       }
 
     case "SCAN_PROGRESS":
@@ -134,6 +137,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SCAN_ERROR":
       return { status: "disconnected", error: action.error }
+
+    case "SCAN_CANCELLED":
+      if (state.status !== "scanning") return state
+      return { status: "connected", hasGptk: state.hasGptk }
 
     case "TRASH_STARTED":
       return {

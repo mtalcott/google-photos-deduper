@@ -1,4 +1,5 @@
 import Box from "@mui/material/Box"
+import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import LinearProgress from "@mui/material/LinearProgress"
 import Typography from "@mui/material/Typography"
@@ -9,6 +10,7 @@ interface ScanProgressProps {
   itemsProcessed: number
   totalEstimate: number
   message: string
+  onCancel?: () => void
 }
 
 const PHASE_LABELS: Record<ScanPhase, string> = {
@@ -24,6 +26,7 @@ export function ScanProgress({
   itemsProcessed,
   totalEstimate,
   message,
+  onCancel,
 }: ScanProgressProps) {
   const progress =
     totalEstimate > 0 ? Math.round((itemsProcessed / totalEstimate) * 100) : 0
@@ -63,6 +66,14 @@ export function ScanProgress({
       <Typography variant="caption" color="text.secondary" fontStyle="italic">
         {message}
       </Typography>
+
+      {onCancel && (
+        <Box sx={{ mt: 3 }}>
+          <Button variant="outlined" color="inherit" size="small" onClick={onCancel}>
+            Cancel
+          </Button>
+        </Box>
+      )}
     </Box>
   )
 }
