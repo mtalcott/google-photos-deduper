@@ -458,7 +458,7 @@ export default function App() {
           </Typography>
           {("accountEmail" in state) && state.accountEmail && (
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              {state.accountEmail}
+              Signed in as {state.accountEmail}
             </Typography>
           )}
         </Toolbar>
@@ -487,9 +487,21 @@ export default function App() {
             <Alert severity="error" sx={{ maxWidth: 480, width: "100%" }}>
               {state.error}
             </Alert>
-            <Button variant="contained" onClick={handleRetry}>
-              Retry Connection
-            </Button>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                variant="contained"
+                href="https://photos.google.com/login"
+                target="_blank"
+                rel="noopener noreferrer">
+                Open Google Photos
+              </Button>
+              <Button variant="outlined" onClick={handleRetry}>
+                Retry Connection
+              </Button>
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              Return here once Google Photos is open and you're signed in.
+            </Typography>
           </Box>
         )}
 
