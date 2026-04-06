@@ -1,18 +1,27 @@
 name: Full E2E
 
+# Full E2E tests connect to a running Chrome instance via CDP and require
+# the user to be logged into Google Photos in that browser. They cannot run
+# in a standard CI environment without additional infrastructure (e.g. a
+# persistent Chrome service with an active session).
+#
+# Run manually from the Actions tab, or locally with: npm run test:e2e
+# (Chrome must be running with --remote-debugging-port=9222)
+
 on:
-  # Run manually from the Actions tab
   workflow_dispatch:
-  # Run weekly to catch auth cookie expiry and regressions
-  schedule:
-    - cron: "0 6 * * 1" # Monday 6am UTC
+    inputs:
+      cdp_url:
+        description: "Chrome CDP URL (default: http://localhost:9222)"
+        required: false
+        default: "http://localhost:9222"
 
 permissions:
   contents: read
 
 jobs:
   e2e:
-    name: Full E2E (Google Photos auth)
+    name: Full E2E (requires live Chrome + GP session)
     runs-on: ubuntu-latest
 
     steps:
@@ -40,10 +49,7 @@ jobs:
 
       - name: Full E2E tests
         env:
-          # Base64-encoded JSON of Google auth cookies.
-          # Generate locally: npm run auth:export → base64 -w0 .gp-auth.json
-          # Add to repo secrets as GP_AUTH_COOKIES. Expires every 2–4 weeks.
-          GP_AUTH_COOKIES: ${{ secrets.GP_AUTH_COOKIES }}
+          CDP_URL: ${{ inputs.cdp_url }}
         run: xvfb-run --auto-servernum npm run test:e2e
 
       - name: Upload test results

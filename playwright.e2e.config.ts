@@ -8,6 +8,7 @@ export default defineConfig({
   // Generous timeout: real library scans can take several minutes
   timeout: 600_000,
   retries: 1,
+  workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   projects: [
     {
