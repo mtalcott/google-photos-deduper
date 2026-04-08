@@ -15,7 +15,7 @@
     "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
     "build": "npm run build:gptk && npm run copy:wasm && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
-    "package": "npm run build:gptk && npm run copy:wasm && plasmo package"
+    "package": "npm run build:gptk && npm run copy:wasm && plasmo build && plasmo package"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
