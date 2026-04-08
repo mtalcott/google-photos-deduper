@@ -6,7 +6,22 @@ A Chrome extension that finds and removes duplicate photos from your Google Phot
 
 Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/). Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) to access your library via Google Photos' web interface.
 
-## How It Works
+<!--
+## Demo
+
+[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
+-->
+
+## Install
+
+**[⬇ Download latest release](https://github.com/mtalcott/google-photos-deduper/releases/latest/download/google-photos-deduper.zip)**
+
+1. Unzip to a permanent folder (don't delete it — Chrome needs it to stay there)
+2. Open `chrome://extensions` → enable **Developer mode** (toggle, top-right)
+3. Click **Load unpacked** → select the unzipped folder
+4. Pin the extension icon in your toolbar for easy access
+
+## Usage
 
 1. Open Google Photos in Chrome with the extension installed
 2. Click the extension icon → **Open Deduper**
@@ -14,19 +29,6 @@ Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.
 4. Review the duplicate groups, select which to keep, and click **Move to Trash**
 
 No OAuth setup. No Google Cloud project. No data leaves your browser.
-
-## Demo
-
-[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
-
-## Install
-
-1. Go to [Releases](../../releases/latest) and download the latest `google-photos-deduper-vX.X.X.zip`
-2. Unzip the file to a permanent folder (don't delete it — Chrome needs it to stay there)
-3. Open Chrome → Extensions (`chrome://extensions`)
-4. Enable **Developer mode** (toggle, top-right)
-5. Click **Load unpacked** → select the unzipped folder
-6. The extension icon appears in your toolbar — pin it for easy access
 
 ## Development
 

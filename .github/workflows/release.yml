@@ -31,10 +31,14 @@ jobs:
         run: npm run package
 
       - name: Rename zip
-        run: mv build/chrome-mv3-prod.zip build/google-photos-deduper-${{ github.ref_name }}.zip
+        run: |
+          cp build/chrome-mv3-prod.zip build/google-photos-deduper-${{ github.ref_name }}.zip
+          cp build/chrome-mv3-prod.zip build/google-photos-deduper.zip
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: build/google-photos-deduper-*.zip
+          files: |
+            build/google-photos-deduper-${{ github.ref_name }}.zip
+            build/google-photos-deduper.zip
