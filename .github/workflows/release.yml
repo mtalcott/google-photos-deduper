@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Google-Photos-Toolkit dependencies
+        run: npm ci
+        working-directory: Google-Photos-Toolkit
+
+      - name: Build production package
+        run: npm run package
+
+      - name: Rename zip
+        run: mv build/chrome-mv3-prod.zip build/google-photos-deduper-${{ github.ref_name }}.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: build/google-photos-deduper-*.zip
