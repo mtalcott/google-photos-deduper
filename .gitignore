@@ -1,8 +1,38 @@
+# Dependencies
+node_modules/
+venv/
+
+# Build output
+build/
+.plasmo
+
+# Scripts generated at build time
+scripts/google-photos-toolkit.user.js
+scripts/vision_wasm_internal.*
+
+# Logs
+log/*.log*
+
+# Python
 __pycache__/
+
+# Env
+.env
+.env*.local
+
+# E2E auth — contains Google session cookies, never commit
+.gp-auth.json
+
+# Playwright output
+test-results/
+playwright-report/
+
+# Claude Code
+.claude/settings.local.json
+.claude/skills/
+
+# IDE / OS
 .vscode/settings.json
 .vscode/tasks.json
-.env
-log/*.log*
-# WSL Zone.Identifier files
-*:Zone.Identifier
 .DS_Store
+*:Zone.Identifier
