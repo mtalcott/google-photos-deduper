@@ -19,46 +19,32 @@ No OAuth setup. No Google Cloud project. No data leaves your browser.
 
 [![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
 
-## Setup
+## Install
 
-### Prerequisites
+1. Go to [Releases](../../releases/latest) and download the latest `google-photos-deduper-vX.X.X.zip`
+2. Unzip the file to a permanent folder (don't delete it — Chrome needs it to stay there)
+3. Open Chrome → Extensions (`chrome://extensions`)
+4. Enable **Developer mode** (toggle, top-right)
+5. Click **Load unpacked** → select the unzipped folder
+6. The extension icon appears in your toolbar — pin it for easy access
 
-- Google Chrome
-- Node.js 20+
+## Development
 
-### Install
+### Setup
+
+**Prerequisites:** Google Chrome, Node.js 20+
 
 ```bash
 git clone https://github.com/mtalcott/google-photos-deduper.git
 cd google-photos-deduper
 git submodule update --init --recursive
 npm install
+npm run build  # builds into build/chrome-mv3-dev/
 ```
 
-### Build
+Load in Chrome: `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select `build/chrome-mv3-dev/`.
 
-```bash
-npm run build
-```
-
-This builds GPTK (the Google Photos API wrapper) and then the extension into `build/chrome-mv3-dev/`.
-
-### Load in Chrome
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked**
-4. Select the `build/chrome-mv3-dev/` folder
-
-### Use
-
-1. Open [Google Photos](https://photos.google.com) in Chrome and make sure you're logged in
-2. Click the **Google Photos Deduper** extension icon
-3. Click **Open Deduper**
-4. Click **Scan Library** and wait for the scan to complete (time varies by library size)
-5. Review duplicate groups, then click **Move to Trash** to remove the duplicates
-
-## Development
+### Commands
 
 ```bash
 # Start the Plasmo dev server (rebuilds on file changes)
