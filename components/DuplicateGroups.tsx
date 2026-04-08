@@ -167,23 +167,15 @@ export function DuplicateGroups({
                           flexDirection: "column",
                           gap: 0.5,
                         }}>
-                        <Typography
-                          variant="caption"
-                          display="block"
-                          noWrap
-                          title={item.fileName}>
-                          {item.fileName ||
-                            (item.timestamp
-                              ? new Date(item.timestamp).toLocaleDateString(
-                                  undefined,
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  }
-                                )
-                              : "Untitled")}
-                        </Typography>
+                        {item.fileName && (
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            noWrap
+                            title={item.fileName}>
+                            {item.fileName}
+                          </Typography>
+                        )}
                         {item.resWidth && item.resHeight && (
                           <Typography
                             variant="caption"
@@ -192,6 +184,26 @@ export function DuplicateGroups({
                             {item.resWidth}×{item.resHeight}
                           </Typography>
                         )}
+                        {item.timestamp ? (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            <span style={{ opacity: 0.6 }}>Taken </span>
+                            {new Date(item.timestamp).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Typography>
+                        ) : null}
+                        {item.creationTimestamp ? (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            <span style={{ opacity: 0.6 }}>Uploaded </span>
+                            {new Date(item.creationTimestamp).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Typography>
+                        ) : null}
                         {isOriginal ? (
                           <Chip
                             label="Keep"
