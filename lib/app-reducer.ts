@@ -90,7 +90,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "HEALTH_CHECK_RESULT":
       if (action.payload.success) {
         // Don't downgrade from results — just confirm GP is still available
-        if (state.status === "results") return { ...state, accountEmail: action.payload.accountEmail ?? state.accountEmail }
+        if (state.status === "results") {
+          const email = action.payload.accountEmail ?? state.accountEmail
+          if (email === state.accountEmail) return state
+          return { ...state, accountEmail: email }
+        }
         return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
       }
       // Don't disconnect if already showing results — user can still view them
