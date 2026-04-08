@@ -41,6 +41,7 @@ export type AppState =
       totalItems: number
       trashedCount: number
       totalToTrash: number
+      accountEmail?: string
     }
 
 export type AppAction =
@@ -89,7 +90,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "HEALTH_CHECK_RESULT":
       if (action.payload.success) {
         // Don't downgrade from results — just confirm GP is still available
-        if (state.status === "results") return { ...state, accountEmail: action.payload.accountEmail }
+        if (state.status === "results") return { ...state, accountEmail: action.payload.accountEmail ?? state.accountEmail }
         return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
       }
       // Don't disconnect if already showing results — user can still view them
@@ -138,7 +139,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: Object.keys(action.mediaItems).length,
-        accountEmail: state.status === "scanning" ? state.accountEmail : undefined,
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
       }
 
     case "SCAN_ERROR":
@@ -156,6 +157,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         totalItems: action.totalItems,
         trashedCount: 0,
         totalToTrash: action.totalToTrash,
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
       }
 
     case "TRASH_PROGRESS":
@@ -182,6 +184,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: newMediaItems,
         groups: newGroups,
         totalItems: state.totalItems,
+        accountEmail: state.accountEmail,
       }
     }
 
@@ -189,12 +192,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { status: "disconnected", error: action.error }
 
     case "LOAD_SAVED_RESULTS":
+      return {
+        status: "results",
+        mediaItems: action.mediaItems,
+        groups: action.groups,
+        totalItems: action.totalItems,
+      }
+
     case "RESTORE_SNAPSHOT":
       return {
         status: "results",
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
+        accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
       }
 
     case "GP_TAB_CLOSED":
