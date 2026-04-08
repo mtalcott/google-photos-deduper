@@ -6,7 +6,7 @@ A Chrome extension that finds and removes duplicate photos from your Google Phot
 
 Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/). Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) to access your library via Google Photos' web interface.
 
-## How It Works
+## Usage
 
 1. Open Google Photos in Chrome with the extension installed
 2. Click the extension icon → **Open Deduper**
@@ -15,9 +15,11 @@ Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.
 
 No OAuth setup. No Google Cloud project. No data leaves your browser.
 
+<!--
 ## Demo
 
 [![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
+-->
 
 ## Install
 
