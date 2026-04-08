@@ -229,6 +229,7 @@ export default function App() {
           (progress: DetectionProgress) => {
             dispatch({
               type: "SCAN_PROGRESS",
+              phase: progress.phase,
               payload: {
                 app: APP_ID,
                 action: "gptkProgress",

@@ -17,7 +17,6 @@ const PHASE_LABELS: Record<ScanPhase, string> = {
   fetching: "Fetching media items",
   downloading_thumbnails: "Downloading thumbnails",
   computing_embeddings: "Computing image similarity",
-  grouping: "Grouping duplicates",
   complete: "Complete",
 }
 

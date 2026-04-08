@@ -59,7 +59,6 @@ export type ScanPhase =
   | "fetching"
   | "downloading_thumbnails"
   | "computing_embeddings"
-  | "grouping"
   | "complete";
 
 export interface ScanResultMessage extends BaseMessage {

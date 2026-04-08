@@ -46,7 +46,7 @@ export type AppState =
 export type AppAction =
   | { type: "HEALTH_CHECK_RESULT"; payload: HealthCheckResultMessage }
   | { type: "SCAN_STARTED"; requestId: string; hasGptk: boolean; accountEmail?: string }
-  | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage }
+  | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage; phase?: ScanPhase }
   | { type: "SCAN_MEDIA_FETCHED"; mediaItems: GpdMediaItem[] }
   | {
       type: "SCAN_COMPLETE"
@@ -117,6 +117,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (state.status !== "scanning") return state
       return {
         ...state,
+        ...(action.phase !== undefined ? { phase: action.phase } : {}),
         itemsProcessed: action.payload.itemsProcessed,
         message: action.payload.message || state.message,
       }
@@ -125,9 +126,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (state.status !== "scanning") return state
       return {
         ...state,
-        phase: "computing_embeddings",
+        phase: "downloading_thumbnails",
+        itemsProcessed: 0,
         totalEstimate: action.mediaItems.length,
-        message: `Fetched ${action.mediaItems.length} items. Computing embeddings...`,
+        message: `Fetched ${action.mediaItems.length} items. Downloading thumbnails...`,
       }
 
     case "SCAN_COMPLETE":

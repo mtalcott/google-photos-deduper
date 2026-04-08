@@ -16,7 +16,7 @@ const MODEL_URL =
 const THUMB_HEIGHT = 200
 
 export interface DetectionProgress {
-  phase: "downloading_thumbnails" | "computing_embeddings" | "grouping"
+  phase: "downloading_thumbnails" | "computing_embeddings"
   current: number
   total: number
 }
@@ -51,12 +51,7 @@ export async function detectDuplicates(
   )
   if (embeddings.length < 2) return []
 
-  // Step 3: Community detection
-  onProgress?.({
-    phase: "grouping",
-    current: 0,
-    total: embeddings.length,
-  })
+  // Step 3: Community detection (synchronous — no progress event)
   const indexGroups = communityDetection(embeddings, threshold)
 
   // Map indices back to media items and build DuplicateGroup objects
