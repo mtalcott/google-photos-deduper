@@ -56,11 +56,15 @@ export async function detectDuplicates(
 
   // Map indices back to media items and build DuplicateGroup objects
   const groups: DuplicateGroup[] = indexGroups.map((indices, i) => {
-    const mediaKeys = indices.map((idx) => candidates[validIndices[idx]].mediaKey)
+    // Sort items by upload date ascending so the oldest is first
+    const items = indices
+      .map((idx) => candidates[validIndices[idx]])
+      .sort((a, b) => (a.creationTimestamp ?? 0) - (b.creationTimestamp ?? 0))
+    const mediaKeys = items.map((item) => item.mediaKey)
     return {
       id: `group-${i}`,
       mediaKeys,
-      originalMediaKey: mediaKeys[0], // First item (central point) as default original
+      originalMediaKey: mediaKeys[0], // Oldest upload date selected as default original
       similarity: threshold, // Approximate; all items are at least this similar
     }
   })
