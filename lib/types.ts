@@ -149,7 +149,8 @@ export type AppMessage =
 export interface GpdMediaItem {
   mediaKey: string;
   dedupKey: string;
-  thumb: string; // thumbnail URL
+  thumb: string; // thumbnail URL (append =w200-h200 for thumbnails; use bare for full-res)
+  productUrl?: string; // link to item in Google Photos web app
   timestamp: number; // taken date
   creationTimestamp: number; // upload date
   resWidth?: number;

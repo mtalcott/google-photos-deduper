@@ -74,6 +74,7 @@ async function getAllMediaItems(requestId, args) {
             duration: item.duration,
             isOwned: item.isOwned,
             fileName: item.descriptionShort || null,
+            productUrl: 'https://photos.google.com/photo/' + item.mediaKey,
           });
         }
       }
