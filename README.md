@@ -8,7 +8,7 @@ Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolk
 
 ## Demo
 
-[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-2026-l.webp)](https://youtu.be/SeOX98uTVwQ)
+[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-2026-l.webp?1)](https://youtu.be/SeOX98uTVwQ)
 
 ## Install
 
