@@ -41,7 +41,7 @@ git clone https://github.com/mtalcott/google-photos-deduper.git
 cd google-photos-deduper
 git submodule update --init --recursive
 npm install
-npm run build  # builds into build/chrome-mv3-dev/
+npm run dev  # builds into build/chrome-mv3-dev/
 ```
 
 Load in Chrome: `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select `build/chrome-mv3-dev/`.
@@ -51,6 +51,9 @@ Load in Chrome: `chrome://extensions` → enable **Developer mode** → **Load u
 ```bash
 # Start the Plasmo dev server (rebuilds on file changes)
 npm run dev
+
+# Build the Chrome extension (builds into build/chrome-mv3-prod/)
+npm run build
 
 # Run unit and integration tests
 npm test
@@ -70,7 +73,7 @@ Full E2E tests connect to a running Chrome instance via the [Chrome DevTools Pro
   --user-data-dir="$HOME/chrome-debug"
 ```
 
-**[WSL](https://learn.microsoft.com/en-us/windows/wsl/):**
+**Windows [WSL](https://learn.microsoft.com/en-us/windows/wsl/):**
 ```bash
 "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" \
   --remote-debugging-port=9222 \
