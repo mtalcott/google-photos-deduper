@@ -6,11 +6,9 @@ A Chrome extension that finds and removes duplicate photos from your Google Phot
 
 Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) to access your library via Google Photos' web interface. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/). 
 
-<!--
 ## Demo
 
-[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-l.gif)](https://youtu.be/QDUGKgQOa7o)
--->
+[![Demo](https://google-photos-deduper-public.s3.amazonaws.com/demo-2026-l.webp)](https://youtu.be/SeOX98uTVwQ)
 
 ## Install
 
