@@ -27,6 +27,11 @@ const messageListeners: MessageListener[] = []
 const tabRemovedListeners: TabRemovedListener[] = []
 
 const mockChrome = {
+  action: {
+    onClicked: {
+      addListener: vi.fn(),
+    },
+  },
   tabs: {
     query: vi.fn(),
     sendMessage: vi.fn(),
