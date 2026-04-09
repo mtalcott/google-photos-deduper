@@ -440,8 +440,8 @@ export default function App() {
   useEffect(() => {
     if (!undoData) return
     confetti({
-      particleCount: 120,
-      spread: 70,
+      particleCount: 200,
+      spread: 100,
       origin: { y: 0.7 },
     })
   }, [undoData])
