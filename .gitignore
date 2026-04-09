@@ -5,6 +5,7 @@ venv/
 # Build output
 build/
 .plasmo
+tsconfig.tsbuildinfo
 
 # Scripts generated at build time
 scripts/google-photos-toolkit.user.js
