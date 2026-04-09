@@ -1,7 +1,7 @@
 {
   "name": "google-photos-deduper",
   "displayName": "Google Photos Deduper",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Find and remove duplicate photos from Google Photos",
   "author": "Mack Talcott",
   "scripts": {
@@ -15,7 +15,8 @@
     "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
     "build": "npm run build:gptk && npm run copy:wasm && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
-    "package": "npm run build:gptk && npm run copy:wasm && plasmo build && plasmo package"
+    "package": "npm run build:gptk && npm run copy:wasm && plasmo build && plasmo package",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
