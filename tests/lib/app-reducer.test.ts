@@ -56,7 +56,6 @@ const trashingState: AppState = {
   mediaItems,
   groups,
   totalItems: 4,
-  trashedCount: 0,
   totalToTrash: 2,
 }
 
@@ -185,7 +184,6 @@ describe("TRASH_COMPLETE", () => {
       mediaItems,
       groups: [threeItemGroup],
       totalItems: 3,
-      trashedCount: 0,
       totalToTrash: 1,
     }
     const next = appReducer(state, {
