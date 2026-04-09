@@ -67,9 +67,9 @@ export default function App() {
     new Set()
   )
 
-  // Original overrides: groupId -> mediaKey the user marked as "original"
-  const [originalOverrides, setOriginalOverrides] = useState<
-    Record<string, string>
+  // Kept overrides: groupId -> Set of mediaKeys the user marked as "Keep"
+  const [keptOverrides, setKeptOverrides] = useState<
+    Record<string, Set<string>>
   >({})
 
   // Confirm dialog state
@@ -107,18 +107,29 @@ export default function App() {
       : []
   useEffect(() => {
     setSelectedGroupIds(new Set(groups.map((g) => g.id)))
-    setOriginalOverrides({})
+    setKeptOverrides({})
   }, [groups])
 
-  const getOriginal = useCallback(
-    (group: DuplicateGroup) =>
-      originalOverrides[group.id] || group.originalMediaKey,
-    [originalOverrides]
+  const getKept = useCallback(
+    (group: DuplicateGroup): Set<string> =>
+      keptOverrides[group.id] ?? new Set([group.originalMediaKey]),
+    [keptOverrides]
   )
 
-  const handleSetOriginal = useCallback(
-    (groupId: string, mediaKey: string) => {
-      setOriginalOverrides((prev) => ({ ...prev, [groupId]: mediaKey }))
+  const handleToggleKept = useCallback(
+    (group: DuplicateGroup, mediaKey: string) => {
+      setKeptOverrides((prev) => {
+        const current = prev[group.id] ?? new Set([group.originalMediaKey])
+        // Prevent removing the last kept item
+        if (current.has(mediaKey) && current.size === 1) return prev
+        const next = new Set(current)
+        if (next.has(mediaKey)) {
+          next.delete(mediaKey)
+        } else {
+          next.add(mediaKey)
+        }
+        return { ...prev, [group.id]: next }
+      })
     },
     []
   )
@@ -344,9 +355,9 @@ export default function App() {
     const mediaKeysToTrash: string[] = []
     for (const group of state.groups) {
       if (!selectedGroupIds.has(group.id)) continue
-      const original = getOriginal(group)
+      const keptSet = getKept(group)
       for (const key of group.mediaKeys) {
-        if (key === original) continue
+        if (keptSet.has(key)) continue
         const item = state.mediaItems[key]
         if (item?.dedupKey) {
           dedupKeys.push(item.dedupKey)
@@ -357,7 +368,7 @@ export default function App() {
 
     if (dedupKeys.length === 0) return
     setTrashConfirm({ dedupKeys, mediaKeysToTrash })
-  }, [state, selectedGroupIds, getOriginal])
+  }, [state, selectedGroupIds, getKept])
 
   const handleTrashConfirmed = useCallback(() => {
     if (!trashConfirm || state.status !== "results") return
@@ -440,10 +451,8 @@ export default function App() {
     state.status === "results"
       ? groups.reduce((sum, group) => {
           if (!selectedGroupIds.has(group.id)) return sum
-          const original = getOriginal(group)
-          return (
-            sum + group.mediaKeys.filter((k) => k !== original).length
-          )
+          const keptSet = getKept(group)
+          return sum + group.mediaKeys.filter((k) => !keptSet.has(k)).length
         }, 0)
       : 0
 
@@ -559,8 +568,8 @@ export default function App() {
               mediaItems={state.mediaItems}
               selectedGroupIds={selectedGroupIds}
               onToggleGroup={handleToggleGroup}
-              getOriginal={getOriginal}
-              onSetOriginal={handleSetOriginal}
+              getKept={getKept}
+              onToggleKept={handleToggleKept}
             />
           </>
         )}
