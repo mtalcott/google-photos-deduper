@@ -4,7 +4,7 @@
 
 A Chrome extension that finds and removes duplicate photos from your Google Photos library.
 
-Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/). Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) to access your library via Google Photos' web interface.
+Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) to access your library via Google Photos' web interface. Built with [Plasmo](https://plasmo.com/), [MediaPipe](https://developers.google.com/mediapipe), [React](https://react.dev/), and [MUI](https://mui.com/). 
 
 <!--
 ## Demo
@@ -34,7 +34,7 @@ No OAuth setup. No Google Cloud project. No data leaves your browser.
 
 ### Setup
 
-**Prerequisites:** Google Chrome, Node.js 20+
+**Prerequisites:** Google Chrome, Node.js 24
 
 ```bash
 git clone https://github.com/mtalcott/google-photos-deduper.git
@@ -84,7 +84,7 @@ Then run: `npm run test:e2e`
 
 ## Motivation
 
-Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses GPTK — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to find visually identical photos.
+Google deprecated the Photos Library API's write access in 2025, and duplicate detection has never been a built-in Google Photos feature. This extension uses [@xob0t](https://github.com/xob0t)'s [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolkit) — an open-source wrapper around Google Photos' undocumented web API — to access your library without OAuth, and runs MediaPipe's MobileNet V3 image embedder locally to find visually identical photos.
 
 ## Support
 
