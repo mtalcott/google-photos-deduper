@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
@@ -20,6 +21,27 @@ const PHASE_LABELS: Record<ScanPhase, string> = {
   complete: "Complete",
 }
 
+const PHASE_STEP: Record<ScanPhase, number> = {
+  fetching: 1,
+  downloading_thumbnails: 2,
+  computing_embeddings: 3,
+  complete: 3,
+}
+
+const TOTAL_STEPS = 3
+
+function formatEtr(seconds: number): string {
+  if (seconds < 60) return `${Math.ceil(seconds)}s remaining`
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.ceil(seconds % 60)
+    return secs > 0 ? `${mins}m ${secs}s remaining` : `${mins}m remaining`
+  }
+  const hrs = Math.floor(seconds / 3600)
+  const mins = Math.round((seconds % 3600) / 60)
+  return mins > 0 ? `${hrs}h ${mins}m remaining` : `${hrs}h remaining`
+}
+
 export function ScanProgress({
   phase,
   itemsProcessed,
@@ -31,16 +53,48 @@ export function ScanProgress({
     totalEstimate > 0 ? Math.round((itemsProcessed / totalEstimate) * 100) : 0
   const isDeterminate = totalEstimate > 0
 
+  const phaseStartRef = useRef<{ phase: ScanPhase; time: number; baseItems: number } | null>(null)
+  if (phaseStartRef.current?.phase !== phase) {
+    phaseStartRef.current = { phase, time: Date.now(), baseItems: itemsProcessed }
+  }
+
+  const cachedEtrRef = useRef<{ text: string; updatedAt: number } | null>(null)
+
+  if (isDeterminate && phaseStartRef.current) {
+    const now = Date.now()
+    if (!cachedEtrRef.current || now - cachedEtrRef.current.updatedAt >= 1000) {
+      const elapsedSec = (now - phaseStartRef.current.time) / 1000
+      const processedSince = itemsProcessed - phaseStartRef.current.baseItems
+      if (processedSince > 0 && elapsedSec >= 3) {
+        const rate = processedSince / elapsedSec
+        const remaining = (totalEstimate - itemsProcessed) / rate
+        if (remaining > 0) {
+          cachedEtrRef.current = { text: formatEtr(remaining), updatedAt: now }
+        }
+      }
+    }
+  } else {
+    cachedEtrRef.current = null
+  }
+
+  const etaText = cachedEtrRef.current?.text ?? null
+  const stepNum = PHASE_STEP[phase]
+
   return (
     <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
       <Typography variant="h5" fontWeight={600} gutterBottom>
         Scanning Library
       </Typography>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-        <CircularProgress size={14} thickness={5} />
-        <Typography variant="body2" color="text.secondary">
-          {PHASE_LABELS[phase]}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <CircularProgress size={14} thickness={5} />
+          <Typography variant="body2" color="text.secondary">
+            {PHASE_LABELS[phase]}
+          </Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          Step {stepNum} of {TOTAL_STEPS}
         </Typography>
       </Box>
 
@@ -57,7 +111,7 @@ export function ScanProgress({
         </Typography>
         {isDeterminate && (
           <Typography variant="caption" color="text.secondary">
-            {progress}%
+            {etaText ? `${progress}% · ${etaText}` : `${progress}%`}
           </Typography>
         )}
       </Box>
