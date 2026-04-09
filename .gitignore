@@ -14,9 +14,6 @@ scripts/vision_wasm_internal.*
 # Logs
 log/*.log*
 
-# Python
-__pycache__/
-
 # Env
 .env
 .env*.local
