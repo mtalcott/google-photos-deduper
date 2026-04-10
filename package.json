@@ -7,13 +7,14 @@
   "scripts": {
     "build:gptk": "git submodule update --init && (test -d Google-Photos-Toolkit/node_modules || npm --prefix Google-Photos-Toolkit install --no-fund --no-audit) && cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js",
     "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
+    "build:worker": "node_modules/.bin/esbuild workers/embedder.worker.ts --bundle --platform=browser --format=iife --target=es2020 --outfile=scripts/embedder-worker.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "playwright test --config playwright.config.ts",
     "test:e2e": "playwright test --config playwright.e2e.config.ts",
     "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
-    "build": "npm run build:gptk && npm run copy:wasm && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
+    "build": "npm run build:gptk && npm run copy:wasm && npm run build:worker && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
     "package": "npm run build:gptk && npm run copy:wasm && plasmo build && plasmo package",
     "release": "bash tools/release.sh"
   },
@@ -76,7 +77,8 @@
           "scripts/google-photos-toolkit.user.js",
           "scripts/google-photos-commands.js",
           "scripts/vision_wasm_internal.js",
-          "scripts/vision_wasm_internal.wasm"
+          "scripts/vision_wasm_internal.wasm",
+          "scripts/embedder-worker.js"
         ],
         "matches": [
           "https://photos.google.com/*"

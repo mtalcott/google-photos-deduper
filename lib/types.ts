@@ -59,6 +59,7 @@ export type ScanPhase =
   | "fetching"
   | "downloading_thumbnails"
   | "computing_embeddings"
+  | "detecting_duplicates"
   | "complete";
 
 export interface ScanResultMessage extends BaseMessage {
@@ -178,6 +179,7 @@ export interface StoredState {
     groups: DuplicateGroup[];
     scanDate: number;
     totalItems: number;
+    newestCreationTimestamp?: number; // for incremental fetch on next scan
   };
   settings: ScanSettings;
 }
