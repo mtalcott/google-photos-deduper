@@ -8,6 +8,7 @@ import Checkbox from "@mui/material/Checkbox"
 import Chip from "@mui/material/Chip"
 import IconButton from "@mui/material/IconButton"
 import Paper from "@mui/material/Paper"
+import Skeleton from "@mui/material/Skeleton"
 import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import { useBlobUrl } from "./useBlobUrl"
@@ -15,11 +16,14 @@ import { PhotoViewerModal } from "./PhotoViewerModal"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
 function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
-  const blobUrl = useBlobUrl(src)
+  const { blobUrl, loading } = useBlobUrl(src)
+  if (loading || !blobUrl) {
+    return <Skeleton variant="rectangular" height={120} animation="wave" />
+  }
   return (
     <CardMedia
       component="img"
-      image={blobUrl || ""}
+      image={blobUrl}
       alt={alt}
       sx={{ height: 120, objectFit: "cover" }}
     />

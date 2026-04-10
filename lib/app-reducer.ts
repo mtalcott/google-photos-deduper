@@ -39,7 +39,6 @@ export type AppState =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
-      trashedCount: number
       totalToTrash: number
       accountEmail?: string
     }
@@ -63,7 +62,6 @@ export type AppAction =
       groups: DuplicateGroup[]
       totalItems: number
     }
-  | { type: "TRASH_PROGRESS"; trashedCount: number }
   | { type: "TRASH_COMPLETE"; trashedKeys: string[] }
   | { type: "TRASH_ERROR"; error: string }
   | {
@@ -160,14 +158,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
-        trashedCount: 0,
         totalToTrash: action.totalToTrash,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
       }
-
-    case "TRASH_PROGRESS":
-      if (state.status !== "trashing") return state
-      return { ...state, trashedCount: action.trashedCount }
 
     case "TRASH_COMPLETE": {
       if (state.status !== "trashing") return state

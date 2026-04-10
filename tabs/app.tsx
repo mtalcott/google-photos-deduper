@@ -592,7 +592,7 @@ export default function App() {
             }}>
             <CircularProgress size={28} />
             <Typography variant="body2" color="text.secondary">
-              Moving items to trash… {state.trashedCount}/{state.totalToTrash}
+              Moving items to trash…
             </Typography>
           </Box>
         )}

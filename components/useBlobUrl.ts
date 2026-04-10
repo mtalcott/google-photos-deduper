@@ -4,23 +4,36 @@ import { useState, useEffect } from "react"
  * Fetch a URL via fetch() (which uses extension host_permissions + cookies)
  * and return a blob URL that <img> can display. Revokes the blob URL on cleanup.
  */
-export function useBlobUrl(url: string | undefined): string | undefined {
+export function useBlobUrl(url: string | undefined): {
+  blobUrl: string | undefined
+  loading: boolean
+} {
   const [blobUrl, setBlobUrl] = useState<string>()
+  const [loading, setLoading] = useState(!!url)
 
   useEffect(() => {
-    if (!url) return
+    if (!url) {
+      setLoading(false)
+      return
+    }
     let revoked = false
     let objectUrl: string | undefined
 
+    setLoading(true)
     fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.blob() : null))
       .then((blob) => {
-        if (blob && !revoked) {
-          objectUrl = URL.createObjectURL(blob)
-          setBlobUrl(objectUrl)
+        if (!revoked) {
+          if (blob) {
+            objectUrl = URL.createObjectURL(blob)
+            setBlobUrl(objectUrl)
+          }
+          setLoading(false)
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!revoked) setLoading(false)
+      })
 
     return () => {
       revoked = true
@@ -28,5 +41,5 @@ export function useBlobUrl(url: string | undefined): string | undefined {
     }
   }, [url])
 
-  return blobUrl
+  return { blobUrl, loading }
 }
