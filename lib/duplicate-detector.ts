@@ -8,6 +8,7 @@
 
 import { ImageEmbedder } from "@mediapipe/tasks-vision"
 import type { GpdMediaItem, DuplicateGroup } from "./types"
+import { EmbeddingCache } from "./embedding-cache"
 
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite"
@@ -38,21 +39,119 @@ export async function detectDuplicates(
   console.log(`[GPD] detectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates`)
   if (candidates.length < 2) return []
 
-  // Step 1: Download thumbnails
-  const blobs = await fetchThumbnails(candidates, onProgress, signal)
+  const t0 = performance.now()
+
+  // Load cached embeddings from IndexedDB
+  let cache: EmbeddingCache | null = null
+  // allEmbeddings[i] holds the embedding for candidates[i], or null if not yet computed
+  let allEmbeddings: (Float32Array | null)[]
+  try {
+    cache = await EmbeddingCache.open()
+    allEmbeddings = await cache.getMany(candidates.map((c) => c.mediaKey))
+  } catch (e) {
+    console.warn("[GPD] Embedding cache unavailable, falling back to full scan:", e)
+    allEmbeddings = new Array(candidates.length).fill(null)
+  }
+
+  const cachedCount = allEmbeddings.filter(Boolean).length
+  if (cache) {
+    try {
+      const totalEntries = await cache.count()
+      const estimatedMB = (totalEntries * 5120 / 1024 / 1024).toFixed(1) // ~5KB/entry
+      console.log(`[GPD] Embedding cache: ${cachedCount}/${candidates.length} hits (${totalEntries} entries, ~${estimatedMB}MB)`)
+    } catch {
+      console.log(`[GPD] Embedding cache: ${cachedCount}/${candidates.length} hits`)
+    }
+  } else {
+    console.log(`[GPD] Embedding cache: ${cachedCount}/${candidates.length} hits`)
+  }
+
+  // Identify candidates that need thumbnails fetched + embeddings computed
+  const uncachedIndices: number[] = [] // indices into candidates[]
+  const uncachedCandidates: GpdMediaItem[] = []
+  for (let i = 0; i < candidates.length; i++) {
+    if (!allEmbeddings[i]) {
+      uncachedIndices.push(i)
+      uncachedCandidates.push(candidates[i])
+    }
+  }
+
+  // Step 1: Download thumbnails (only for uncached items)
+  let blobs: (Blob | null)[] = []
+  if (uncachedCandidates.length > 0) {
+    blobs = await fetchThumbnails(uncachedCandidates, onProgress, signal)
+  } else {
+    // All cached — skip thumbnail phase entirely
+    onProgress?.({ phase: "downloading_thumbnails", current: 0, total: 0 })
+  }
+  const t1 = performance.now()
+  console.log(
+    `[GPD perf] Step 1 (thumbnails): ${((t1 - t0) / 1000).toFixed(1)}s` +
+    ` (${uncachedCandidates.length} uncached, ${cachedCount} from cache)`
+  )
 
   signal?.throwIfAborted()
 
-  // Step 2: Compute embeddings
-  const { embeddings, validIndices } = await computeEmbeddings(
-    blobs,
-    onProgress,
-    signal
-  )
+  // Step 2: Compute embeddings for uncached items, then persist to cache
+  if (uncachedCandidates.length > 0) {
+    const { embeddings: newEmbeddings, validIndices: newValidIndices } =
+      await computeEmbeddings(blobs, onProgress, signal)
+
+    // Map new embeddings back to their original candidate positions
+    const toCache: { mediaKey: string; embedding: Float32Array }[] = []
+    for (let j = 0; j < newValidIndices.length; j++) {
+      const uncachedPos = newValidIndices[j] // index into uncachedCandidates
+      const origPos = uncachedIndices[uncachedPos] // index into candidates
+      allEmbeddings[origPos] = newEmbeddings[j]
+      toCache.push({ mediaKey: candidates[origPos].mediaKey, embedding: newEmbeddings[j] })
+    }
+
+    if (cache && toCache.length > 0) {
+      try {
+        await cache.setMany(toCache)
+        console.log(`[GPD] Cached ${toCache.length} new embeddings`)
+      } catch (e) {
+        console.warn("[GPD] Failed to persist embeddings to cache:", e)
+      }
+    }
+  } else {
+    // All cached — fire a synthetic progress event so the UI advances
+    onProgress?.({ phase: "computing_embeddings", current: candidates.length, total: candidates.length })
+  }
+
+  const t2 = performance.now()
+  console.log(`[GPD perf] Step 2 (model + embeddings): ${((t2 - t1) / 1000).toFixed(1)}s`)
+
+  // Build final flat embedding arrays (only items that have a valid embedding)
+  const embeddings: Float32Array[] = []
+  const validIndices: number[] = []
+  for (let i = 0; i < allEmbeddings.length; i++) {
+    if (allEmbeddings[i]) {
+      embeddings.push(allEmbeddings[i]!)
+      validIndices.push(i)
+    }
+  }
+
   if (embeddings.length < 2) return []
 
   // Step 3: Community detection (synchronous — no progress event)
   const indexGroups = communityDetection(embeddings, threshold)
+
+  const t3 = performance.now()
+  console.log(`[GPD perf] Step 3 (community detection): ${((t3 - t2) / 1000).toFixed(1)}s`)
+  console.log(`[GPD perf] Total: ${((t3 - t0) / 1000).toFixed(1)}s`)
+
+  // Evict stale cache entries for items no longer in the library
+  if (cache) {
+    try {
+      const keepKeys = new Set(candidates.map((c) => c.mediaKey))
+      const evicted = await cache.evictExcept(keepKeys)
+      if (evicted > 0) console.log(`[GPD] Evicted ${evicted} stale cache entries`)
+    } catch (e) {
+      console.warn("[GPD] Cache eviction failed:", e)
+    }
+    cache.close()
+  }
 
   // Map indices back to media items and build DuplicateGroup objects
   const groups: DuplicateGroup[] = indexGroups.map((indices, i) => {
@@ -157,9 +256,11 @@ async function computeEmbeddings(
   // Fetch model as ArrayBuffer — modelAssetPath fails in extension context
   let modelBuffer: ArrayBuffer
   try {
+    const tModel0 = performance.now()
     const resp = await fetch(MODEL_URL)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     modelBuffer = await resp.arrayBuffer()
+    console.log(`[GPD perf] Model download: ${((performance.now() - tModel0) / 1000).toFixed(1)}s (${(modelBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)`)
   } catch (e) {
     throw new Error(`Failed to download model: ${e instanceof Error ? e.message : e}`)
   }
@@ -201,7 +302,8 @@ async function computeEmbeddings(
       // Using the canvas approach for browser compatibility
       const result = embedder.embed(imageData)
       if (result?.embeddings?.[0]?.floatEmbedding) {
-        embeddings.push(new Float32Array(result.embeddings[0].floatEmbedding))
+        const vec = new Float32Array(result.embeddings[0].floatEmbedding)
+        embeddings.push(vec)
         validIndices.push(i)
       }
 
@@ -377,3 +479,5 @@ export function topK(
 
   return { values, indices }
 }
+
+

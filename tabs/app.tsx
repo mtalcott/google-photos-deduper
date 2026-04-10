@@ -19,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close"
 import { ThemeProvider } from "@mui/material/styles"
 import theme from "../lib/theme"
 import { APP_ID } from "../lib/types"
+import { debug } from "../lib/debug"
 import { detectDuplicates } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
 import { appReducer } from "../lib/app-reducer"
@@ -54,6 +55,8 @@ function sendToServiceWorker(message: AppMessage): void {
 // ============================================================
 // App component
 // ============================================================
+
+const EMPTY_GROUPS: DuplicateGroup[] = []
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, { status: "connecting" })
@@ -104,7 +107,7 @@ export default function App() {
   const groups =
     state.status === "results" || state.status === "trashing"
       ? state.groups
-      : []
+      : EMPTY_GROUPS
   useEffect(() => {
     setSelectedGroupIds(new Set(groups.map((g) => g.id)))
     setKeptOverrides({})
@@ -213,12 +216,15 @@ export default function App() {
             dispatch({ type: "GP_TAB_CLOSED" })
           }
           break
-        case "gptkProgress":
-          dispatch({
-            type: "SCAN_PROGRESS",
-            payload: message as GptkProgressMessage,
-          })
+        case "gptkProgress": {
+          const prog = message as GptkProgressMessage
+          // Only apply GPTK batch counts during the fetching phase — stale messages
+          // can arrive after SCAN_MEDIA_FETCHED fires (while IndexedDB is opening)
+          // and would overwrite thumbnail/embedding progress with irrelevant numbers.
+          if (state.status === "scanning" && state.phase !== "fetching") break
+          dispatch({ type: "SCAN_PROGRESS", payload: prog })
           break
+        }
       }
     }
 
@@ -241,6 +247,7 @@ export default function App() {
             dispatch({
               type: "SCAN_PROGRESS",
               phase: progress.phase,
+              totalItems: progress.total > 0 ? progress.total : undefined,
               payload: {
                 app: APP_ID,
                 action: "gptkProgress",
