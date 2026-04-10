@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import Box from "@mui/material/Box"
 import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
@@ -43,6 +43,22 @@ export function DuplicateGroups({
   getKept,
   onToggleKept,
 }: DuplicateGroupsProps) {
+  // Measure time from first non-empty groups render to commit
+  const renderLoggedRef = useRef(false)
+  const renderStartRef = useRef<number | null>(null)
+  if (groups.length > 0 && !renderLoggedRef.current && renderStartRef.current === null) {
+    renderStartRef.current = performance.now()
+  }
+  useEffect(() => {
+    if (renderLoggedRef.current || renderStartRef.current === null || groups.length === 0) return
+    renderLoggedRef.current = true
+    const elapsed = performance.now() - renderStartRef.current
+    const totalThumbnails = groups.reduce((s, g) => s + g.mediaKeys.length, 0)
+    console.log(
+      `[GPD perf] Results render: ${elapsed.toFixed(0)}ms for ${groups.length} groups, ${totalThumbnails} thumbnails`
+    )
+  })
+
   const [viewerState, setViewerState] = useState<{
     group: DuplicateGroup
     index: number
@@ -269,3 +285,4 @@ export function DuplicateGroups({
     </Box>
   )
 }
+

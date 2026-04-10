@@ -47,7 +47,7 @@ export type AppState =
 export type AppAction =
   | { type: "HEALTH_CHECK_RESULT"; payload: HealthCheckResultMessage }
   | { type: "SCAN_STARTED"; requestId: string; hasGptk: boolean; accountEmail?: string }
-  | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage; phase?: ScanPhase }
+  | { type: "SCAN_PROGRESS"; payload: GptkProgressMessage; phase?: ScanPhase; totalItems?: number }
   | { type: "SCAN_MEDIA_FETCHED"; mediaItems: GpdMediaItem[] }
   | {
       type: "SCAN_COMPLETE"
@@ -124,6 +124,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         ...(action.phase !== undefined ? { phase: action.phase } : {}),
         itemsProcessed: action.payload.itemsProcessed,
+        ...(action.totalItems !== undefined ? { totalEstimate: action.totalItems } : {}),
         message: action.payload.message || state.message,
       }
 
