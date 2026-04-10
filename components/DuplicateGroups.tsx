@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import Box from "@mui/material/Box"
 import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
@@ -15,18 +15,43 @@ import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
+const PAGE_SIZE = 100
+
 function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
-  const { blobUrl, loading } = useBlobUrl(src)
-  if (loading || !blobUrl) {
-    return <Skeleton variant="rectangular" height={120} animation="wave" />
-  }
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "300px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const { blobUrl } = useBlobUrl(visible ? src : undefined)
+
   return (
-    <CardMedia
-      component="img"
-      image={blobUrl}
-      alt={alt}
-      sx={{ height: 120, objectFit: "cover" }}
-    />
+    <div ref={ref}>
+      {blobUrl ? (
+        <CardMedia
+          component="img"
+          image={blobUrl}
+          alt={alt}
+          sx={{ height: 120, objectFit: "cover" }}
+        />
+      ) : (
+        <Skeleton variant="rectangular" height={120} animation="wave" />
+      )}
+    </div>
   )
 }
 
@@ -67,6 +92,26 @@ export function DuplicateGroups({
     group: DuplicateGroup
     index: number
   } | null>(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // Reset pagination when groups change (new scan)
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [groups])
+
+  // Infinite scroll: re-observe sentinel after each page loads so observer
+  // fires again once the user scrolls to the new bottom.
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setVisibleCount((c) => c + PAGE_SIZE)
+      },
+      { rootMargin: "400px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [visibleCount, groups])
 
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
@@ -96,7 +141,7 @@ export function DuplicateGroups({
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
       </Typography>
 
-      {groups.map((group) => {
+      {groups.slice(0, visibleCount).map((group) => {
         const isSelected = selectedGroupIds.has(group.id)
         const keptSet = getKept(group)
 
@@ -176,7 +221,7 @@ export function DuplicateGroups({
                       }}>
                       <CardActionArea onClick={() => onToggleKept(group, key)}>
                         <ThumbnailImage
-                          src={item.thumb + "=w200-h200"}
+                          src={item.thumb + "=h200"}
                           alt={item.fileName || item.mediaKey}
                         />
                         <CardContent
@@ -274,6 +319,9 @@ export function DuplicateGroups({
           </Paper>
         )
       })}
+
+      {/* Infinite scroll sentinel */}
+      {visibleCount < groups.length && <div ref={sentinelRef} />}
 
       {/* Photo viewer modal — rendered once outside the map, state drives which photo */}
       {viewerGroup && (
