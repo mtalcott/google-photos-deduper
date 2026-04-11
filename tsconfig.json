@@ -1,7 +1,8 @@
 {
   "extends": "plasmo/templates/tsconfig.base",
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "workers"
   ],
   "include": [
     ".plasmo/index.d.ts",

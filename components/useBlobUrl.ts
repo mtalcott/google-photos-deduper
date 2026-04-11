@@ -3,6 +3,8 @@ import { useState, useEffect } from "react"
 /**
  * Fetch a URL via fetch() (which uses extension host_permissions + cookies)
  * and return a blob URL that <img> can display. Revokes the blob URL on cleanup.
+ * Results from the scan phase are served from the browser HTTP cache when the
+ * same URL parameter (=h200) is used, making most fetches instant.
  */
 export function useBlobUrl(url: string | undefined): {
   blobUrl: string | undefined

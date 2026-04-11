@@ -18,6 +18,7 @@ const PHASE_LABELS: Record<ScanPhase, string> = {
   fetching: "Fetching media items",
   downloading_thumbnails: "Downloading thumbnails",
   computing_embeddings: "Computing image similarity",
+  detecting_duplicates: "Finding duplicate groups",
   complete: "Complete",
 }
 
@@ -25,10 +26,11 @@ const PHASE_STEP: Record<ScanPhase, number> = {
   fetching: 1,
   downloading_thumbnails: 2,
   computing_embeddings: 3,
-  complete: 3,
+  detecting_duplicates: 4,
+  complete: 4,
 }
 
-const TOTAL_STEPS = 3
+const TOTAL_STEPS = 4
 
 function formatEtr(seconds: number): string {
   if (seconds < 60) return `${Math.ceil(seconds)}s remaining`

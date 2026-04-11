@@ -47,13 +47,22 @@ function postProgress(requestId, itemsProcessed, message) {
 async function getAllMediaItems(requestId, args) {
   const gptkApi = window.gptkApi;
   if (!gptkApi) {
-    postError("getAllMediaItems", requestId, "GPTK API not available. Reload the Google Photos page.");
+    postError(
+      "getAllMediaItems",
+      requestId,
+      "GPTK API not available. Reload the Google Photos page.",
+    );
     return;
   }
+
+  // sinceTimestamp: stop paginating once we reach items already in the cache
+  const sinceTimestamp =
+    args && args.sinceTimestamp ? args.sinceTimestamp : null;
 
   try {
     let nextPageId = null;
     const mediaItems = [];
+    let reachedCache = false;
 
     do {
       const page = await gptkApi.getItemsByUploadedDate(nextPageId);
@@ -63,6 +72,14 @@ async function getAllMediaItems(requestId, args) {
       }
       if (page.items && page.items.length > 0) {
         for (const item of page.items) {
+          // Items are sorted newest-first — stop when we hit the cached watermark
+          if (
+            sinceTimestamp !== null &&
+            item.creationTimestamp <= sinceTimestamp
+          ) {
+            reachedCache = true;
+            break;
+          }
           mediaItems.push({
             mediaKey: item.mediaKey,
             dedupKey: item.dedupKey,
@@ -74,13 +91,19 @@ async function getAllMediaItems(requestId, args) {
             duration: item.duration,
             isOwned: item.isOwned,
             fileName: item.descriptionShort || null,
-            productUrl: 'https://photos.google.com/photo/' + item.mediaKey,
+            productUrl: "https://photos.google.com/photo/" + item.mediaKey,
           });
         }
       }
       nextPageId = page.nextPageId || null;
 
-      postProgress(requestId, mediaItems.length, `Fetched ${mediaItems.length} items`);
+      postProgress(
+        requestId,
+        mediaItems.length,
+        `Fetched ${mediaItems.length} items`,
+      );
+
+      if (reachedCache) break;
     } while (nextPageId);
 
     postResult("getAllMediaItems", requestId, mediaItems);
@@ -100,14 +123,22 @@ async function trashItems(requestId, args) {
   // gptkCore.isProcessRunning (always false when called from extension).
   const api = window.gptkApiUtils?.api;
   if (!api) {
-    postError("trashItems", requestId, "GPTK API not available. Reload the Google Photos page.");
+    postError(
+      "trashItems",
+      requestId,
+      "GPTK API not available. Reload the Google Photos page.",
+    );
     return;
   }
 
   try {
     const dedupKeys = args.dedupKeys;
     const mediaKeysToTrash = args.mediaKeysToTrash || [];
-    console.log("GPD: Trashing", dedupKeys.length, "items via api.moveItemsToTrash");
+    console.log(
+      "GPD: Trashing",
+      dedupKeys.length,
+      "items via api.moveItemsToTrash",
+    );
     await api.moveItemsToTrash(dedupKeys);
     postResult("trashItems", requestId, {
       trashedCount: dedupKeys.length,
@@ -129,7 +160,11 @@ async function restoreItems(requestId, args) {
   // executeWithConcurrency checks isProcessRunning which is always false here).
   const api = window.gptkApiUtils?.api;
   if (!api) {
-    postError("restoreItems", requestId, "GPTK API not available. Reload the Google Photos page.");
+    postError(
+      "restoreItems",
+      requestId,
+      "GPTK API not available. Reload the Google Photos page.",
+    );
     return;
   }
 
@@ -153,7 +188,7 @@ function healthCheck(requestId) {
   const hasGptk = typeof window.gptkApi !== "undefined";
   const hasWizData = typeof window.WIZ_global_data !== "undefined";
   // oPEP7c is the signed-in account email in WIZ_global_data
-  const accountEmail = hasWizData ? (window.WIZ_global_data.oPEP7c || "") : "";
+  const accountEmail = hasWizData ? window.WIZ_global_data.oPEP7c || "" : "";
   postResult("healthCheck", requestId, { hasGptk, hasWizData, accountEmail });
 }
 
