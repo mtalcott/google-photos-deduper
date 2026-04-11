@@ -19,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { ThemeProvider } from "@mui/material/styles";
 import theme from "../lib/theme";
 import { APP_ID } from "../lib/types";
+import { debug } from "../lib/debug";
 import { detectDuplicates } from "../lib/duplicate-detector";
 import type { DetectionProgress } from "../lib/duplicate-detector";
 import { appReducer } from "../lib/app-reducer";
@@ -643,7 +644,7 @@ export default function App() {
           >
             <CircularProgress size={28} />
             <Typography variant="body2" color="text.secondary">
-              Moving items to trash… {state.trashedCount}/{state.totalToTrash}
+              Moving items to trash…
             </Typography>
           </Box>
         )}
