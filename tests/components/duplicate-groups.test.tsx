@@ -18,7 +18,7 @@ import type { GpdMediaItem, DuplicateGroup } from "../../lib/types"
 // ============================================================
 
 vi.mock("../../components/useBlobUrl", () => ({
-  useBlobUrl: (url: string | undefined) => (url ? `blob:${url}` : undefined),
+  useBlobUrl: (url: string | undefined) => ({ blobUrl: url ? `blob:${url}` : undefined, loading: false }),
 }))
 
 // Stub PhotoViewerModal so we can assert it opens without rendering the full dialog
