@@ -345,7 +345,7 @@ export default function App() {
         if (result.settings) {
           setSettings(result.settings)
         }
-        if (result.scanResults?.totalItems && result.scanResults.groups?.length > 0) {
+        if (result.scanResults?.totalItems && Array.isArray(result.scanResults.groups)) {
           dispatch({
             type: "LOAD_SAVED_RESULTS",
             mediaItems: result.scanResults.mediaItems,
