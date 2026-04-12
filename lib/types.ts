@@ -39,8 +39,11 @@ export interface ScanLibraryMessage extends BaseMessage {
   options: ScanOptions;
 }
 
+export type ScanMode = "smart" | "full"
+
 export interface ScanOptions {
   similarityThreshold: number; // 0.90 - 1.00
+  scanMode: ScanMode;
   dateRange?: {
     from?: string; // ISO date string
     to?: string;
@@ -186,6 +189,7 @@ export interface StoredState {
 
 export interface ScanSettings {
   similarityThreshold: number;
+  scanMode: ScanMode;
   dateRange?: {
     from?: string;
     to?: string;
@@ -194,4 +198,5 @@ export interface ScanSettings {
 
 export const DEFAULT_SETTINGS: ScanSettings = {
   similarityThreshold: 0.99,
+  scanMode: "smart",
 };

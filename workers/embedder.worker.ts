@@ -8,6 +8,7 @@
 //   { type: "init", data: { wasmLoaderUrl, wasmBinaryUrl, modelBuffer: ArrayBuffer } }
 //   { type: "embed", data: { items: Array<{ localIdx: number, blob: Blob }> } }
 //   { type: "detect", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number } }
+//   { type: "detectSmart", data: { flatEmbeddings: Float32Array, n: number, dim: number, threshold: number, buckets: number[][] } }
 //
 // Message protocol (worker → main):
 //   { type: "ready" }
@@ -112,6 +113,57 @@ self.addEventListener("message", async (event: MessageEvent) => {
       },
     );
     self.postMessage({ type: "detectionResults", groups });
+  }
+
+  if (type === "detectSmart") {
+    const { flatEmbeddings, n, dim, threshold, buckets } = data as {
+      flatEmbeddings: Float32Array;
+      n: number;
+      dim: number;
+      threshold: number;
+      buckets: number[][];
+    };
+
+    // Unpack flat buffer into row views (zero-copy)
+    const embeddings: Float32Array[] = [];
+    for (let i = 0; i < n; i++)
+      embeddings.push(flatEmbeddings.subarray(i * dim, (i + 1) * dim));
+
+    const allGroups: number[][] = [];
+    for (let bi = 0; bi < buckets.length; bi++) {
+      const bucket = buckets[bi];
+      // Union-Find over bucket indices
+      const parent = bucket.map((_, j) => j);
+      const find = (x: number): number =>
+        parent[x] === x ? x : (parent[x] = find(parent[x]));
+      const union = (a: number, b: number) => {
+        parent[find(a)] = find(b);
+      };
+
+      for (let i = 0; i < bucket.length; i++) {
+        for (let j = i + 1; j < bucket.length; j++) {
+          const a = embeddings[bucket[i]];
+          const b = embeddings[bucket[j]];
+          let dot = 0;
+          for (let k = 0; k < dim; k++) dot += a[k] * b[k];
+          if (dot >= threshold) union(i, j);
+        }
+      }
+
+      const components = new Map<number, number[]>();
+      for (let i = 0; i < bucket.length; i++) {
+        const root = find(i);
+        if (!components.has(root)) components.set(root, []);
+        components.get(root)!.push(bucket[i]); // original embedding indices
+      }
+      for (const [, members] of components)
+        if (members.length >= 2) allGroups.push(members);
+
+      if (bi % 100 === 0)
+        self.postMessage({ type: "detectionProgress", current: bi + 1, total: buckets.length });
+    }
+
+    self.postMessage({ type: "detectionResults", groups: allGroups });
   }
 });
 

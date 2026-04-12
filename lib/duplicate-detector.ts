@@ -129,10 +129,10 @@ export interface ScanTiming {
 type ProgressCallback = (progress: DetectionProgress) => void;
 
 // ============================================================
-// Main entry point
+// Main entry points
 // ============================================================
 
-export async function detectDuplicates(
+export async function fullDetectDuplicates(
   mediaItems: GpdMediaItem[],
   threshold: number,
   onProgress?: ProgressCallback,
@@ -286,6 +286,250 @@ export async function detectDuplicates(
   };
 
   return { groups, timing };
+}
+
+// ============================================================
+// Smart scan: group by timestamp, embed subset, pairwise union-find
+// ============================================================
+
+/**
+ * Group media items by their `timestamp` field (EXIF taken date).
+ * Only returns buckets with ≥ 2 items.
+ *
+ * windowMs = 0 (default): exact timestamp match.
+ * windowMs > 0: items within the same time window are bucketed together.
+ *
+ * Exported for unit testing.
+ */
+export function groupByTimestamp(
+  items: GpdMediaItem[],
+  windowMs = 0,
+): GpdMediaItem[][] {
+  const buckets = new Map<number, GpdMediaItem[]>();
+  for (const item of items) {
+    const key =
+      windowMs > 0
+        ? Math.floor(item.timestamp / windowMs) * windowMs
+        : item.timestamp;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(item);
+  }
+  return [...buckets.values()].filter((g) => g.length >= 2);
+}
+
+/**
+ * Given a single timestamp-bucket group, compute duplicate groups using
+ * pairwise cosine similarity + union-find.
+ *
+ * Exported for unit testing. The worker contains an equivalent inline copy.
+ */
+export function withinGroupDuplicates(
+  groupItems: GpdMediaItem[],
+  embeddingMap: Map<string, Float32Array>,
+  threshold: number,
+  groupIdOffset: number,
+): DuplicateGroup[] {
+  const withEmb = groupItems
+    .map((item) => ({ item, emb: embeddingMap.get(item.mediaKey) }))
+    .filter(
+      (x): x is { item: GpdMediaItem; emb: Float32Array } => !!x.emb,
+    );
+  if (withEmb.length < 2) return [];
+
+  // Union-Find
+  const parent = withEmb.map((_, i) => i);
+  const find = (x: number): number =>
+    parent[x] === x ? x : (parent[x] = find(parent[x]));
+  const union = (a: number, b: number) => {
+    parent[find(a)] = find(b);
+  };
+
+  const dim = withEmb[0].emb.length;
+  for (let i = 0; i < withEmb.length; i++) {
+    for (let j = i + 1; j < withEmb.length; j++) {
+      let dot = 0;
+      for (let k = 0; k < dim; k++) dot += withEmb[i].emb[k] * withEmb[j].emb[k];
+      if (dot >= threshold) union(i, j);
+    }
+  }
+
+  const components = new Map<number, GpdMediaItem[]>();
+  for (let i = 0; i < withEmb.length; i++) {
+    const root = find(i);
+    if (!components.has(root)) components.set(root, []);
+    components.get(root)!.push(withEmb[i].item);
+  }
+
+  return [...components.values()]
+    .filter((g) => g.length >= 2)
+    .map((items, i) => {
+      const sorted = [...items].sort(
+        (a, b) => (a.creationTimestamp ?? 0) - (b.creationTimestamp ?? 0),
+      );
+      return {
+        id: `group-${groupIdOffset + i}`,
+        mediaKeys: sorted.map((x) => x.mediaKey),
+        originalMediaKey: sorted[0].mediaKey,
+        similarity: threshold,
+      };
+    });
+}
+
+/**
+ * Packs embeddings and bucket index arrays, sends to worker for pairwise
+ * union-find detection. Returns number[][] (group index lists into embeddings[]).
+ */
+async function runSmartDetectionInWorker(
+  embeddings: Float32Array[],
+  threshold: number,
+  buckets: number[][],
+  workerUrl: string,
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal,
+): Promise<number[][]> {
+  const n = embeddings.length;
+  if (n === 0) return [];
+  const dim = embeddings[0].length;
+
+  const flat = new Float32Array(n * dim);
+  for (let i = 0; i < n; i++) flat.set(embeddings[i], i * dim);
+
+  const worker = new Worker(workerUrl);
+
+  return new Promise<number[][]>((resolve, reject) => {
+    if (signal?.aborted) {
+      worker.terminate();
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+
+    const onAbort = () => {
+      worker.terminate();
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    worker.onmessage = (e) => {
+      if (e.data.type === "detectionProgress") {
+        onProgress?.({
+          phase: "detecting_duplicates",
+          current: e.data.current,
+          total: e.data.total,
+        });
+      } else if (e.data.type === "detectionResults") {
+        signal?.removeEventListener("abort", onAbort);
+        worker.terminate();
+        resolve(e.data.groups as number[][]);
+      }
+    };
+    worker.onerror = (e) => {
+      signal?.removeEventListener("abort", onAbort);
+      worker.terminate();
+      reject(new Error(e.message ?? "Worker error during smart detection"));
+    };
+
+    worker.postMessage(
+      { type: "detectSmart", data: { flatEmbeddings: flat, n, dim, threshold, buckets } },
+      [flat.buffer],
+    );
+  });
+}
+
+export async function smartDetectDuplicates(
+  mediaItems: GpdMediaItem[],
+  threshold: number,
+  windowMs = 0,
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal,
+): Promise<DuplicateGroup[]> {
+  const candidates = mediaItems.filter((item) => item.thumb && !item.duration);
+
+  // Step 1: Bucket by timestamp — no I/O, instant
+  const buckets = groupByTimestamp(candidates, windowMs);
+  console.log(
+    `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${buckets.length} timestamp buckets`,
+  );
+  if (buckets.length === 0) return [];
+
+  // Flatten to deduplicated subset
+  const seen = new Set<string>();
+  const subset: GpdMediaItem[] = [];
+  for (const bucket of buckets)
+    for (const item of bucket)
+      if (!seen.has(item.mediaKey)) {
+        seen.add(item.mediaKey);
+        subset.push(item);
+      }
+
+  const keys = subset.map((item) => item.mediaKey);
+
+  // Open embedding cache
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openEmbeddingDb();
+  } catch {
+    /* cache unavailable */
+  }
+
+  const cachedKeySet: Set<string> = db
+    ? await loadCachedEmbeddingKeys(db)
+    : new Set();
+
+  const blobs = await fetchThumbnails(subset, cachedKeySet, onProgress, signal);
+  signal?.throwIfAborted();
+
+  const { embeddings, validIndices } = await computeEmbeddings(
+    blobs,
+    keys,
+    db,
+    cachedKeySet,
+    onProgress,
+    signal,
+  );
+  if (embeddings.length < 2) return [];
+
+  // Build bucket index arrays (indices into embeddings[])
+  const mediaKeyToEmbIdx = new Map<string, number>();
+  for (let i = 0; i < validIndices.length; i++)
+    mediaKeyToEmbIdx.set(subset[validIndices[i]].mediaKey, i);
+
+  const workerBuckets = buckets
+    .map((bucket) =>
+      bucket
+        .map((item) => mediaKeyToEmbIdx.get(item.mediaKey))
+        .filter((i): i is number => i !== undefined),
+    )
+    .filter((b) => b.length >= 2);
+
+  if (workerBuckets.length === 0) return [];
+
+  // Offload pairwise comparison to worker
+  onProgress?.({ phase: "detecting_duplicates", current: 0, total: 0 });
+  await new Promise<void>((r) => setTimeout(r, 0)); // flush React phase update
+  const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js");
+  const indexGroups = await runSmartDetectionInWorker(
+    embeddings,
+    threshold,
+    workerBuckets,
+    workerUrl,
+    onProgress,
+    signal,
+  );
+
+  // Map indices back to GpdMediaItems
+  const groups: DuplicateGroup[] = indexGroups.map((indices, i) => {
+    const items = indices
+      .map((idx) => subset[validIndices[idx]])
+      .sort((a, b) => (a.creationTimestamp ?? 0) - (b.creationTimestamp ?? 0));
+    return {
+      id: `group-${i}`,
+      mediaKeys: items.map((x) => x.mediaKey),
+      originalMediaKey: items[0].mediaKey,
+      similarity: threshold,
+    };
+  });
+
+  return groups.sort((a, b) => b.mediaKeys.length - a.mediaKeys.length);
 }
 
 // ============================================================

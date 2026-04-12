@@ -20,7 +20,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import theme from "../lib/theme";
 import { APP_ID } from "../lib/types";
 import { debug } from "../lib/debug";
-import { detectDuplicates } from "../lib/duplicate-detector";
+import { fullDetectDuplicates, smartDetectDuplicates } from "../lib/duplicate-detector";
 import type { DetectionProgress } from "../lib/duplicate-detector";
 import { ScanLogger } from "../lib/scan-log";
 import { appReducer } from "../lib/app-reducer";
@@ -260,25 +260,39 @@ export default function App() {
       const logger = scanLoggerRef.current;
       await logger.start(items.length);
       try {
-        const { groups } = await detectDuplicates(
-          items,
-          settingsRef.current.similarityThreshold,
-          (progress: DetectionProgress) => {
-            dispatch({
-              type: "SCAN_PROGRESS",
-              phase: progress.phase,
-              payload: {
-                app: APP_ID,
-                action: "gptkProgress",
-                requestId: "",
-                itemsProcessed: progress.current,
-                message: `${progress.phase}: ${progress.current}/${progress.total}`,
-              },
-            });
-          },
-          signal,
-          logger,
-        );
+        const onProgressCallback = (progress: DetectionProgress) => {
+          dispatch({
+            type: "SCAN_PROGRESS",
+            phase: progress.phase,
+            payload: {
+              app: APP_ID,
+              action: "gptkProgress",
+              requestId: "",
+              itemsProcessed: progress.current,
+              message: `${progress.phase}: ${progress.current}/${progress.total}`,
+            },
+          });
+        };
+
+        const groups =
+          settingsRef.current.scanMode === "smart"
+            ? await smartDetectDuplicates(
+                items,
+                settingsRef.current.similarityThreshold,
+                0,
+                onProgressCallback,
+                signal,
+              )
+            : await (async () => {
+                const result = await fullDetectDuplicates(
+                  items,
+                  settingsRef.current.similarityThreshold,
+                  onProgressCallback,
+                  signal,
+                  logger,
+                );
+                return result.groups;
+              })();
 
         await logger.finalize("complete", { groupsFound: groups.length });
 
