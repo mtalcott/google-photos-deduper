@@ -17,56 +17,52 @@
 
 export interface StableEstimate {
   /** Phase name (matches DetectionProgress.phase). */
-  phase: string;
+  phase: string
   /** Estimated total duration for this phase in ms. */
-  estimatedMs: number;
+  estimatedMs: number
   /** Progress % through the phase when stability was first reached. */
-  atPercent: number;
+  atPercent: number
 }
 
 export interface PhaseTimings {
-  fetchThumbnailsMs?: number;
-  computeEmbeddingsMs?: number;
-  communityDetectionMs?: number;
+  fetchThumbnailsMs?: number
+  computeEmbeddingsMs?: number
+  communityDetectionMs?: number
 }
 
-export type ScanStatus =
-  | "complete"
-  | "cancelled"
-  | "error"
-  | "killed_by_reload";
+export type ScanStatus = "complete" | "cancelled" | "error" | "killed_by_reload"
 
 export interface ScanLogEntry {
-  timestamp: number;
-  status: ScanStatus;
-  totalItems: number;
+  timestamp: number
+  status: ScanStatus
+  totalItems: number
   /** Photos-only candidates (videos excluded). */
-  candidates: number;
+  candidates: number
   /** Candidates whose embedding was already in the IndexedDB cache. */
-  cacheHits: number;
-  phaseTimings: PhaseTimings;
+  cacheHits: number
+  phaseTimings: PhaseTimings
   /** Wall-clock ms from scan start to termination (success or otherwise). */
-  totalMs: number;
-  groupsFound?: number;
-  error?: string;
-  stableEstimates: StableEstimate[];
+  totalMs: number
+  groupsFound?: number
+  error?: string
+  stableEstimates: StableEstimate[]
 }
 
 // ============================================================
 // Storage keys
 // ============================================================
 
-const ACTIVE_KEY = "scanLogActive";
-const LOG_KEY = "scanLogs";
-const MAX_ENTRIES = 50;
+const ACTIVE_KEY = "scanLogActive"
+const LOG_KEY = "scanLogs"
+const MAX_ENTRIES = 50
 
 interface ActiveScanEntry {
-  startedAt: number;
-  totalItems: number;
-  candidates: number;
-  cacheHits: number;
-  phaseTimings: PhaseTimings;
-  stableEstimates: StableEstimate[];
+  startedAt: number
+  totalItems: number
+  candidates: number
+  cacheHits: number
+  phaseTimings: PhaseTimings
+  stableEstimates: StableEstimate[]
 }
 
 // ============================================================
@@ -83,7 +79,7 @@ interface ActiveScanEntry {
  *   await scanLogger.finalize(...)   // on every exit path
  */
 export class ScanLogger {
-  private active: ActiveScanEntry | null = null;
+  private active: ActiveScanEntry | null = null
 
   /**
    * Call on app mount. If there is an active entry, the page reloaded during a
@@ -91,10 +87,12 @@ export class ScanLogger {
    */
   async recoverStale(): Promise<void> {
     try {
-      const stored = await chrome.storage.local.get(ACTIVE_KEY);
-      const stale = stored[ACTIVE_KEY] as ActiveScanEntry | undefined;
-      if (!stale) return;
-      console.log("[GPD] scan-log: stale active entry found — page reloaded during scan");
+      const stored = await chrome.storage.local.get(ACTIVE_KEY)
+      const stale = stored[ACTIVE_KEY] as ActiveScanEntry | undefined
+      if (!stale) return
+      console.log(
+        "[GPD] scan-log: stale active entry found — page reloaded during scan"
+      )
       await this._commit({
         timestamp: Date.now(),
         status: "killed_by_reload",
@@ -103,8 +101,8 @@ export class ScanLogger {
         cacheHits: stale.cacheHits,
         phaseTimings: stale.phaseTimings,
         totalMs: Date.now() - stale.startedAt,
-        stableEstimates: stale.stableEstimates,
-      });
+        stableEstimates: stale.stableEstimates
+      })
     } catch {
       /* non-critical */
     }
@@ -118,9 +116,11 @@ export class ScanLogger {
       candidates: 0,
       cacheHits: 0,
       phaseTimings: {},
-      stableEstimates: [],
-    };
-    await chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {});
+      stableEstimates: []
+    }
+    await chrome.storage.local
+      .set({ [ACTIVE_KEY]: this.active })
+      .catch(() => {})
   }
 
   /**
@@ -128,34 +128,36 @@ export class ScanLogger {
    * (early in the scan, before thumbnail fetching). Fire-and-forget persist.
    */
   updateInfo(info: { candidates: number; cacheHits: number }): void {
-    if (!this.active) return;
-    this.active.candidates = info.candidates;
-    this.active.cacheHits = info.cacheHits;
-    chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {});
+    if (!this.active) return
+    this.active.candidates = info.candidates
+    this.active.cacheHits = info.cacheHits
+    chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {})
   }
 
   /** Called after each phase completes. Persists so page reloads capture partial data. */
   async phaseComplete(phase: keyof PhaseTimings, ms: number): Promise<void> {
-    if (!this.active) return;
-    this.active.phaseTimings[phase] = ms;
-    await chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {});
+    if (!this.active) return
+    this.active.phaseTimings[phase] = ms
+    await chrome.storage.local
+      .set({ [ACTIVE_KEY]: this.active })
+      .catch(() => {})
   }
 
   /** Called by StabilityTracker when a stable estimate is reached for a phase. */
   recordStableEstimate(est: StableEstimate): void {
-    if (!this.active) return;
-    this.active.stableEstimates.push(est);
-    chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {});
+    if (!this.active) return
+    this.active.stableEstimates.push(est)
+    chrome.storage.local.set({ [ACTIVE_KEY]: this.active }).catch(() => {})
   }
 
   /** Finalize the scan with a terminal status. Must be called on every exit path. */
   async finalize(
     status: ScanStatus,
-    extra: { groupsFound?: number; error?: string } = {},
+    extra: { groupsFound?: number; error?: string } = {}
   ): Promise<void> {
-    if (!this.active) return;
-    const active = this.active;
-    this.active = null;
+    if (!this.active) return
+    const active = this.active
+    this.active = null
     await this._commit({
       timestamp: Date.now(),
       status,
@@ -165,18 +167,18 @@ export class ScanLogger {
       phaseTimings: active.phaseTimings,
       totalMs: Date.now() - active.startedAt,
       stableEstimates: active.stableEstimates,
-      ...extra,
-    });
+      ...extra
+    })
   }
 
   private async _commit(entry: ScanLogEntry): Promise<void> {
     try {
-      const stored = await chrome.storage.local.get(LOG_KEY);
-      const logs: ScanLogEntry[] = stored[LOG_KEY] ?? [];
-      logs.push(entry);
-      if (logs.length > MAX_ENTRIES) logs.splice(0, logs.length - MAX_ENTRIES);
-      await chrome.storage.local.set({ [LOG_KEY]: logs });
-      await chrome.storage.local.remove(ACTIVE_KEY);
+      const stored = await chrome.storage.local.get(LOG_KEY)
+      const logs: ScanLogEntry[] = stored[LOG_KEY] ?? []
+      logs.push(entry)
+      if (logs.length > MAX_ENTRIES) logs.splice(0, logs.length - MAX_ENTRIES)
+      await chrome.storage.local.set({ [LOG_KEY]: logs })
+      await chrome.storage.local.remove(ACTIVE_KEY)
     } catch {
       /* non-critical */
     }
@@ -199,52 +201,52 @@ export class ScanLogger {
  *   tracker.update(progress.phase, progress.current, progress.total)
  */
 export class StabilityTracker {
-  private readonly window: number[] = [];
-  private phaseStart = 0;
-  private lastPhase = "";
-  private readonly firedPhases = new Set<string>();
+  private readonly window: number[] = []
+  private phaseStart = 0
+  private lastPhase = ""
+  private readonly firedPhases = new Set<string>()
 
   constructor(
     private readonly onStable: (est: StableEstimate) => void,
     private readonly windowSize = 3,
     private readonly tolerance = 0.05,
-    private readonly minProgress = 0.1,
+    private readonly minProgress = 0.1
   ) {}
 
   update(phase: string, completed: number, total: number): void {
-    if (total <= 0 || completed <= 0 || this.firedPhases.has(phase)) return;
+    if (total <= 0 || completed <= 0 || this.firedPhases.has(phase)) return
 
     // Reset window on phase transition
     if (phase !== this.lastPhase) {
-      this.lastPhase = phase;
-      this.phaseStart = performance.now();
-      this.window.length = 0;
+      this.lastPhase = phase
+      this.phaseStart = performance.now()
+      this.window.length = 0
     }
 
-    const progress = completed / total;
-    if (progress < this.minProgress) return;
+    const progress = completed / total
+    if (progress < this.minProgress) return
 
-    const elapsedMs = performance.now() - this.phaseStart;
-    this.window.push(elapsedMs / progress);
-    if (this.window.length > this.windowSize) this.window.shift();
-    if (this.window.length < this.windowSize) return;
+    const elapsedMs = performance.now() - this.phaseStart
+    this.window.push(elapsedMs / progress)
+    if (this.window.length > this.windowSize) this.window.shift()
+    if (this.window.length < this.windowSize) return
 
-    const min = Math.min(...this.window);
-    const max = Math.max(...this.window);
-    if (max / min > 1 + this.tolerance) return;
+    const min = Math.min(...this.window)
+    const max = Math.max(...this.window)
+    if (max / min > 1 + this.tolerance) return
 
-    this.firedPhases.add(phase);
-    const sorted = [...this.window].sort((a, b) => a - b);
-    const median = sorted[Math.floor(this.windowSize / 2)];
+    this.firedPhases.add(phase)
+    const sorted = [...this.window].sort((a, b) => a - b)
+    const median = sorted[Math.floor(this.windowSize / 2)]
     const est: StableEstimate = {
       phase,
       estimatedMs: Math.round(median),
-      atPercent: Math.round(progress * 100),
-    };
+      atPercent: Math.round(progress * 100)
+    }
     console.log(
-      `[GPD] stable estimate: ${phase} ~${Math.round(median)}ms (at ${Math.round(progress * 100)}%)`,
-    );
-    this.onStable(est);
+      `[GPD] stable estimate: ${phase} ~${Math.round(median)}ms (at ${Math.round(progress * 100)}%)`
+    )
+    this.onStable(est)
   }
 }
 
@@ -255,9 +257,9 @@ export class StabilityTracker {
 /** Retrieve all stored log entries (oldest first). */
 export async function getScanLogs(): Promise<ScanLogEntry[]> {
   try {
-    const stored = await chrome.storage.local.get(LOG_KEY);
-    return stored[LOG_KEY] ?? [];
+    const stored = await chrome.storage.local.get(LOG_KEY)
+    return stored[LOG_KEY] ?? []
   } catch {
-    return [];
+    return []
   }
 }

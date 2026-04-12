@@ -4065,6 +4065,41 @@
       );
       self.postMessage({ type: "detectionResults", groups });
     }
+    if (type === "detectSmart") {
+      const { flatEmbeddings, n: n2, dim, threshold, buckets } = data;
+      const embeddings = [];
+      for (let i2 = 0; i2 < n2; i2++)
+        embeddings.push(flatEmbeddings.subarray(i2 * dim, (i2 + 1) * dim));
+      const allGroups = [];
+      for (let bi2 = 0; bi2 < buckets.length; bi2++) {
+        const bucket = buckets[bi2];
+        const parent = bucket.map((_2, j2) => j2);
+        const find = (x2) => parent[x2] === x2 ? x2 : parent[x2] = find(parent[x2]);
+        const union = (a2, b2) => {
+          parent[find(a2)] = find(b2);
+        };
+        for (let i2 = 0; i2 < bucket.length; i2++) {
+          for (let j2 = i2 + 1; j2 < bucket.length; j2++) {
+            const a2 = embeddings[bucket[i2]];
+            const b2 = embeddings[bucket[j2]];
+            let dot = 0;
+            for (let k2 = 0; k2 < dim; k2++) dot += a2[k2] * b2[k2];
+            if (dot >= threshold) union(i2, j2);
+          }
+        }
+        const components = /* @__PURE__ */ new Map();
+        for (let i2 = 0; i2 < bucket.length; i2++) {
+          const root = find(i2);
+          if (!components.has(root)) components.set(root, []);
+          components.get(root).push(bucket[i2]);
+        }
+        for (const [, members] of components)
+          if (members.length >= 2) allGroups.push(members);
+        if (bi2 % 100 === 0)
+          self.postMessage({ type: "detectionProgress", current: bi2 + 1, total: buckets.length });
+      }
+      self.postMessage({ type: "detectionResults", groups: allGroups });
+    }
   });
   async function workerCommunityDetection(embeddings, threshold, timestamps, onProgress) {
     const n2 = embeddings.length;
