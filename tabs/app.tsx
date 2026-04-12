@@ -279,6 +279,10 @@ export default function App() {
           })
         }
 
+        console.log(
+          `[GPD] starting scan: mode=${settingsRef.current.scanMode}, threshold=${settingsRef.current.similarityThreshold}`
+        )
+
         const groups =
           settingsRef.current.scanMode === "smart"
             ? await smartDetectDuplicates(
