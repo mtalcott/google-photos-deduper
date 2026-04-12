@@ -438,7 +438,7 @@ async function runSmartDetectionInWorker(
 export async function smartDetectDuplicates(
   mediaItems: GpdMediaItem[],
   threshold: number,
-  windowMs = 0,
+  windowMs = 1000,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
 ): Promise<DuplicateGroup[]> {
