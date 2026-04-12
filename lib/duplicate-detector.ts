@@ -7,6 +7,8 @@
 // 3. Group duplicates using fast community detection (cosine similarity)
 
 import type { GpdMediaItem, DuplicateGroup } from "./types";
+import { StabilityTracker } from "./scan-log";
+import type { ScanLogger } from "./scan-log";
 
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite";
@@ -114,6 +116,16 @@ export interface DetectionProgress {
   total: number;
 }
 
+export interface ScanTiming {
+  totalItems: number;
+  candidates: number;
+  cacheHits: number;
+  fetchThumbnailsMs: number;
+  computeEmbeddingsMs: number;
+  communityDetectionMs: number;
+  totalMs: number;
+}
+
 type ProgressCallback = (progress: DetectionProgress) => void;
 
 // ============================================================
@@ -125,13 +137,28 @@ export async function detectDuplicates(
   threshold: number,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
-): Promise<DuplicateGroup[]> {
+  logger?: ScanLogger,
+): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
+  const scanStart = performance.now();
+
   // Filter to items with thumbnails (photos only, skip videos)
   const candidates = mediaItems.filter((item) => item.thumb && !item.duration);
   console.log(
     `[GPD] detectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates`,
   );
-  if (candidates.length < 2) return [];
+
+  const emptyTiming = (extra: Partial<ScanTiming> = {}): ScanTiming => ({
+    totalItems: mediaItems.length,
+    candidates: candidates.length,
+    cacheHits: 0,
+    fetchThumbnailsMs: 0,
+    computeEmbeddingsMs: 0,
+    communityDetectionMs: 0,
+    totalMs: Math.round(performance.now() - scanStart),
+    ...extra,
+  });
+
+  if (candidates.length < 2) return { groups: [], timing: emptyTiming() };
 
   const keys = candidates.map((item) => item.mediaKey);
 
@@ -149,52 +176,89 @@ export async function detectDuplicates(
   const cachedKeySet: Set<string> = db
     ? await loadCachedEmbeddingKeys(db)
     : new Set();
-  if (cachedKeySet.size > 0) {
-    const hits = keys.filter((k) => cachedKeySet.has(k)).length;
-    console.log(
-      `[GPD] embedding cache: ${hits}/${candidates.length} hits, skipping thumbnails`,
-    );
-  }
+  const cacheHits = keys.filter((k) => cachedKeySet.has(k)).length;
+  console.log(
+    `[GPD] embedding cache: ${cacheHits}/${candidates.length} hits, skipping thumbnails`,
+  );
+
+  // Inform logger of candidates/cacheHits now that they're known.
+  // Fire-and-forget — runs concurrently with thumbnail fetching.
+  logger?.updateInfo({ candidates: candidates.length, cacheHits });
+
+  // Wrap onProgress to feed stability tracking alongside the UI callback.
+  const stabilityTracker = new StabilityTracker((est) =>
+    logger?.recordStableEstimate(est),
+  );
+  const trackedProgress: ProgressCallback = (progress) => {
+    onProgress?.(progress);
+    stabilityTracker.update(progress.phase, progress.current, progress.total);
+  };
 
   // Step 1: Download thumbnails — skip items whose embedding is already cached
+  const t1 = performance.now();
   const blobs = await fetchThumbnails(
     candidates,
     cachedKeySet,
-    onProgress,
+    trackedProgress,
     signal,
   );
+  const fetchThumbnailsMs = Math.round(performance.now() - t1);
+  console.log(
+    `[GPD] fetchThumbnails: ${candidates.length - cacheHits} items in ${fetchThumbnailsMs}ms`,
+  );
+  await logger?.phaseComplete("fetchThumbnailsMs", fetchThumbnailsMs);
 
   signal?.throwIfAborted();
 
   // Step 2: Compute embeddings — values loaded in bulk inside computeEmbeddings
+  const t2 = performance.now();
   const { embeddings, validIndices } = await computeEmbeddings(
     blobs,
     keys,
     db,
     cachedKeySet,
-    onProgress,
+    trackedProgress,
     signal,
   );
-  if (embeddings.length < 2) return [];
+  const computeEmbeddingsMs = Math.round(performance.now() - t2);
+  console.log(
+    `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`,
+  );
+  await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs);
+
+  if (embeddings.length < 2) {
+    return {
+      groups: [],
+      timing: emptyTiming({ cacheHits, fetchThumbnailsMs, computeEmbeddingsMs }),
+    };
+  }
 
   // Step 3: Community detection — runs in a worker to keep UI responsive.
   // The setTimeout(0) yield lets React flush the phase change to "detecting_duplicates"
   // before the worker is dispatched, so the UI updates before the long computation begins.
   // Progress updates come from the worker during detection.
-  onProgress?.({ phase: "detecting_duplicates", current: 0, total: 0 });
+  trackedProgress({ phase: "detecting_duplicates", current: 0, total: 0 });
   await new Promise<void>((r) => setTimeout(r, 0));
   const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js");
   const timestamps = validIndices.map(
     (i) => candidates[i].creationTimestamp ?? 0,
   );
+  const t3 = performance.now();
   const indexGroups = await runCommunityDetectionInWorker(
     embeddings,
     threshold,
     timestamps,
     workerUrl,
-    onProgress,
+    trackedProgress,
     signal,
   );
+  const communityDetectionMs = Math.round(performance.now() - t3);
+  const totalMs = Math.round(performance.now() - scanStart);
+  console.log(
+    `[GPD] communityDetection: ${indexGroups.length} groups in ${communityDetectionMs}ms`,
+  );
+  console.log(`[GPD] scan complete: ${totalMs}ms total`);
+  await logger?.phaseComplete("communityDetectionMs", communityDetectionMs);
 
   // Map indices back to media items and build DuplicateGroup objects
   const groups: DuplicateGroup[] = indexGroups.map((indices, i) => {
@@ -211,7 +275,17 @@ export async function detectDuplicates(
     };
   });
 
-  return groups;
+  const timing: ScanTiming = {
+    totalItems: mediaItems.length,
+    candidates: candidates.length,
+    cacheHits,
+    fetchThumbnailsMs,
+    computeEmbeddingsMs,
+    communityDetectionMs,
+    totalMs,
+  };
+
+  return { groups, timing };
 }
 
 // ============================================================

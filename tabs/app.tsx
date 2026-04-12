@@ -22,6 +22,7 @@ import { APP_ID } from "../lib/types";
 import { debug } from "../lib/debug";
 import { detectDuplicates } from "../lib/duplicate-detector";
 import type { DetectionProgress } from "../lib/duplicate-detector";
+import { ScanLogger } from "../lib/scan-log";
 import { appReducer } from "../lib/app-reducer";
 import type { AppState, AppAction } from "../lib/app-reducer";
 import type {
@@ -100,6 +101,9 @@ export default function App() {
 
   // AbortController for the current scan (cancelled on user request or new scan)
   const scanAbortRef = useRef<AbortController | null>(null);
+
+  // Persisted scan performance logger — survives page reloads via chrome.storage.local
+  const scanLoggerRef = useRef(new ScanLogger());
 
   // Cached media items from previous scan, used to merge with incremental fetch
   const cachedMediaItemsRef = useRef<Record<string, GpdMediaItem> | null>(null);
@@ -253,8 +257,10 @@ export default function App() {
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
     async (items: GpdMediaItem[], signal: AbortSignal) => {
+      const logger = scanLoggerRef.current;
+      await logger.start(items.length);
       try {
-        const groups = await detectDuplicates(
+        const { groups } = await detectDuplicates(
           items,
           settingsRef.current.similarityThreshold,
           (progress: DetectionProgress) => {
@@ -271,7 +277,10 @@ export default function App() {
             });
           },
           signal,
+          logger,
         );
+
+        await logger.finalize("complete", { groupsFound: groups.length });
 
         const mediaItemMap: Record<string, GpdMediaItem> = {};
         for (const item of items) {
@@ -285,8 +294,10 @@ export default function App() {
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
+          await logger.finalize("cancelled");
           dispatch({ type: "SCAN_CANCELLED" });
         } else {
+          await logger.finalize("error", { error: String(error) });
           dispatch({
             type: "SCAN_ERROR",
             error: `Duplicate detection failed: ${error}`,
@@ -297,9 +308,10 @@ export default function App() {
     [],
   );
 
-  // Health check on mount
+  // Health check on mount + recover any scan log entry orphaned by a page reload
   useEffect(() => {
     sendToServiceWorker({ app: APP_ID, action: "healthCheck" });
+    scanLoggerRef.current.recoverStale();
   }, []);
 
   // Load saved settings and results on mount

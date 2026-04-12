@@ -118,6 +118,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SCAN_PROGRESS":
       if (state.status !== "scanning") return state
+      // action.phase === undefined means this came from a GPTK gptkProgress message.
+      // GPTK sends batched fetch counts asynchronously and can arrive after gptkResult
+      // has already triggered the downloading/computing phases. Drop those stale counts
+      // to prevent the bar from jumping backwards.
+      if (action.phase === undefined && state.phase !== "fetching") return state
       return {
         ...state,
         ...(action.phase !== undefined ? { phase: action.phase } : {}),
