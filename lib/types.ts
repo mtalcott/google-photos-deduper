@@ -118,6 +118,8 @@ export interface GptkProgressMessage extends BaseMessage {
   requestId: string;
   itemsProcessed: number;
   message?: string;
+  /** Set by batch operations (e.g. "trashItems") so the app can route progress correctly. */
+  command?: string;
 }
 
 export interface GptkLogMessage extends BaseMessage {

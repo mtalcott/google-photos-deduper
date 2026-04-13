@@ -13,9 +13,10 @@
     "test:integration": "playwright test --config playwright.config.ts",
     "test:e2e": "playwright test --config playwright.e2e.config.ts",
     "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
-    "dev": "npm run build:gptk && npm run copy:wasm && plasmo dev",
+    "dev": "npm run build:gptk && npm run copy:wasm && npm run build:worker && plasmo dev",
+    "prebuild": "npm run build:gptk && npm run copy:wasm && npm run build:worker && npm run sync:scripts",
     "build": "npm run build:gptk && npm run copy:wasm && npm run build:worker && plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
-    "package": "npm run build:gptk && npm run copy:wasm && plasmo build && plasmo package",
+    "package": "npm run build && plasmo package",
     "release": "bash tools/release.sh"
   },
   "dependencies": {
