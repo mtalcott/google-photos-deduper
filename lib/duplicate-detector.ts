@@ -441,7 +441,9 @@ export async function smartDetectDuplicates(
   windowMs = 1000,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
+  logger?: ScanLogger,
 ): Promise<DuplicateGroup[]> {
+  const scanStart = performance.now();
   const candidates = mediaItems.filter((item) => item.thumb && !item.duration);
 
   // Step 1: Bucket by timestamp — no I/O, instant
@@ -474,18 +476,47 @@ export async function smartDetectDuplicates(
   const cachedKeySet: Set<string> = db
     ? await loadCachedEmbeddingKeys(db)
     : new Set();
+  const cacheHits = keys.filter((k) => cachedKeySet.has(k)).length;
+  console.log(
+    `[GPD] embedding cache: ${cacheHits}/${subset.length} hits, skipping thumbnails`,
+  );
 
-  const blobs = await fetchThumbnails(subset, cachedKeySet, onProgress, signal);
+  logger?.updateInfo({ candidates: subset.length, cacheHits });
+
+  // Wrap onProgress to feed stability tracking alongside the UI callback.
+  const stabilityTracker = new StabilityTracker((est) =>
+    logger?.recordStableEstimate(est),
+  );
+  const trackedProgress: ProgressCallback = (progress) => {
+    onProgress?.(progress);
+    stabilityTracker.update(progress.phase, progress.current, progress.total);
+  };
+
+  const t1 = performance.now();
+  const blobs = await fetchThumbnails(subset, cachedKeySet, trackedProgress, signal);
+  const fetchThumbnailsMs = Math.round(performance.now() - t1);
+  console.log(
+    `[GPD] fetchThumbnails: ${subset.length - cacheHits} items in ${fetchThumbnailsMs}ms`,
+  );
+  await logger?.phaseComplete("fetchThumbnailsMs", fetchThumbnailsMs);
+
   signal?.throwIfAborted();
 
+  const t2 = performance.now();
   const { embeddings, validIndices } = await computeEmbeddings(
     blobs,
     keys,
     db,
     cachedKeySet,
-    onProgress,
+    trackedProgress,
     signal,
   );
+  const computeEmbeddingsMs = Math.round(performance.now() - t2);
+  console.log(
+    `[GPD] computeEmbeddings: ${embeddings.length} items (${cacheHits} cached) in ${computeEmbeddingsMs}ms`,
+  );
+  await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs);
+
   if (embeddings.length < 2) return [];
 
   // Build bucket index arrays (indices into embeddings[])
@@ -504,17 +535,25 @@ export async function smartDetectDuplicates(
   if (workerBuckets.length === 0) return [];
 
   // Offload pairwise comparison to worker
-  onProgress?.({ phase: "detecting_duplicates", current: 0, total: 0 });
+  trackedProgress({ phase: "detecting_duplicates", current: 0, total: 0 });
   await new Promise<void>((r) => setTimeout(r, 0)); // flush React phase update
   const workerUrl = chrome.runtime.getURL("scripts/embedder-worker.js");
+  const t3 = performance.now();
   const indexGroups = await runSmartDetectionInWorker(
     embeddings,
     threshold,
     workerBuckets,
     workerUrl,
-    onProgress,
+    trackedProgress,
     signal,
   );
+  const communityDetectionMs = Math.round(performance.now() - t3);
+  const totalMs = Math.round(performance.now() - scanStart);
+  console.log(
+    `[GPD] communityDetection: ${indexGroups.length} groups in ${communityDetectionMs}ms`,
+  );
+  console.log(`[GPD] scan complete: ${totalMs}ms total`);
+  await logger?.phaseComplete("communityDetectionMs", communityDetectionMs);
 
   // Map indices back to GpdMediaItems
   const groups: DuplicateGroup[] = indexGroups.map((indices, i) => {

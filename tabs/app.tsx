@@ -112,6 +112,10 @@ export default function App() {
   // Cached media items from previous scan, used to merge with incremental fetch
   const cachedMediaItemsRef = useRef<Record<string, GpdMediaItem> | null>(null)
 
+  // Tracks the requestId of the active scan so stale results from previous
+  // scans killed by reload can be dropped (they arrive late from the GP tab)
+  const currentScanRequestIdRef = useRef<string | null>(null)
+
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
   const stateGroups =
     state.status === "results" || state.status === "trashing"
@@ -179,6 +183,14 @@ export default function App() {
         case "gptkResult": {
           const result = message as GptkResultMessage
           if (result.command === "getAllMediaItems") {
+            // Drop stale results from scans that were killed/cancelled — their
+            // GPTK request may have still been in-flight and arrives late
+            if (result.requestId !== currentScanRequestIdRef.current) {
+              console.warn(
+                `[GPD] Dropping stale getAllMediaItems result for requestId ${result.requestId} (active: ${currentScanRequestIdRef.current})`
+              )
+              break
+            }
             if (result.success) {
               let items = result.data as GpdMediaItem[]
               const cached = cachedMediaItemsRef.current
@@ -290,7 +302,8 @@ export default function App() {
                 settingsRef.current.similarityThreshold,
                 1000,
                 onProgressCallback,
-                signal
+                signal,
+                logger
               )
             : await (async () => {
                 const result = await fullDetectDuplicates(
@@ -304,6 +317,7 @@ export default function App() {
               })()
 
         await logger.finalize("complete", { groupsFound: groups.length })
+        currentScanRequestIdRef.current = null
 
         const mediaItemMap: Record<string, GpdMediaItem> = {}
         for (const item of items) {
@@ -316,6 +330,7 @@ export default function App() {
           groups
         })
       } catch (error) {
+        currentScanRequestIdRef.current = null
         if (error instanceof DOMException && error.name === "AbortError") {
           await logger.finalize("cancelled")
           dispatch({ type: "SCAN_CANCELLED" })
@@ -394,6 +409,7 @@ export default function App() {
     scanAbortRef.current = new AbortController()
 
     const requestId = generateRequestId()
+    currentScanRequestIdRef.current = requestId
     const hasGptk = state.status === "connected" ? state.hasGptk : true
     const accountEmail =
       state.status === "connected" || state.status === "results"
@@ -495,6 +511,7 @@ export default function App() {
 
   const handleCancelScan = useCallback(() => {
     scanAbortRef.current?.abort()
+    currentScanRequestIdRef.current = null
     dispatch({ type: "SCAN_CANCELLED" })
   }, [])
 
