@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates } from "../../lib/duplicate-detector"
+import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
 // Helpers
@@ -200,5 +201,217 @@ describe("communityDetection", () => {
     const allIndices = groups.flat()
     const uniqueIndices = new Set(allIndices)
     expect(allIndices.length).toBe(uniqueIndices.size)
+  })
+})
+
+// ============================================================
+// Helper: build a minimal GpdMediaItem for testing
+// ============================================================
+
+function makeItem(
+  mediaKey: string,
+  timestamp: number,
+  creationTimestamp = 0,
+): GpdMediaItem {
+  return {
+    mediaKey,
+    dedupKey: mediaKey,
+    thumb: `https://example.com/${mediaKey}`,
+    timestamp,
+    creationTimestamp,
+  }
+}
+
+// ============================================================
+// groupByTimestamp
+// ============================================================
+
+describe("groupByTimestamp", () => {
+  it("groups two items with the same timestamp", () => {
+    const a = makeItem("a", 1000)
+    const b = makeItem("b", 1000)
+    const result = groupByTimestamp([a, b])
+    expect(result).toHaveLength(1)
+    expect(result[0]).toContain(a)
+    expect(result[0]).toContain(b)
+  })
+
+  it("does not group items with different timestamps", () => {
+    const a = makeItem("a", 1000)
+    const b = makeItem("b", 2000)
+    const result = groupByTimestamp([a, b])
+    expect(result).toHaveLength(0)
+  })
+
+  it("returns empty when all timestamps are unique", () => {
+    const items = [makeItem("a", 1), makeItem("b", 2), makeItem("c", 3)]
+    expect(groupByTimestamp(items)).toHaveLength(0)
+  })
+
+  it("handles three-way same-timestamp group", () => {
+    const items = [makeItem("a", 5000), makeItem("b", 5000), makeItem("c", 5000)]
+    const result = groupByTimestamp(items)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toHaveLength(3)
+  })
+
+  it("separates two independent pairs into two buckets", () => {
+    const items = [
+      makeItem("a", 1000),
+      makeItem("b", 1000),
+      makeItem("c", 2000),
+      makeItem("d", 2000),
+    ]
+    const result = groupByTimestamp(items)
+    expect(result).toHaveLength(2)
+    for (const bucket of result) expect(bucket).toHaveLength(2)
+  })
+
+  it("excludes singleton buckets (only groups of ≥2)", () => {
+    const items = [makeItem("a", 1000), makeItem("b", 2000), makeItem("c", 2000)]
+    const result = groupByTimestamp(items)
+    expect(result).toHaveLength(1)
+    expect(result[0].map((i) => i.mediaKey)).toEqual(expect.arrayContaining(["b", "c"]))
+  })
+
+  it("windowMs=1000 groups items within the same second", () => {
+    const a = makeItem("a", 1100)
+    const b = makeItem("b", 1800)
+    // Both floor to 1000 with windowMs=1000
+    const result = groupByTimestamp([a, b], 1000)
+    expect(result).toHaveLength(1)
+  })
+
+  it("windowMs=1000 keeps items in different seconds separate", () => {
+    const a = makeItem("a", 999)
+    const b = makeItem("b", 1001)
+    // a floors to 0, b floors to 1000
+    const result = groupByTimestamp([a, b], 1000)
+    expect(result).toHaveLength(0)
+  })
+})
+
+// ============================================================
+// withinGroupDuplicates
+// ============================================================
+
+describe("withinGroupDuplicates", () => {
+  const DIM = 64
+  const THRESHOLD = 0.99
+
+  function makeEmbeddingMap(
+    items: GpdMediaItem[],
+    embeddings: Float32Array[],
+  ): Map<string, Float32Array> {
+    const map = new Map<string, Float32Array>()
+    for (let i = 0; i < items.length; i++) map.set(items[i].mediaKey, embeddings[i])
+    return map
+  }
+
+  it("groups two near-identical embeddings (above threshold)", () => {
+    const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const a = makeItem("a", 1000)
+    const b = makeItem("b", 1000)
+    const embA = addNoise(new Float32Array(base), 0.001)
+    const embB = addNoise(new Float32Array(base), 0.001)
+    const map = makeEmbeddingMap([a, b], [embA, embB])
+    const groups = withinGroupDuplicates([a, b], map, THRESHOLD, 0)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].mediaKeys).toHaveLength(2)
+  })
+
+  it("does not group embeddings below threshold", () => {
+    const a = makeItem("a", 1000)
+    const b = makeItem("b", 1000)
+    const embA = unitVector(DIM, 0)
+    const embB = unitVector(DIM, 1)
+    const map = makeEmbeddingMap([a, b], [embA, embB])
+    const groups = withinGroupDuplicates([a, b], map, THRESHOLD, 0)
+    expect(groups).toHaveLength(0)
+  })
+
+  it("handles transitive grouping: A~B and B~C → single group {A,B,C}", () => {
+    const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const items = [makeItem("a", 1000), makeItem("b", 1000), makeItem("c", 1000)]
+    const embs = items.map(() => addNoise(new Float32Array(base), 0.001))
+    const map = makeEmbeddingMap(items, embs)
+    const groups = withinGroupDuplicates(items, map, THRESHOLD, 0)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].mediaKeys).toHaveLength(3)
+  })
+
+  it("two independent similar pairs → two separate groups", () => {
+    const base1 = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const base2 = unitVector(DIM, 0)
+    const items = [
+      makeItem("a", 1000),
+      makeItem("b", 1000),
+      makeItem("c", 1000),
+      makeItem("d", 1000),
+    ]
+    const embs = [
+      addNoise(new Float32Array(base1), 0.001),
+      addNoise(new Float32Array(base1), 0.001),
+      addNoise(new Float32Array(base2), 0.001),
+      addNoise(new Float32Array(base2), 0.001),
+    ]
+    const map = makeEmbeddingMap(items, embs)
+    const groups = withinGroupDuplicates(items, map, THRESHOLD, 0)
+    expect(groups).toHaveLength(2)
+    for (const g of groups) expect(g.mediaKeys).toHaveLength(2)
+  })
+
+  it("skips items with no entry in embeddingMap (thumbnail/embed failed)", () => {
+    const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const a = makeItem("a", 1000)
+    const b = makeItem("b", 1000)
+    const missing = makeItem("missing", 1000)
+    const map = makeEmbeddingMap([a, b], [
+      addNoise(new Float32Array(base), 0.001),
+      addNoise(new Float32Array(base), 0.001),
+    ])
+    // missing has no entry in map
+    const groups = withinGroupDuplicates([a, b, missing], map, THRESHOLD, 0)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].mediaKeys).not.toContain("missing")
+  })
+
+  it("sets originalMediaKey to item with earliest creationTimestamp", () => {
+    const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const older = makeItem("older", 1000, 100)
+    const newer = makeItem("newer", 1000, 200)
+    const embs = [
+      addNoise(new Float32Array(base), 0.001),
+      addNoise(new Float32Array(base), 0.001),
+    ]
+    const map = makeEmbeddingMap([older, newer], embs)
+    const groups = withinGroupDuplicates([newer, older], map, THRESHOLD, 0)
+    expect(groups[0].originalMediaKey).toBe("older")
+  })
+
+  it("each item appears in at most one group (no double-count)", () => {
+    const base = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const items = Array.from({ length: 5 }, (_, i) => makeItem(`item${i}`, 1000))
+    const embs = items.map(() => addNoise(new Float32Array(base), 0.001))
+    const map = makeEmbeddingMap(items, embs)
+    const groups = withinGroupDuplicates(items, map, THRESHOLD, 0)
+    const allKeys = groups.flatMap((g) => g.mediaKeys)
+    expect(allKeys.length).toBe(new Set(allKeys).size)
+  })
+
+  it("groups are returned largest-first", () => {
+    const base1 = l2normalize(new Float32Array(DIM).map(() => Math.random()))
+    const base2 = unitVector(DIM, 0)
+    const trio = Array.from({ length: 3 }, (_, i) => makeItem(`trio${i}`, 1000))
+    const pair = Array.from({ length: 2 }, (_, i) => makeItem(`pair${i}`, 1000))
+    const embs = [
+      ...trio.map(() => addNoise(new Float32Array(base1), 0.001)),
+      ...pair.map(() => addNoise(new Float32Array(base2), 0.001)),
+    ]
+    const map = makeEmbeddingMap([...trio, ...pair], embs)
+    const groups = withinGroupDuplicates([...trio, ...pair], map, THRESHOLD, 0)
+    if (groups.length >= 2) {
+      expect(groups[0].mediaKeys.length).toBeGreaterThanOrEqual(groups[1].mediaKeys.length)
+    }
   })
 })

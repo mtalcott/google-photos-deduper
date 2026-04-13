@@ -4065,35 +4065,113 @@
       );
       self.postMessage({ type: "detectionResults", groups });
     }
+    if (type === "detectSmart") {
+      const { flatEmbeddings, n: n2, dim, threshold, buckets } = data;
+      const embeddings = [];
+      for (let i2 = 0; i2 < n2; i2++)
+        embeddings.push(flatEmbeddings.subarray(i2 * dim, (i2 + 1) * dim));
+      const allGroups = [];
+      for (let bi2 = 0; bi2 < buckets.length; bi2++) {
+        const bucket = buckets[bi2];
+        const parent = bucket.map((_2, j2) => j2);
+        const find = (x2) => parent[x2] === x2 ? x2 : parent[x2] = find(parent[x2]);
+        const union = (a2, b2) => {
+          parent[find(a2)] = find(b2);
+        };
+        for (let i2 = 0; i2 < bucket.length; i2++) {
+          for (let j2 = i2 + 1; j2 < bucket.length; j2++) {
+            const a2 = embeddings[bucket[i2]];
+            const b2 = embeddings[bucket[j2]];
+            let dot = 0;
+            for (let k2 = 0; k2 < dim; k2++) dot += a2[k2] * b2[k2];
+            if (dot >= threshold) union(i2, j2);
+          }
+        }
+        const components = /* @__PURE__ */ new Map();
+        for (let i2 = 0; i2 < bucket.length; i2++) {
+          const root = find(i2);
+          if (!components.has(root)) components.set(root, []);
+          components.get(root).push(bucket[i2]);
+        }
+        for (const [, members] of components)
+          if (members.length >= 2) allGroups.push(members);
+        if (bi2 % 100 === 0)
+          self.postMessage({ type: "detectionProgress", current: bi2 + 1, total: buckets.length });
+      }
+      self.postMessage({ type: "detectionResults", groups: allGroups });
+    }
   });
-  async function workerCommunityDetection(embeddings, threshold, timestamps, onProgress) {
+  async function workerCommunityDetection(embeddings, threshold, _timestamps, onProgress) {
     const n2 = embeddings.length;
     const dim = embeddings[0].length;
-    const order = Array.from({ length: n2 }, (_2, i2) => i2);
-    if (timestamps) {
-      order.sort((a2, b2) => (timestamps[a2] ?? 0) - (timestamps[b2] ?? 0));
-    }
-    const sorted = order.map((i2) => embeddings[i2]);
-    const groups = [];
-    let currentGroup = [order[0]];
-    for (let i2 = 0; i2 < n2 - 1; i2++) {
-      const a2 = sorted[i2];
-      const b2 = sorted[i2 + 1];
-      let dot = 0;
-      for (let k2 = 0; k2 < dim; k2++) dot += a2[k2] * b2[k2];
-      if (dot >= threshold) {
-        currentGroup.push(order[i2 + 1]);
-      } else {
-        if (currentGroup.length >= 2) groups.push(currentGroup);
-        currentGroup = [order[i2 + 1]];
+    const batchSize = 128;
+    const minCommunitySize = 2;
+    const extractedCommunities = [];
+    let sortMaxSize = Math.min(Math.max(2 * minCommunitySize, 50), n2);
+    for (let startIdx = 0; startIdx < n2; startIdx += batchSize) {
+      const endIdx = Math.min(startIdx + batchSize, n2);
+      const batchLen = endIdx - startIdx;
+      const cosScores = matMul(embeddings, startIdx, endIdx, embeddings, 0, n2, dim);
+      for (let i2 = 0; i2 < batchLen; i2++) {
+        const row = cosScores.subarray(i2 * n2, (i2 + 1) * n2);
+        const topKMin = topK(row, minCommunitySize);
+        if (topKMin.values[topKMin.values.length - 1] < threshold) continue;
+        let topKResult = topK(row, sortMaxSize);
+        while (topKResult.values[topKResult.values.length - 1] > threshold && sortMaxSize < n2) {
+          sortMaxSize = Math.min(2 * sortMaxSize, n2);
+          topKResult = topK(row, sortMaxSize);
+        }
+        const cluster = [];
+        for (let j2 = 0; j2 < topKResult.values.length; j2++) {
+          if (topKResult.values[j2] < threshold) break;
+          cluster.push(topKResult.indices[j2]);
+        }
+        if (cluster.length >= minCommunitySize) {
+          extractedCommunities.push(cluster);
+        }
       }
-      if (i2 % 500 === 0) {
-        onProgress?.(i2 + 1, n2);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      onProgress?.(endIdx, n2);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    extractedCommunities.sort((a2, b2) => b2.length - a2.length);
+    const uniqueCommunities = [];
+    const assignedIds = /* @__PURE__ */ new Set();
+    for (const community of extractedCommunities) {
+      const nonOverlapping = community.slice().sort((a2, b2) => a2 - b2).filter((idx) => !assignedIds.has(idx));
+      if (nonOverlapping.length >= minCommunitySize) {
+        uniqueCommunities.push(nonOverlapping);
+        for (const idx of nonOverlapping) assignedIds.add(idx);
       }
     }
-    if (currentGroup.length >= 2) groups.push(currentGroup);
-    groups.sort((a2, b2) => b2.length - a2.length);
-    return groups;
+    uniqueCommunities.sort((a2, b2) => b2.length - a2.length);
+    return uniqueCommunities;
+  }
+  function matMul(A2, startA, endA, B2, startB, endB, dim) {
+    const rowsA = endA - startA;
+    const rowsB = endB - startB;
+    const result = new Float32Array(rowsA * rowsB);
+    for (let i2 = 0; i2 < rowsA; i2++) {
+      const aRow = A2[startA + i2];
+      for (let j2 = 0; j2 < rowsB; j2++) {
+        const bRow = B2[startB + j2];
+        let dot = 0;
+        for (let k2 = 0; k2 < dim; k2++) dot += aRow[k2] * bRow[k2];
+        result[i2 * rowsB + j2] = dot;
+      }
+    }
+    return result;
+  }
+  function topK(arr, k2) {
+    k2 = Math.min(k2, arr.length);
+    const indexed = [];
+    for (let i2 = 0; i2 < arr.length; i2++) indexed.push({ val: arr[i2], idx: i2 });
+    indexed.sort((a2, b2) => b2.val - a2.val);
+    const values = [];
+    const indices = [];
+    for (let i2 = 0; i2 < k2; i2++) {
+      values.push(indexed[i2].val);
+      indices.push(indexed[i2].idx);
+    }
+    return { values, indices };
   }
 })();
