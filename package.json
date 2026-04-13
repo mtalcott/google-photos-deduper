@@ -1,7 +1,7 @@
 {
   "name": "google-photos-deduper",
   "displayName": "Google Photos Deduper",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "Find and remove duplicate photos from Google Photos",
   "author": "Mack Talcott",
   "scripts": {
