@@ -4,6 +4,7 @@ import AppBar from "@mui/material/AppBar"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
+import LinearProgress from "@mui/material/LinearProgress"
 import CssBaseline from "@mui/material/CssBaseline"
 import Dialog from "@mui/material/Dialog"
 import DialogActions from "@mui/material/DialogActions"
@@ -254,12 +255,18 @@ export default function App() {
             dispatch({ type: "GP_TAB_CLOSED" })
           }
           break
-        case "gptkProgress":
-          dispatch({
-            type: "SCAN_PROGRESS",
-            payload: message as GptkProgressMessage
-          })
+        case "gptkProgress": {
+          const progress = message as GptkProgressMessage
+          if (progress.command === "trashItems") {
+            console.log(`[GPD] trash progress: ${progress.itemsProcessed}`)
+            dispatch({ type: "TRASH_PROGRESS", trashedSoFar: progress.itemsProcessed })
+          } else if (progress.command === "restoreItems") {
+            console.log(`[GPD] restore progress: ${progress.itemsProcessed}`)
+          } else {
+            dispatch({ type: "SCAN_PROGRESS", payload: progress })
+          }
           break
+        }
       }
     }
 
@@ -682,18 +689,22 @@ export default function App() {
         )}
 
         {state.status === "trashing" && (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              pt: 8,
-              gap: 2
-            }}>
-            <CircularProgress size={28} />
-            <Typography variant="body2" color="text.secondary">
-              Moving items to trash…
+          <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
+            <Typography variant="h5" fontWeight={600} gutterBottom>
+              Moving to Trash
             </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+              <CircularProgress size={14} thickness={5} />
+              <Typography variant="body2" color="text.secondary">
+                {state.trashedSoFar > 0
+                  ? `${state.trashedSoFar.toLocaleString()} of ${state.totalToTrash.toLocaleString()} moved`
+                  : "Starting…"}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant={state.trashedSoFar > 0 ? "determinate" : "indeterminate"}
+              value={Math.round((state.trashedSoFar / state.totalToTrash) * 100)}
+            />
           </Box>
         )}
       </Box>

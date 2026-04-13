@@ -40,6 +40,7 @@ export type AppState =
       groups: DuplicateGroup[]
       totalItems: number
       totalToTrash: number
+      trashedSoFar: number
       accountEmail?: string
     }
 
@@ -62,6 +63,7 @@ export type AppAction =
       groups: DuplicateGroup[]
       totalItems: number
     }
+  | { type: "TRASH_PROGRESS"; trashedSoFar: number }
   | { type: "TRASH_COMPLETE"; trashedKeys: string[] }
   | { type: "TRASH_ERROR"; error: string }
   | {
@@ -164,8 +166,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         totalToTrash: action.totalToTrash,
+        trashedSoFar: 0,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
       }
+
+    case "TRASH_PROGRESS":
+      if (state.status !== "trashing") return state
+      return { ...state, trashedSoFar: action.trashedSoFar }
 
     case "TRASH_COMPLETE": {
       if (state.status !== "trashing") return state

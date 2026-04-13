@@ -57,6 +57,7 @@ const trashingState: AppState = {
   groups,
   totalItems: 4,
   totalToTrash: 2,
+  trashedSoFar: 0,
 }
 
 // ============================================================
@@ -150,6 +151,23 @@ describe("SCAN_ERROR", () => {
 })
 
 // ============================================================
+// TRASH_PROGRESS
+// ============================================================
+
+describe("TRASH_PROGRESS", () => {
+  it("updates trashedSoFar while in trashing state", () => {
+    const next = appReducer(trashingState, { type: "TRASH_PROGRESS", trashedSoFar: 250 })
+    expect(next.status).toBe("trashing")
+    if (next.status === "trashing") expect(next.trashedSoFar).toBe(250)
+  })
+
+  it("is a no-op outside trashing state", () => {
+    const next = appReducer(resultsState, { type: "TRASH_PROGRESS", trashedSoFar: 250 })
+    expect(next).toBe(resultsState)
+  })
+})
+
+// ============================================================
 // TRASH_COMPLETE — critical: correct items removed, groups collapsed
 // ============================================================
 
@@ -185,6 +203,7 @@ describe("TRASH_COMPLETE", () => {
       groups: [threeItemGroup],
       totalItems: 3,
       totalToTrash: 1,
+      trashedSoFar: 0,
     }
     const next = appReducer(state, {
       type: "TRASH_COMPLETE",
