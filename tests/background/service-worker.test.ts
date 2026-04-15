@@ -135,6 +135,7 @@ describe("healthCheck", () => {
           )
         }, 0)
       }
+      return Promise.resolve()
     })
 
     dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
