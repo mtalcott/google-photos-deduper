@@ -71,6 +71,7 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      accountEmail?: string
     }
   | {
       type: "RESTORE_SNAPSHOT"
@@ -207,6 +208,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
+        accountEmail: action.accountEmail,
       }
 
     case "RESTORE_SNAPSHOT":

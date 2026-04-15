@@ -185,6 +185,7 @@ export interface StoredState {
     scanDate: number;
     totalItems: number;
     newestCreationTimestamp?: number; // for incremental fetch on next scan
+    accountEmail?: string;
   };
   selections?: {
     selectedGroupIds: string[];

@@ -295,9 +295,11 @@ export default function App() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [])
 
-  // Keep a ref to settings so async callbacks see latest values
+  // Keep refs so async callbacks always see latest values
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
@@ -399,7 +401,8 @@ export default function App() {
             type: "LOAD_SAVED_RESULTS",
             mediaItems: result.scanResults.mediaItems,
             groups: result.scanResults.groups,
-            totalItems: result.scanResults.totalItems
+            totalItems: result.scanResults.totalItems,
+            accountEmail: result.scanResults.accountEmail
           })
         }
         setStorageChecked(true)
@@ -410,6 +413,7 @@ export default function App() {
   // Persist scan results when they change (after scan or trash)
   const mediaItems = state.status === "results" ? state.mediaItems : null
   const totalItems = state.status === "results" ? state.totalItems : 0
+  const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
   useEffect(() => {
     if (!mediaItems) return
     if (groups.length > 0) {
@@ -423,14 +427,15 @@ export default function App() {
           groups,
           scanDate: Date.now(),
           totalItems,
-          newestCreationTimestamp
+          newestCreationTimestamp,
+          accountEmail: accountEmailForStorage
         }
       })
     } else {
       // All duplicates removed — clear saved results so next open starts fresh
       chrome.storage.local.remove("scanResults")
     }
-  }, [groups, mediaItems, totalItems])
+  }, [groups, mediaItems, totalItems, accountEmailForStorage])
 
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
@@ -461,10 +466,11 @@ export default function App() {
 
     const requestId = generateRequestId()
     currentScanRequestIdRef.current = requestId
-    const hasGptk = state.status === "connected" ? state.hasGptk : true
+    const currentState = stateRef.current
+    const hasGptk = currentState.status === "connected" ? currentState.hasGptk : true
     const accountEmail =
-      state.status === "connected" || state.status === "results"
-        ? state.accountEmail
+      currentState.status === "connected" || currentState.status === "results"
+        ? currentState.accountEmail
         : undefined
     dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
 
