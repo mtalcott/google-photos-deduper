@@ -25,6 +25,9 @@ log/*.log*
 test-results/
 playwright-report/
 
+# Docs
+docs/
+
 # Claude Code
 .claude/settings.local.json
 .claude/skills/
