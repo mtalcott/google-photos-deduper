@@ -319,10 +319,6 @@ export default function App() {
           })
         }
 
-        console.log(
-          `[GPD] starting scan: mode=${settingsRef.current.scanMode}, threshold=${settingsRef.current.similarityThreshold}`
-        )
-
         const groups =
           settingsRef.current.scanMode === "smart"
             ? await smartDetectDuplicates(
@@ -471,6 +467,10 @@ export default function App() {
         ? state.accountEmail
         : undefined
     dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
+
+    console.log(
+      `[GPD] starting scan: mode=${settings.scanMode}, threshold=${settings.similarityThreshold}`
+    )
 
     // Load cached media items for incremental fetch. On a repeat scan we only
     // fetch items newer than the most-recently-seen upload timestamp.
