@@ -34,6 +34,7 @@ import type { DetectionProgress } from "../lib/duplicate-detector"
 import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
+import { areScanResultsValid } from "../lib/scan-results"
 import type {
   AppMessage,
   DuplicateGroup,
@@ -295,9 +296,11 @@ export default function App() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [])
 
-  // Keep a ref to settings so async callbacks see latest values
+  // Keep refs so async callbacks always see latest values
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
@@ -318,10 +321,6 @@ export default function App() {
             }
           })
         }
-
-        console.log(
-          `[GPD] starting scan: mode=${settingsRef.current.scanMode}, threshold=${settingsRef.current.similarityThreshold}`
-        )
 
         const groups =
           settingsRef.current.scanMode === "smart"
@@ -357,6 +356,9 @@ export default function App() {
           mediaItems: mediaItemMap,
           groups
         })
+        // Refresh account email after scan — the email in state may be stale
+        // if the user switched accounts since the last health check.
+        sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
       } catch (error) {
         currentScanRequestIdRef.current = null
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -403,7 +405,8 @@ export default function App() {
             type: "LOAD_SAVED_RESULTS",
             mediaItems: result.scanResults.mediaItems,
             groups: result.scanResults.groups,
-            totalItems: result.scanResults.totalItems
+            totalItems: result.scanResults.totalItems,
+            accountEmail: result.scanResults.accountEmail
           })
         }
         setStorageChecked(true)
@@ -414,6 +417,7 @@ export default function App() {
   // Persist scan results when they change (after scan or trash)
   const mediaItems = state.status === "results" ? state.mediaItems : null
   const totalItems = state.status === "results" ? state.totalItems : 0
+  const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
   useEffect(() => {
     if (!mediaItems) return
     if (groups.length > 0) {
@@ -427,14 +431,15 @@ export default function App() {
           groups,
           scanDate: Date.now(),
           totalItems,
-          newestCreationTimestamp
+          newestCreationTimestamp,
+          accountEmail: accountEmailForStorage
         }
       })
     } else {
       // All duplicates removed — clear saved results so next open starts fresh
       chrome.storage.local.remove("scanResults")
     }
-  }, [groups, mediaItems, totalItems])
+  }, [groups, mediaItems, totalItems, accountEmailForStorage])
 
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
@@ -465,12 +470,17 @@ export default function App() {
 
     const requestId = generateRequestId()
     currentScanRequestIdRef.current = requestId
-    const hasGptk = state.status === "connected" ? state.hasGptk : true
+    const currentState = stateRef.current
+    const hasGptk = currentState.status === "connected" ? currentState.hasGptk : true
     const accountEmail =
-      state.status === "connected" || state.status === "results"
-        ? state.accountEmail
+      currentState.status === "connected" || currentState.status === "results"
+        ? currentState.accountEmail
         : undefined
     dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
+
+    console.log(
+      `[GPD] starting scan: mode=${settings.scanMode}, threshold=${settings.similarityThreshold}`
+    )
 
     // Load cached media items for incremental fetch. On a repeat scan we only
     // fetch items newer than the most-recently-seen upload timestamp.
@@ -481,7 +491,11 @@ export default function App() {
         "scanResults"
       )) as Partial<StoredState>
       const prev = stored.scanResults
-      if (prev?.mediaItems && Object.keys(prev.mediaItems).length > 0) {
+      if (
+        prev?.mediaItems &&
+        Object.keys(prev.mediaItems).length > 0 &&
+        areScanResultsValid(prev, { accountEmail })
+      ) {
         cachedMediaItemsRef.current = prev.mediaItems
         // Compute watermark if not stored (migration: first run after this deploy)
         sinceTimestamp =

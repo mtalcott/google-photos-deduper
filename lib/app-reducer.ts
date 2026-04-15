@@ -8,6 +8,7 @@ import type {
   GptkProgressMessage,
   ScanPhase,
 } from "./types"
+import { areScanResultsValid } from "./scan-results"
 
 // ============================================================
 // Types
@@ -71,6 +72,7 @@ export type AppAction =
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
       totalItems: number
+      accountEmail?: string
     }
   | {
       type: "RESTORE_SNAPSHOT"
@@ -91,6 +93,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (action.payload.success) {
         // Don't downgrade from results — just confirm GP is still available
         if (state.status === "results") {
+          // Clear stale results when a different account is detected
+          if (!areScanResultsValid({ accountEmail: state.accountEmail }, { accountEmail: action.payload.accountEmail })) {
+            return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
+          }
           const email = action.payload.accountEmail ?? state.accountEmail
           if (email === state.accountEmail) return state
           return { ...state, accountEmail: email }
@@ -207,6 +213,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         mediaItems: action.mediaItems,
         groups: action.groups,
         totalItems: action.totalItems,
+        accountEmail: action.accountEmail,
       }
 
     case "RESTORE_SNAPSHOT":

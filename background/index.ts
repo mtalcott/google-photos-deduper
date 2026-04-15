@@ -74,7 +74,12 @@ async function sendGptkCommand(
 
   return new Promise((resolve, reject) => {
     pendingCommands[requestId] = { resolve, reject, appTabId: 0 }
-    chrome.tabs.sendMessage(gpTabId, message)
+    chrome.tabs.sendMessage(gpTabId, message).catch(() => {
+      delete pendingCommands[requestId]
+      reject(
+        "Unable to connect to Google Photos tab. Please reload the tab and try again."
+      )
+    })
   })
 }
 
@@ -205,7 +210,18 @@ async function handleGptkCommand(
   }
 
   // Forward the command to the GP tab (bridge will relay to MAIN world)
-  chrome.tabs.sendMessage(gpTabId, message)
+  chrome.tabs.sendMessage(gpTabId, message).catch(() => {
+    chrome.tabs.sendMessage(senderTabId, {
+      app: APP_ID,
+      action: "gptkResult",
+      command: message.command,
+      requestId: message.requestId,
+      success: false,
+      error:
+        "Unable to connect to Google Photos tab. Please reload the tab and try again.",
+    } as GptkResultMessage)
+    delete pendingCommands[message.requestId]
+  })
 }
 
 function handleGptkResult(
