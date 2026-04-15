@@ -186,6 +186,10 @@ export interface StoredState {
     totalItems: number;
     newestCreationTimestamp?: number; // for incremental fetch on next scan
   };
+  selections?: {
+    selectedGroupIds: string[];
+    keptOverrides: Record<string, string[]>;
+  };
   settings: ScanSettings;
 }
 

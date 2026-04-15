@@ -134,6 +134,21 @@ export async function injectScanResults(
   )
 }
 
+export async function injectSelections(
+  context: BrowserContext,
+  selectedGroupIds: string[],
+  keptOverrides: Record<string, string[]> = {}
+): Promise<void> {
+  const sw = context.serviceWorkers()[0]
+  await sw.evaluate(
+    ({ selectedGroupIds, keptOverrides }) =>
+      new Promise<void>((resolve) => {
+        chrome.storage.local.set({ selections: { selectedGroupIds, keptOverrides } }, resolve)
+      }),
+    { selectedGroupIds, keptOverrides }
+  )
+}
+
 export async function clearStorage(context: BrowserContext): Promise<void> {
   let sw = context.serviceWorkers()[0]
   if (!sw) {
