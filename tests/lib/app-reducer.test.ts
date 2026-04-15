@@ -105,6 +105,26 @@ describe("HEALTH_CHECK_RESULT", () => {
     expect(next.status).toBe("results")
     expect(next).toBe(resultsState)
   })
+
+  it("clears results and moves to connected when a different account is detected", () => {
+    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com" }
+    const next = appReducer(state, {
+      type: "HEALTH_CHECK_RESULT",
+      payload: { app: APP_ID, action: "healthCheck.result", success: true, hasGptk: true, accountEmail: "bob@example.com" },
+    })
+    expect(next.status).toBe("connected")
+    expect((next as { accountEmail?: string }).accountEmail).toBe("bob@example.com")
+  })
+
+  it("keeps results when the same account reconnects", () => {
+    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com" }
+    const next = appReducer(state, {
+      type: "HEALTH_CHECK_RESULT",
+      payload: { app: APP_ID, action: "healthCheck.result", success: true, hasGptk: true, accountEmail: "alice@example.com" },
+    })
+    expect(next.status).toBe("results")
+    expect(next).toBe(state)
+  })
 })
 
 // ============================================================

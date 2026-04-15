@@ -34,6 +34,7 @@ import type { DetectionProgress } from "../lib/duplicate-detector"
 import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
+import { areScanResultsValid } from "../lib/scan-results"
 import type {
   AppMessage,
   DuplicateGroup,
@@ -355,6 +356,9 @@ export default function App() {
           mediaItems: mediaItemMap,
           groups
         })
+        // Refresh account email after scan — the email in state may be stale
+        // if the user switched accounts since the last health check.
+        sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
       } catch (error) {
         currentScanRequestIdRef.current = null
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -487,7 +491,11 @@ export default function App() {
         "scanResults"
       )) as Partial<StoredState>
       const prev = stored.scanResults
-      if (prev?.mediaItems && Object.keys(prev.mediaItems).length > 0) {
+      if (
+        prev?.mediaItems &&
+        Object.keys(prev.mediaItems).length > 0 &&
+        areScanResultsValid(prev, { accountEmail })
+      ) {
         cachedMediaItemsRef.current = prev.mediaItems
         // Compute watermark if not stored (migration: first run after this deploy)
         sinceTimestamp =
