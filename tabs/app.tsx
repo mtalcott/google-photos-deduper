@@ -117,6 +117,12 @@ export default function App() {
   // scans killed by reload can be dropped (they arrive late from the GP tab)
   const currentScanRequestIdRef = useRef<string | null>(null)
 
+  // Holds selections loaded from storage; applied once when groups first load
+  const pendingSelectionsRef = useRef<{
+    selectedGroupIds: Set<string>
+    keptOverrides: Record<string, Set<string>>
+  } | null>(null)
+
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
   const stateGroups =
     state.status === "results" || state.status === "trashing"
@@ -124,8 +130,23 @@ export default function App() {
       : null
   const groups = useMemo(() => stateGroups ?? [], [stateGroups])
   useEffect(() => {
-    setSelectedGroupIds(new Set(groups.map((g) => g.id)))
-    setKeptOverrides({})
+    if (pendingSelectionsRef.current) {
+      const saved = pendingSelectionsRef.current
+      pendingSelectionsRef.current = null
+      const validIds = new Set(groups.map((g) => g.id))
+      // Restore saved selection, filtered to groups that still exist
+      const next = new Set([...saved.selectedGroupIds].filter((id) => validIds.has(id)))
+      setSelectedGroupIds(next)
+      // Restore kept overrides, filtered to valid groups
+      const filteredKept: Record<string, Set<string>> = {}
+      for (const [id, keys] of Object.entries(saved.keptOverrides)) {
+        if (validIds.has(id)) filteredKept[id] = keys
+      }
+      setKeptOverrides(filteredKept)
+    } else {
+      setSelectedGroupIds(new Set(groups.map((g) => g.id)))
+      setKeptOverrides({})
+    }
   }, [groups])
 
   const getKept = useCallback(
@@ -362,10 +383,20 @@ export default function App() {
   // Load saved settings and results on mount
   useEffect(() => {
     chrome.storage.local.get(
-      ["settings", "scanResults"],
+      ["settings", "scanResults", "selections"],
       (result: Partial<StoredState>) => {
         if (result.settings) {
           setSettings(result.settings)
+        }
+        if (result.selections) {
+          // Store deserialized selections before dispatching LOAD_SAVED_RESULTS so
+          // the groups-change effect can apply them when groups first appear
+          pendingSelectionsRef.current = {
+            selectedGroupIds: new Set(result.selections.selectedGroupIds),
+            keptOverrides: Object.fromEntries(
+              Object.entries(result.selections.keptOverrides).map(([k, v]) => [k, new Set(v)])
+            ),
+          }
         }
         if (result.scanResults?.totalItems && Array.isArray(result.scanResults.groups)) {
           dispatch({
@@ -404,6 +435,23 @@ export default function App() {
       chrome.storage.local.remove("scanResults")
     }
   }, [groups, mediaItems, totalItems])
+
+  // Persist selections when they change (only while results are showing)
+  useEffect(() => {
+    if (state.status !== "results") return
+    if (groups.length === 0) {
+      chrome.storage.local.remove("selections")
+      return
+    }
+    chrome.storage.local.set({
+      selections: {
+        selectedGroupIds: [...selectedGroupIds],
+        keptOverrides: Object.fromEntries(
+          Object.entries(keptOverrides).map(([k, v]) => [k, [...v]])
+        ),
+      },
+    })
+  }, [selectedGroupIds, keptOverrides, state.status, groups.length])
 
   // Save settings on change
   useEffect(() => {
