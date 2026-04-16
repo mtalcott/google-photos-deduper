@@ -617,7 +617,7 @@ async function fetchThumbnails(
         const url = entry.item.thumb + `=h${THUMB_HEIGHT}`;
         const response = await fetch(url, {
           credentials: "include",
-          signal: AbortSignal.any([
+          signal: (AbortSignal as typeof AbortSignal & { any(signals: AbortSignal[]): AbortSignal }).any([
             AbortSignal.timeout(fetchTimeoutMs),
             ...(signal ? [signal] : []),
           ]),
