@@ -193,8 +193,14 @@ export default function App() {
 
   // Listen for messages from service worker
   useEffect(() => {
-    const listener = (message: AppMessage) => {
+    const listener = (message: AppMessage, sender: chrome.runtime.MessageSender) => {
       if (message?.app !== APP_ID) return
+      // The bridge content script sends GPTK results via chrome.runtime.sendMessage,
+      // which broadcasts to ALL extension contexts — so this listener fires twice:
+      // once directly from the bridge (sender.tab set) and once via the service
+      // worker relay (no sender.tab). Ignore direct bridge deliveries to avoid
+      // processing each result twice.
+      if (sender.tab) return
 
       switch (message.action) {
         case "healthCheck.result":
@@ -657,7 +663,7 @@ export default function App() {
         sx={{ maxWidth: 1200, mx: "auto", px: 3, minHeight: "60vh" }}>
         {state.status === "connecting" && (
           <Box sx={{ display: "flex", justifyContent: "center", pt: 10 }}>
-            <CircularProgress />
+            <CircularProgress disableShrink />
           </Box>
         )}
 
