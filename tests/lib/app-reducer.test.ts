@@ -135,7 +135,7 @@ describe("SCAN_STARTED", () => {
   it("enters scanning state with correct initial values", () => {
     const next = appReducer(
       { status: "connected", hasGptk: true },
-      { type: "SCAN_STARTED", requestId: "req-1" }
+      { type: "SCAN_STARTED", requestId: "req-1", hasGptk: true }
     )
     expect(next).toMatchObject({
       status: "scanning",
@@ -149,7 +149,7 @@ describe("SCAN_STARTED", () => {
 describe("SCAN_COMPLETE", () => {
   it("sets results with correct totalItems count", () => {
     const next = appReducer(
-      { status: "scanning", phase: "fetching", itemsProcessed: 0, totalEstimate: 0, message: "", requestId: "r" },
+      { status: "scanning", phase: "fetching", itemsProcessed: 0, totalEstimate: 0, message: "", requestId: "r", hasGptk: true },
       { type: "SCAN_COMPLETE", mediaItems, groups }
     )
     expect(next).toMatchObject({
@@ -163,7 +163,7 @@ describe("SCAN_COMPLETE", () => {
 describe("SCAN_ERROR", () => {
   it("enters disconnected state", () => {
     const next = appReducer(
-      { status: "scanning", phase: "fetching", itemsProcessed: 0, totalEstimate: 0, message: "", requestId: "r" },
+      { status: "scanning", phase: "fetching", itemsProcessed: 0, totalEstimate: 0, message: "", requestId: "r", hasGptk: true },
       { type: "SCAN_ERROR", error: "network failure" }
     )
     expect(next.status).toBe("disconnected")

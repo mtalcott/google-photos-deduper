@@ -2,7 +2,8 @@
   "extends": "plasmo/templates/tsconfig.base",
   "exclude": [
     "node_modules",
-    "workers"
+    "workers",
+    "vitest.config.ts"
   ],
   "include": [
     ".plasmo/index.d.ts",
