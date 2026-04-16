@@ -663,7 +663,7 @@ export default function App() {
         sx={{ maxWidth: 1200, mx: "auto", px: 3, minHeight: "60vh" }}>
         {state.status === "connecting" && (
           <Box sx={{ display: "flex", justifyContent: "center", pt: 10 }}>
-            <CircularProgress />
+            <CircularProgress disableShrink />
           </Box>
         )}
 
