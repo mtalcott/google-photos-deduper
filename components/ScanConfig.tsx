@@ -89,6 +89,7 @@ export function ScanConfig({
                 value={settings.scanMode}
                 exclusive
                 size="small"
+                fullWidth
                 onChange={(_, value) => {
                   if (value !== null) onSettingsChange({ scanMode: value })
                 }}>
