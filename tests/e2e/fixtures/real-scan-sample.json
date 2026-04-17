@@ -1,0 +1,179 @@
+{
+  "_comment": "Real scan results captured from the live extension (gpdtest734@gmail.com). Used as reference for test fixture shapes.",
+  "_source": "CDP capture via tools/cdp.py from live Google Photos session",
+  "_captured": "2026-04-16",
+  "accountEmail": "gpdtest734@gmail.com",
+  "groups": [
+    {
+      "id": "group-8",
+      "mediaKeys": [
+        "AF1QipM-SNgePsOxxic2g2J-dRTpzCuM3MFfPwOXCPxd",
+        "AF1QipMqZ4kBDJHkzkzHxkhAjhTCrDYG3u13c_eq_i1j"
+      ],
+      "originalMediaKey": "AF1QipM-SNgePsOxxic2g2J-dRTpzCuM3MFfPwOXCPxd",
+      "similarity": 0.9
+    },
+    {
+      "id": "group-9",
+      "mediaKeys": [
+        "AF1QipOwTNmDKpG9A3iGWCmck653gzLuCG_kRJt2N2bj",
+        "AF1QipM-aQ0K9ejbjaXHfAZdHkwOd5Ss-TunGh0EJ_p1"
+      ],
+      "originalMediaKey": "AF1QipOwTNmDKpG9A3iGWCmck653gzLuCG_kRJt2N2bj",
+      "similarity": 0.9
+    },
+    {
+      "id": "group-10",
+      "mediaKeys": [
+        "AF1QipM0H3dTZP0Q7OUBPQ2sAmIkQar4B_sxShq5MI4D",
+        "AF1QipM2Kdxi9WbVHvRLLwcHdCFWBTvUfDLYf2J42Zxv"
+      ],
+      "originalMediaKey": "AF1QipM0H3dTZP0Q7OUBPQ2sAmIkQar4B_sxShq5MI4D",
+      "similarity": 0.9
+    },
+    {
+      "id": "group-11",
+      "mediaKeys": [
+        "AF1QipNS0DjcANJ3SPYs4Ec-E5AO-K3-7sRpFPpDGVgV",
+        "AF1QipM26kCpJq1ZaSJTmRXxbrPhuH4LIqksIat09I4V"
+      ],
+      "originalMediaKey": "AF1QipNS0DjcANJ3SPYs4Ec-E5AO-K3-7sRpFPpDGVgV",
+      "similarity": 0.9
+    },
+    {
+      "id": "group-12",
+      "mediaKeys": [
+        "AF1QipMM0AazOW2KbZtSi4t1uysoa1wPJYNgzq9fQ8md",
+        "AF1QipM2GyJD4xERuHZKh0QpvCU_bV-M-U30Cfoa-iM5"
+      ],
+      "originalMediaKey": "AF1QipMM0AazOW2KbZtSi4t1uysoa1wPJYNgzq9fQ8md",
+      "similarity": 0.9
+    }
+  ],
+  "mediaItems": {
+    "AF1QipM-SNgePsOxxic2g2J-dRTpzCuM3MFfPwOXCPxd": {
+      "creationTimestamp": 1689426093813,
+      "dedupKey": "RS_zn94LIMvcF5NUVvJtOx800cs",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM-SNgePsOxxic2g2J-dRTpzCuM3MFfPwOXCPxd",
+      "productUrl": "https://photos.google.com/photo/AF1QipM-SNgePsOxxic2g2J-dRTpzCuM3MFfPwOXCPxd",
+      "resHeight": 1440,
+      "resWidth": 2560,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczPBjx1x2XRuaqHtt3KWpwpfH3lzYZcaotj0Sns3wLbVBm1bUs54soZS",
+      "timestamp": 1370474434000
+    },
+    "AF1QipM-aQ0K9ejbjaXHfAZdHkwOd5Ss-TunGh0EJ_p1": {
+      "creationTimestamp": 1691328837343,
+      "dedupKey": "wVm-zjQKWeNJurORpb2wqxGxXx8",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM-aQ0K9ejbjaXHfAZdHkwOd5Ss-TunGh0EJ_p1",
+      "productUrl": "https://photos.google.com/photo/AF1QipM-aQ0K9ejbjaXHfAZdHkwOd5Ss-TunGh0EJ_p1",
+      "resHeight": 3920,
+      "resWidth": 4080,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczNmrh53AKsJI88yNMf0-xKqXUfkcbD_1WRfxqOM_X8cqChIU_qhGexX",
+      "timestamp": 1295467200000
+    },
+    "AF1QipM0H3dTZP0Q7OUBPQ2sAmIkQar4B_sxShq5MI4D": {
+      "creationTimestamp": 1689425993144,
+      "dedupKey": "DZe8Nbd1tOSUhdMGLBwyemO-T4k",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM0H3dTZP0Q7OUBPQ2sAmIkQar4B_sxShq5MI4D",
+      "productUrl": "https://photos.google.com/photo/AF1QipM0H3dTZP0Q7OUBPQ2sAmIkQar4B_sxShq5MI4D",
+      "resHeight": 1080,
+      "resWidth": 1920,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczP3_fn0veiIY-YtUaud-9Pb9z3l60w6ZOP34pqdOEXu_APFYRv5HcQI",
+      "timestamp": 1301028620000
+    },
+    "AF1QipM26kCpJq1ZaSJTmRXxbrPhuH4LIqksIat09I4V": {
+      "creationTimestamp": 1691328864448,
+      "dedupKey": "wvDLI4SgwMtmeZxclFVZxhe7GuA",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM26kCpJq1ZaSJTmRXxbrPhuH4LIqksIat09I4V",
+      "productUrl": "https://photos.google.com/photo/AF1QipM26kCpJq1ZaSJTmRXxbrPhuH4LIqksIat09I4V",
+      "resHeight": 1080,
+      "resWidth": 1920,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczM5I7pnikGWCFHEy4mYayW2Eoo-2f7HyXx9TL9grZ9f-YLVOsEbzrCf",
+      "timestamp": 1691328814324
+    },
+    "AF1QipM2GyJD4xERuHZKh0QpvCU_bV-M-U30Cfoa-iM5": {
+      "creationTimestamp": 1691328836333,
+      "dedupKey": "rEuFsI6-hfD-NAmrQ-f_18idvA8",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM2GyJD4xERuHZKh0QpvCU_bV-M-U30Cfoa-iM5",
+      "productUrl": "https://photos.google.com/photo/AF1QipM2GyJD4xERuHZKh0QpvCU_bV-M-U30Cfoa-iM5",
+      "resHeight": 1600,
+      "resWidth": 2560,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczNXZOym2BouEiZlvMHXCRIVs2cOujB-yytm5RCx8QP_uI3fjgEEO710",
+      "timestamp": 1172953479000
+    },
+    "AF1QipM2Kdxi9WbVHvRLLwcHdCFWBTvUfDLYf2J42Zxv": {
+      "creationTimestamp": 1691328835482,
+      "dedupKey": "xhjktOst0RSksb0ycIqmw8lUoYE",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipM2Kdxi9WbVHvRLLwcHdCFWBTvUfDLYf2J42Zxv",
+      "productUrl": "https://photos.google.com/photo/AF1QipM2Kdxi9WbVHvRLLwcHdCFWBTvUfDLYf2J42Zxv",
+      "resHeight": 1080,
+      "resWidth": 1920,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczPdTTlf8qdfsNn-MawlL_9sGeLo6th9xXN0_Po5tAaPuASqejU42_ua",
+      "timestamp": 1301028620000
+    },
+    "AF1QipMM0AazOW2KbZtSi4t1uysoa1wPJYNgzq9fQ8md": {
+      "creationTimestamp": 1689426076015,
+      "dedupKey": "TLcD5eIHSUOI8Ckn6Jv445PDMAs",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipMM0AazOW2KbZtSi4t1uysoa1wPJYNgzq9fQ8md",
+      "productUrl": "https://photos.google.com/photo/AF1QipMM0AazOW2KbZtSi4t1uysoa1wPJYNgzq9fQ8md",
+      "resHeight": 1600,
+      "resWidth": 2560,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczPcTF7agPvAsLKJaeBdD3bKtyLktyc8Pkh8hryYWaQjQwUOGn-S9J23",
+      "timestamp": 1172953479000
+    },
+    "AF1QipMqZ4kBDJHkzkzHxkhAjhTCrDYG3u13c_eq_i1j": {
+      "creationTimestamp": 1691328850909,
+      "dedupKey": "hJx3AYqsztaPsBsw8iJnuF-b0aU",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipMqZ4kBDJHkzkzHxkhAjhTCrDYG3u13c_eq_i1j",
+      "productUrl": "https://photos.google.com/photo/AF1QipMqZ4kBDJHkzkzHxkhAjhTCrDYG3u13c_eq_i1j",
+      "resHeight": 1440,
+      "resWidth": 2560,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczN6esegboDs0VyIUy6k434Xjyzum2VhqD-Lep5Fu6ESioJOQydABDs5",
+      "timestamp": 1370474434000
+    },
+    "AF1QipNS0DjcANJ3SPYs4Ec-E5AO-K3-7sRpFPpDGVgV": {
+      "creationTimestamp": 1689426104410,
+      "dedupKey": "shmw4nVw2xUKMlDmsxhfN38BfKw",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipNS0DjcANJ3SPYs4Ec-E5AO-K3-7sRpFPpDGVgV",
+      "productUrl": "https://photos.google.com/photo/AF1QipNS0DjcANJ3SPYs4Ec-E5AO-K3-7sRpFPpDGVgV",
+      "resHeight": 1080,
+      "resWidth": 1920,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczNLK4AWAhMHQjN5Dbiy0OBGvPrN7tdpg4vxMh9c64gCXzSJZJ_O5EZ2",
+      "timestamp": 1447724257000
+    },
+    "AF1QipOwTNmDKpG9A3iGWCmck653gzLuCG_kRJt2N2bj": {
+      "creationTimestamp": 1689426128189,
+      "dedupKey": "e6YGhhTqy3LS77X9_8YsYn934hs",
+      "fileName": null,
+      "isOwned": true,
+      "mediaKey": "AF1QipOwTNmDKpG9A3iGWCmck653gzLuCG_kRJt2N2bj",
+      "productUrl": "https://photos.google.com/photo/AF1QipOwTNmDKpG9A3iGWCmck653gzLuCG_kRJt2N2bj",
+      "resHeight": 3920,
+      "resWidth": 4080,
+      "thumb": "https://photos.fife.usercontent.google.com/pw/AP1GczNx7cCXKKgAj_GxcMMjZ7BAI9DLdcBk4z-t5h2snygpM2CHaUJUxMpQ",
+      "timestamp": 1295467200000
+    }
+  },
+  "settings": {
+    "scanMode": "full",
+    "similarityThreshold": 0.9
+  }
+}
