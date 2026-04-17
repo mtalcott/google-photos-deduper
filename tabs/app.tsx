@@ -318,6 +318,7 @@ export default function App() {
           dispatch({
             type: "SCAN_PROGRESS",
             phase: progress.phase,
+            totalItems: progress.total,
             payload: {
               app: APP_ID,
               action: "gptkProgress",
