@@ -5,6 +5,7 @@
 import { chromium, type BrowserContext, type Page } from "@playwright/test"
 import path from "path"
 import fs from "fs"
+import type { DuplicateGroup, GpdMediaItem } from "../../../lib/types"
 
 export const extensionPath = path.resolve(__dirname, "../../../build/chrome-mv3-dev")
 
@@ -179,6 +180,126 @@ export async function injectGpAuth(context: BrowserContext): Promise<void> {
   const cookies = loadGpCookies()
   await context.addCookies(cookies)
 }
+
+// ============================================================
+// GPTK stub helpers (integration tests)
+// ============================================================
+
+const gptkStubHtml = fs.readFileSync(
+  path.resolve(__dirname, "gptk-stub.html"),
+  "utf-8"
+)
+
+/**
+ * Per-command response overrides for the GPTK stub.
+ * Set `success: false` to force a command to fail.
+ */
+export interface GptkOverrides {
+  trashItems?: { success: false; error: string }
+  restoreItems?: { success: false; error: string }
+  [command: string]: { success: false; error: string } | { data: unknown } | undefined
+}
+
+/**
+ * Intercept https://photos.google.com/* and serve the GPTK stub page.
+ * The extension's bridge content script is injected automatically because the
+ * intercepted URL matches the content script's "matches" pattern.
+ *
+ * Call this before opening the stub page. Returns the opened stub Page so tests
+ * can close it, inspect state, or inject overrides via page.evaluate().
+ *
+ * @param overrides  Per-command response overrides (e.g. force trashItems to fail)
+ */
+export async function openGptkStubPage(
+  context: BrowserContext,
+  overrides: GptkOverrides = {}
+): Promise<Page> {
+  // Intercept ALL requests to photos.google.com so the content script host loads
+  await context.route("https://photos.google.com/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: gptkStubHtml,
+    })
+  })
+
+  const page = await context.newPage()
+  await page.goto("https://photos.google.com/")
+
+  // Inject overrides so the stub responds as configured
+  if (Object.keys(overrides).length > 0) {
+    await page.evaluate((ov) => {
+      ;(window as unknown as { __gptkOverrides: GptkOverrides }).__gptkOverrides = ov
+    }, overrides)
+  }
+
+  return page
+}
+
+/**
+ * Wait for a given text or pattern to become visible on the app tab.
+ * Reloads the page once if not visible within `timeout / 2` ms, then waits again.
+ * This handles the case where the app tab loads before the stub page is ready.
+ */
+export async function waitForAppState(
+  page: Page,
+  matcher: string | RegExp,
+  timeout = 10_000
+): Promise<void> {
+  await page.waitForSelector(
+    typeof matcher === "string"
+      ? `text=${matcher}`
+      : `:text-matches(${matcher.source}, ${matcher.flags || "i"})`,
+    { timeout }
+  )
+}
+
+/**
+ * Build N duplicate groups where each group has `itemsPerGroup` items.
+ * Returns both the groups array and a matching mediaItems record.
+ *
+ * Total dedupKeys = N * itemsPerGroup — useful for constructing payloads
+ * that span multiple 250-item trash batches.
+ */
+export function makeGroups(
+  groupCount: number,
+  itemsPerGroup: number
+): { groups: DuplicateGroup[]; mediaItems: Record<string, GpdMediaItem> } {
+  const groups: DuplicateGroup[] = []
+  const mediaItems: Record<string, GpdMediaItem> = {}
+
+  for (let g = 0; g < groupCount; g++) {
+    const mediaKeys: string[] = []
+    for (let i = 0; i < itemsPerGroup; i++) {
+      const key = `group${g}-item${i}`
+      mediaKeys.push(key)
+      mediaItems[key] = {
+        mediaKey: key,
+        dedupKey: `dedup-${key}`,
+        thumb: "",
+        productUrl: `https://photos.google.com/photo/${key}`,
+        timestamp: 1_600_000_000_000 + g * 1000 + i,
+        creationTimestamp: 1_700_000_000_000 + g * 1000 + i,
+        resWidth: 1920,
+        resHeight: 1080,
+        fileName: `photo-${key}.jpg`,
+        isOwned: true,
+      }
+    }
+    groups.push({
+      id: `group-${g}`,
+      mediaKeys,
+      originalMediaKey: mediaKeys[0],
+      similarity: 0.95,
+    })
+  }
+
+  return { groups, mediaItems }
+}
+
+// ============================================================
+// Google Photos auth (full E2E only)
+// ============================================================
 
 function loadGpCookies() {
   if (process.env.GP_AUTH_COOKIES) {
