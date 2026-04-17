@@ -73,7 +73,7 @@ const defaultProps = {
   mediaItems,
   selectedGroupIds: new Set(["g1"]),
   onToggleGroup: vi.fn(),
-  getKept: (_g: DuplicateGroup) => new Set(["img1"]), // img1 kept by default
+  keptByGroupId: new Map([["g1", new Set(["img1"])]]),
   onToggleKept: vi.fn(),
 }
 
@@ -109,7 +109,7 @@ describe("DuplicateGroups — chip rendering", () => {
     wrap(
       <DuplicateGroups
         {...defaultProps}
-        getKept={(_g) => new Set(["img1", "img2"])}
+        keptByGroupId={new Map([["g1", new Set(["img1", "img2"])]])}
       />
     )
     const keepChips = screen.getAllByText("Keep")

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Box from "@mui/material/Box"
 import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
@@ -15,7 +15,47 @@ import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 30
+
+// ── Hoisted static sx objects ──────────────────────────────────────────
+const sxPaperBase = { mb: 2, overflow: "hidden", borderRadius: 2, transition: "opacity 0.15s" }
+const sxGroupHeader = {
+  display: "flex",
+  alignItems: "center",
+  px: 1.5,
+  py: 1,
+  backgroundColor: "grey.50",
+  borderBottom: "1px solid",
+  borderColor: "divider",
+  cursor: "pointer",
+  userSelect: "none",
+}
+const sxCheckbox = { p: 0.5, mr: 0.5 }
+const sxChipSimilarity = { fontSize: 11 }
+const sxThumbnailsWrapper = { display: "flex", flexWrap: "wrap", gap: 1.5, p: 1.5 }
+const sxItemWrapper = {
+  position: "relative",
+  width: 160,
+  flexShrink: 0,
+  "& .viewer-btn": { opacity: 0 },
+  "&:hover .viewer-btn": { opacity: 1 },
+}
+const sxCardBase = { width: "100%", transition: "border-color 0.15s" }
+const sxCardContent = { p: 1, "&:last-child": { pb: 1 }, display: "flex", flexDirection: "column", gap: 0.5 }
+const sxViewerBtn = {
+  position: "absolute",
+  top: 4,
+  right: 4,
+  bgcolor: "rgba(0,0,0,0.45)",
+  color: "white",
+  transition: "opacity 0.15s",
+  minWidth: 32,
+  minHeight: 32,
+  "&:hover": { bgcolor: "rgba(0,0,0,0.65)" },
+}
+const sxOpenInFullIcon = { fontSize: 14 }
+const sxStatusChip = { width: "fit-content", height: 20, fontSize: 11 }
+// ──────────────────────────────────────────────────────────────────────
 
 function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -55,12 +95,156 @@ function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
   )
 }
 
+interface DuplicateGroupRowProps {
+  group: DuplicateGroup
+  mediaItems: Record<string, GpdMediaItem>
+  isSelected: boolean
+  keptSet: Set<string>
+  onToggleGroup: (groupId: string) => void
+  onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
+  onOpenViewer: (group: DuplicateGroup, index: number) => void
+}
+
+const DuplicateGroupRow = memo(function DuplicateGroupRow({
+  group,
+  mediaItems,
+  isSelected,
+  keptSet,
+  onToggleGroup,
+  onToggleKept,
+  onOpenViewer,
+}: DuplicateGroupRowProps) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={[sxPaperBase, { opacity: isSelected ? 1 : 0.55 }]}>
+      {/* Group header */}
+      <Box
+        onClick={() => onToggleGroup(group.id)}
+        sx={sxGroupHeader}>
+        <Checkbox
+          size="small"
+          checked={isSelected}
+          onChange={() => onToggleGroup(group.id)}
+          onClick={(e) => e.stopPropagation()}
+          sx={sxCheckbox}
+        />
+        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+          {group.mediaKeys.length} photos
+        </Typography>
+        <Chip
+          label={`${Math.round(group.similarity * 100)}% similar`}
+          size="small"
+          variant="outlined"
+          sx={sxChipSimilarity}
+        />
+      </Box>
+
+      {/* Thumbnails */}
+      <Box sx={sxThumbnailsWrapper}>
+        {group.mediaKeys.map((key, itemIndex) => {
+          const item = mediaItems[key]
+          if (!item) return null
+          const isKept = keptSet.has(key)
+
+          return (
+            <Box key={key} sx={sxItemWrapper}>
+              <Card
+                variant="outlined"
+                sx={[sxCardBase, {
+                  borderColor: isKept ? "primary.main" : "divider",
+                  borderWidth: isKept ? 2 : 1,
+                }]}>
+                <CardActionArea onClick={() => onToggleKept(group, key)}>
+                  <ThumbnailImage
+                    src={item.thumb + "=h200"}
+                    alt={item.fileName || item.mediaKey}
+                  />
+                  <CardContent sx={sxCardContent}>
+                    {item.fileName && (
+                      <Typography
+                        variant="caption"
+                        display="block"
+                        noWrap
+                        title={item.fileName}>
+                        {item.fileName}
+                      </Typography>
+                    )}
+                    {item.resWidth && item.resHeight && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontFamily: "monospace" }}>
+                        {item.resWidth}×{item.resHeight}
+                      </Typography>
+                    )}
+                    {item.timestamp ? (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        <span style={{ opacity: 0.6 }}>Taken </span>
+                        {new Date(item.timestamp).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Typography>
+                    ) : null}
+                    {item.creationTimestamp ? (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        <span style={{ opacity: 0.6 }}>Uploaded </span>
+                        {new Date(item.creationTimestamp).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Typography>
+                    ) : null}
+                    {isKept ? (
+                      <Chip
+                        label="Keep"
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : isSelected ? (
+                      <Chip
+                        label="Trash"
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : null}
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+
+              {/* Zoom overlay — secondary action, does not trigger Keep toggle */}
+              <IconButton
+                className="viewer-btn"
+                size="small"
+                aria-label="View full size"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenViewer(group, itemIndex)
+                }}
+                sx={sxViewerBtn}>
+                <OpenInFullIcon sx={sxOpenInFullIcon} />
+              </IconButton>
+            </Box>
+          )
+        })}
+      </Box>
+    </Paper>
+  )
+})
+
 interface DuplicateGroupsProps {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
   selectedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
-  getKept: (group: DuplicateGroup) => Set<string>
+  keptByGroupId: Map<string, Set<string>>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
 }
 
@@ -69,7 +253,7 @@ export function DuplicateGroups({
   mediaItems,
   selectedGroupIds,
   onToggleGroup,
-  getKept,
+  keptByGroupId,
   onToggleKept,
 }: DuplicateGroupsProps) {
   // Measure time from first non-empty groups render to commit
@@ -98,8 +282,8 @@ export function DuplicateGroups({
   // Reset pagination when groups change (new scan)
   useEffect(() => { setVisibleCount(PAGE_SIZE) }, [groups])
 
-  // Infinite scroll: re-observe sentinel after each page loads so observer
-  // fires again once the user scrolls to the new bottom.
+  // Infinite scroll: observe sentinel once per groups identity.
+  // Functional setState needs no visibleCount in the closure.
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
@@ -111,7 +295,18 @@ export function DuplicateGroups({
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [visibleCount, groups])
+  }, [groups])
+
+  const onOpenViewer = useCallback((group: DuplicateGroup, index: number) => {
+    setViewerState({ group, index })
+  }, [])
+
+  const viewerItems = useMemo(() => {
+    if (!viewerState) return []
+    return viewerState.group.mediaKeys
+      .map((k) => mediaItems[k])
+      .filter((item): item is GpdMediaItem => !!item)
+  }, [viewerState, mediaItems])
 
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
@@ -128,213 +323,39 @@ export function DuplicateGroups({
     )
   }
 
-  const viewerGroup = viewerState?.group ?? null
-  const viewerItems = viewerGroup
-    ? viewerGroup.mediaKeys
-        .map((k) => mediaItems[k])
-        .filter((item): item is GpdMediaItem => !!item)
-    : []
-
   return (
     <Box sx={{ pb: 6 }}>
       <Typography variant="h6" fontWeight={600} sx={{ px: 0, py: 2 }}>
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
       </Typography>
 
-      {groups.slice(0, visibleCount).map((group) => {
-        const isSelected = selectedGroupIds.has(group.id)
-        const keptSet = getKept(group)
-
-        return (
-          <Paper
-            key={group.id}
-            variant="outlined"
-            sx={{
-              mb: 2,
-              overflow: "hidden",
-              borderRadius: 2,
-              opacity: isSelected ? 1 : 0.55,
-              transition: "opacity 0.15s",
-            }}>
-            {/* Group header */}
-            <Box
-              onClick={() => onToggleGroup(group.id)}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                px: 1.5,
-                py: 1,
-                backgroundColor: "grey.50",
-                borderBottom: "1px solid",
-                borderColor: "divider",
-                cursor: "pointer",
-                userSelect: "none",
-              }}>
-              <Checkbox
-                size="small"
-                checked={isSelected}
-                onChange={() => onToggleGroup(group.id)}
-                onClick={(e) => e.stopPropagation()}
-                sx={{ p: 0.5, mr: 0.5 }}
-              />
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                {group.mediaKeys.length} photos
-              </Typography>
-              <Chip
-                label={`${Math.round(group.similarity * 100)}% similar`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: 11 }}
-              />
-            </Box>
-
-            {/* Thumbnails */}
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 1.5,
-                p: 1.5,
-              }}>
-              {group.mediaKeys.map((key, itemIndex) => {
-                const item = mediaItems[key]
-                if (!item) return null
-                const isKept = keptSet.has(key)
-
-                return (
-                  <Box
-                    key={key}
-                    sx={{
-                      position: "relative",
-                      width: 160,
-                      flexShrink: 0,
-                      "& .viewer-btn": { opacity: 0 },
-                      "&:hover .viewer-btn": { opacity: 1 },
-                    }}>
-                    <Card
-                      variant="outlined"
-                      sx={{
-                        width: "100%",
-                        borderColor: isKept ? "primary.main" : "divider",
-                        borderWidth: isKept ? 2 : 1,
-                        transition: "border-color 0.15s",
-                      }}>
-                      <CardActionArea onClick={() => onToggleKept(group, key)}>
-                        <ThumbnailImage
-                          src={item.thumb + "=h200"}
-                          alt={item.fileName || item.mediaKey}
-                        />
-                        <CardContent
-                          sx={{
-                            p: 1,
-                            "&:last-child": { pb: 1 },
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 0.5,
-                          }}>
-                          {item.fileName && (
-                            <Typography
-                              variant="caption"
-                              display="block"
-                              noWrap
-                              title={item.fileName}>
-                              {item.fileName}
-                            </Typography>
-                          )}
-                          {item.resWidth && item.resHeight && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontFamily: "monospace" }}>
-                              {item.resWidth}×{item.resHeight}
-                            </Typography>
-                          )}
-                          {item.timestamp ? (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              <span style={{ opacity: 0.6 }}>Taken </span>
-                              {new Date(item.timestamp).toLocaleDateString(undefined, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </Typography>
-                          ) : null}
-                          {item.creationTimestamp ? (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              <span style={{ opacity: 0.6 }}>Uploaded </span>
-                              {new Date(item.creationTimestamp).toLocaleDateString(undefined, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </Typography>
-                          ) : null}
-                          {isKept ? (
-                            <Chip
-                              label="Keep"
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                              sx={{ width: "fit-content", height: 20, fontSize: 11 }}
-                            />
-                          ) : isSelected ? (
-                            <Chip
-                              label="Trash"
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              sx={{ width: "fit-content", height: 20, fontSize: 11 }}
-                            />
-                          ) : null}
-                        </CardContent>
-                      </CardActionArea>
-                    </Card>
-
-                    {/* Zoom overlay — secondary action, does not trigger Keep toggle */}
-                    <IconButton
-                      className="viewer-btn"
-                      size="small"
-                      aria-label="View full size"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setViewerState({ group, index: itemIndex })
-                      }}
-                      sx={{
-                        position: "absolute",
-                        top: 4,
-                        right: 4,
-                        bgcolor: "rgba(0,0,0,0.45)",
-                        color: "white",
-                        transition: "opacity 0.15s",
-                        minWidth: 32,
-                        minHeight: 32,
-                        "&:hover": { bgcolor: "rgba(0,0,0,0.65)" },
-                      }}>
-                      <OpenInFullIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Box>
-                )
-              })}
-            </Box>
-          </Paper>
-        )
-      })}
+      {groups.slice(0, visibleCount).map((group) => (
+        <DuplicateGroupRow
+          key={group.id}
+          group={group}
+          mediaItems={mediaItems}
+          isSelected={selectedGroupIds.has(group.id)}
+          keptSet={keptByGroupId.get(group.id)!}
+          onToggleGroup={onToggleGroup}
+          onToggleKept={onToggleKept}
+          onOpenViewer={onOpenViewer}
+        />
+      ))}
 
       {/* Infinite scroll sentinel */}
       {visibleCount < groups.length && <div ref={sentinelRef} />}
 
       {/* Photo viewer modal — rendered once outside the map, state drives which photo */}
-      {viewerGroup && (
+      {viewerState && (
         <PhotoViewerModal
           open={true}
           items={viewerItems}
-          initialIndex={viewerState!.index}
-          keptSet={getKept(viewerGroup)}
-          isGroupSelected={selectedGroupIds.has(viewerGroup.id)}
+          initialIndex={viewerState.index}
+          keptSet={keptByGroupId.get(viewerState.group.id)!}
+          isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
           onClose={() => setViewerState(null)}
         />
       )}
     </Box>
   )
 }
-

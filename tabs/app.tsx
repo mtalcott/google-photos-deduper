@@ -156,6 +156,24 @@ export default function App() {
     [keptOverrides]
   )
 
+  // Stable default kept sets (one per group, only changes when groups identity changes)
+  const defaultKeptSets = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const g of groups) m.set(g.id, new Set([g.originalMediaKey]))
+    return m
+  }, [groups])
+
+  // Per-group kept sets: overridden groups use the live override Set (changes only for
+  // the toggled group); unoverridden groups reuse the stable default Set from above so
+  // React.memo on DuplicateGroupRow skips re-renders for unaffected rows.
+  const keptByGroupId = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const g of groups) {
+      m.set(g.id, keptOverrides[g.id] ?? defaultKeptSets.get(g.id)!)
+    }
+    return m
+  }, [groups, keptOverrides, defaultKeptSets])
+
   const handleToggleKept = useCallback(
     (group: DuplicateGroup, mediaKey: string) => {
       setKeptOverrides((prev) => {
@@ -635,7 +653,7 @@ export default function App() {
     state.status === "results"
       ? groups.reduce((sum, group) => {
           if (!selectedGroupIds.has(group.id)) return sum
-          const keptSet = getKept(group)
+          const keptSet = keptByGroupId.get(group.id)!
           return sum + group.mediaKeys.filter((k) => !keptSet.has(k)).length
         }, 0)
       : 0
@@ -751,7 +769,7 @@ export default function App() {
               mediaItems={state.mediaItems}
               selectedGroupIds={selectedGroupIds}
               onToggleGroup={handleToggleGroup}
-              getKept={getKept}
+              keptByGroupId={keptByGroupId}
               onToggleKept={handleToggleKept}
             />
           </>
