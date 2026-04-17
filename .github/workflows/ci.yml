@@ -52,3 +52,45 @@ jobs:
         with:
           name: integration-test-results
           path: test-results/
+
+  bench:
+    name: Performance benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run benchmarks
+        run: npx vitest bench --run --outputJson bench-output.json
+
+      # Restore the baseline recorded on the most recent main-branch push.
+      # restore-keys falls back to the latest matching entry when no exact hit.
+      - name: Restore baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: tests/perf/bench-baseline.json
+          key: bench-baseline-${{ github.sha }}
+          restore-keys: bench-baseline-
+
+      - name: Check for regressions
+        run: node tools/check-bench.mjs
+
+      # Overwrite the baseline with current results and cache under this SHA.
+      # Only runs on main so PRs always compare against a known-good baseline.
+      - name: Update baseline
+        if: github.ref == 'refs/heads/main'
+        run: cp bench-output.json tests/perf/bench-baseline.json
+
+      - name: Save baseline
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: tests/perf/bench-baseline.json
+          key: bench-baseline-${{ github.sha }}

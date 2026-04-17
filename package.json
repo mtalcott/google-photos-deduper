@@ -9,6 +9,7 @@
     "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
     "build:worker": "node_modules/.bin/esbuild workers/embedder.worker.ts --bundle --platform=browser --format=iife --target=es2020 --outfile=scripts/embedder-worker.js",
     "test": "vitest run",
+    "test:bench": "vitest bench --run",
     "test:watch": "vitest",
     "test:integration": "playwright test --config playwright.config.ts",
     "test:e2e": "playwright test --config playwright.e2e.config.ts",
