@@ -164,6 +164,7 @@ export interface GpdMediaItem {
   fileName?: string;
   size?: number;
   isOwned?: boolean;
+  isOriginalQuality?: boolean | null;
   duration?: number; // video duration (undefined for photos)
 }
 

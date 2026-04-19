@@ -104,6 +104,7 @@ async function getAllMediaItems(requestId, args) {
             resHeight: item.resHeight,
             duration: item.duration,
             isOwned: item.isOwned,
+            isOriginalQuality: item.isOriginalQuality ?? null,
             fileName: item.descriptionShort || null,
             productUrl: "https://photos.google.com/photo/" + item.mediaKey
           })

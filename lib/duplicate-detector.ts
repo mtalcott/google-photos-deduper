@@ -10,6 +10,25 @@ import type { GpdMediaItem, DuplicateGroup } from "./types";
 import { StabilityTracker } from "./scan-log";
 import type { ScanLogger } from "./scan-log";
 
+/**
+ * Select the best item to keep from a duplicate group.
+ * Priority: original quality > higher resolution > oldest upload date.
+ */
+export function selectDefaultKeep(items: GpdMediaItem[]): string {
+  const qualityScore = (x: GpdMediaItem) =>
+    x.isOriginalQuality === true ? 2 : x.isOriginalQuality === false ? 0 : 1;
+  const best = [...items].sort((a, b) => {
+    const qDiff = qualityScore(b) - qualityScore(a);
+    if (qDiff !== 0) return qDiff;
+    const pxDiff =
+      (b.resWidth ?? 0) * (b.resHeight ?? 0) -
+      (a.resWidth ?? 0) * (a.resHeight ?? 0);
+    if (pxDiff !== 0) return pxDiff;
+    return (a.creationTimestamp ?? 0) - (b.creationTimestamp ?? 0);
+  });
+  return best[0].mediaKey;
+}
+
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite";
 
@@ -270,7 +289,7 @@ export async function fullDetectDuplicates(
     return {
       id: `group-${i}`,
       mediaKeys,
-      originalMediaKey: mediaKeys[0], // Oldest upload date selected as default original
+      originalMediaKey: selectDefaultKeep(items),
       similarity: threshold, // Approximate; all items are at least this similar
     };
   });
@@ -369,7 +388,7 @@ export function withinGroupDuplicates(
       return {
         id: `group-${groupIdOffset + i}`,
         mediaKeys: sorted.map((x) => x.mediaKey),
-        originalMediaKey: sorted[0].mediaKey,
+        originalMediaKey: selectDefaultKeep(items),
         similarity: threshold,
       };
     });
@@ -563,7 +582,7 @@ export async function smartDetectDuplicates(
     return {
       id: `group-${i}`,
       mediaKeys: items.map((x) => x.mediaKey),
-      originalMediaKey: items[0].mediaKey,
+      originalMediaKey: selectDefaultKeep(items),
       similarity: threshold,
     };
   });

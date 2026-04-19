@@ -31,6 +31,7 @@ import {
   smartDetectDuplicates
 } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
+import { selectDefaultKeep } from "../lib/duplicate-detector"
 import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
@@ -149,48 +150,6 @@ export default function App() {
       setKeptOverrides({})
     }
   }, [groups])
-
-  const getKept = useCallback(
-    (group: DuplicateGroup): Set<string> =>
-      keptOverrides[group.id] ?? new Set([group.originalMediaKey]),
-    [keptOverrides]
-  )
-
-  // Stable default kept sets (one per group, only changes when groups identity changes)
-  const defaultKeptSets = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    for (const g of groups) m.set(g.id, new Set([g.originalMediaKey]))
-    return m
-  }, [groups])
-
-  // Per-group kept sets: overridden groups use the live override Set (changes only for
-  // the toggled group); unoverridden groups reuse the stable default Set from above so
-  // React.memo on DuplicateGroupRow skips re-renders for unaffected rows.
-  const keptByGroupId = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    for (const g of groups) {
-      m.set(g.id, keptOverrides[g.id] ?? defaultKeptSets.get(g.id)!)
-    }
-    return m
-  }, [groups, keptOverrides, defaultKeptSets])
-
-  const handleToggleKept = useCallback(
-    (group: DuplicateGroup, mediaKey: string) => {
-      setKeptOverrides((prev) => {
-        const current = prev[group.id] ?? new Set([group.originalMediaKey])
-        // Prevent removing the last kept item
-        if (current.has(mediaKey) && current.size === 1) return prev
-        const next = new Set(current)
-        if (next.has(mediaKey)) {
-          next.delete(mediaKey)
-        } else {
-          next.add(mediaKey)
-        }
-        return { ...prev, [group.id]: next }
-      })
-    },
-    []
-  )
 
   const handleToggleGroup = useCallback((groupId: string) => {
     setSelectedGroupIds((prev) => {
@@ -441,6 +400,56 @@ export default function App() {
 
   // Persist scan results when they change (after scan or trash)
   const mediaItems = state.status === "results" ? state.mediaItems : null
+
+  // Stable default kept sets (one per group, only changes when groups or mediaItems change).
+  // Uses smart keep selection: original quality > higher resolution > oldest upload date.
+  const defaultKeptSets = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const g of groups) {
+      const groupItems = mediaItems
+        ? g.mediaKeys.map((k) => mediaItems[k]).filter(Boolean)
+        : []
+      const defaultKey =
+        groupItems.length > 0 ? selectDefaultKeep(groupItems) : g.originalMediaKey
+      m.set(g.id, new Set([defaultKey]))
+    }
+    return m
+  }, [groups, mediaItems])
+
+  const getKept = useCallback(
+    (group: DuplicateGroup): Set<string> =>
+      keptOverrides[group.id] ?? defaultKeptSets.get(group.id) ?? new Set([group.originalMediaKey]),
+    [keptOverrides, defaultKeptSets]
+  )
+
+  // Per-group kept sets: overridden groups use the live override Set (changes only for
+  // the toggled group); unoverridden groups reuse the stable default Set from above so
+  // React.memo on DuplicateGroupRow skips re-renders for unaffected rows.
+  const keptByGroupId = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const g of groups) {
+      m.set(g.id, keptOverrides[g.id] ?? defaultKeptSets.get(g.id)!)
+    }
+    return m
+  }, [groups, keptOverrides, defaultKeptSets])
+
+  const handleToggleKept = useCallback(
+    (group: DuplicateGroup, mediaKey: string) => {
+      setKeptOverrides((prev) => {
+        const current = prev[group.id] ?? defaultKeptSets.get(group.id) ?? new Set([group.originalMediaKey])
+        // Prevent removing the last kept item
+        if (current.has(mediaKey) && current.size === 1) return prev
+        const next = new Set(current)
+        if (next.has(mediaKey)) {
+          next.delete(mediaKey)
+        } else {
+          next.add(mediaKey)
+        }
+        return { ...prev, [group.id]: next }
+      })
+    },
+    [defaultKeptSets]
+  )
   const totalItems = state.status === "results" ? state.totalItems : 0
   const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
   useEffect(() => {
