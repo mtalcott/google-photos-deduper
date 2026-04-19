@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -413,5 +413,86 @@ describe("withinGroupDuplicates", () => {
     if (groups.length >= 2) {
       expect(groups[0].mediaKeys.length).toBeGreaterThanOrEqual(groups[1].mediaKeys.length)
     }
+  })
+})
+
+// ============================================================
+// selectDefaultKeep
+// ============================================================
+
+describe("selectDefaultKeep", () => {
+  function item(
+    key: string,
+    opts: {
+      isOriginalQuality?: boolean | null
+      resWidth?: number
+      resHeight?: number
+      creationTimestamp?: number
+    } = {},
+  ): GpdMediaItem {
+    return {
+      mediaKey: key,
+      dedupKey: key,
+      thumb: `https://example.com/${key}`,
+      timestamp: 0,
+      creationTimestamp: opts.creationTimestamp ?? 0,
+      resWidth: opts.resWidth,
+      resHeight: opts.resHeight,
+      isOriginalQuality: opts.isOriginalQuality,
+    }
+  }
+
+  it("prefers original quality over storage saver regardless of resolution", () => {
+    const saver = item("saver", { isOriginalQuality: false, resWidth: 4000, resHeight: 3000 })
+    const original = item("original", { isOriginalQuality: true, resWidth: 100, resHeight: 100 })
+    expect(selectDefaultKeep([saver, original])).toBe("original")
+  })
+
+  it("prefers original quality over null quality", () => {
+    const unknown = item("unknown", { isOriginalQuality: null, resWidth: 4000, resHeight: 3000 })
+    const original = item("original", { isOriginalQuality: true, resWidth: 100, resHeight: 100 })
+    expect(selectDefaultKeep([unknown, original])).toBe("original")
+  })
+
+  it("prefers null quality over storage saver", () => {
+    const saver = item("saver", { isOriginalQuality: false, resWidth: 4000, resHeight: 3000 })
+    const unknown = item("unknown", { isOriginalQuality: null, resWidth: 100, resHeight: 100 })
+    expect(selectDefaultKeep([saver, unknown])).toBe("unknown")
+  })
+
+  it("prefers higher resolution when quality is tied (both original)", () => {
+    const small = item("small", { isOriginalQuality: true, resWidth: 800, resHeight: 600 })
+    const large = item("large", { isOriginalQuality: true, resWidth: 3000, resHeight: 2000 })
+    expect(selectDefaultKeep([small, large])).toBe("large")
+  })
+
+  it("prefers higher resolution when quality is tied (both null)", () => {
+    const small = item("small", { resWidth: 800, resHeight: 600, creationTimestamp: 1 })
+    const large = item("large", { resWidth: 3000, resHeight: 2000, creationTimestamp: 2 })
+    expect(selectDefaultKeep([small, large])).toBe("large")
+  })
+
+  it("prefers oldest upload date as tiebreaker when quality and resolution are equal", () => {
+    const newer = item("newer", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 200 })
+    const older = item("older", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 100 })
+    expect(selectDefaultKeep([newer, older])).toBe("older")
+  })
+
+  it("handles undefined resolution fields (treats as 0 pixels)", () => {
+    const withRes = item("withRes", { resWidth: 1920, resHeight: 1080 })
+    const noRes = item("noRes", {})
+    expect(selectDefaultKeep([noRes, withRes])).toBe("withRes")
+  })
+
+  it("returns the single item in a one-item array", () => {
+    const only = item("only", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080 })
+    expect(selectDefaultKeep([only])).toBe("only")
+  })
+
+  it("handles all items with equal criteria — returns first in stable order", () => {
+    const a = item("a", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 0 })
+    const b = item("b", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 0 })
+    const result = selectDefaultKeep([a, b])
+    expect(["a", "b"]).toContain(result)
   })
 })

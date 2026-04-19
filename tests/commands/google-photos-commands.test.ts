@@ -87,6 +87,92 @@ afterEach(() => {
 })
 
 // ============================================================
+// Unit tests: getAllMediaItems
+// ============================================================
+
+describe("getAllMediaItems — field mapping", () => {
+  function setupGptkApi(items: unknown[], nextPageId: string | null = null) {
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi.fn().mockResolvedValue({ items, nextPageId }),
+    }
+  }
+
+  afterEach(() => {
+    delete (window as any).gptkApi
+  })
+
+  it("passes isOriginalQuality=true through to output item", async () => {
+    setupGptkApi([
+      {
+        mediaKey: "mk1",
+        dedupKey: "dk1",
+        thumb: "https://thumb/1",
+        timestamp: 1000,
+        creationTimestamp: 2000,
+        isOriginalQuality: true,
+      },
+    ])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-oq-1", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.success).toBe(true)
+    expect(result?.data[0].isOriginalQuality).toBe(true)
+    restore()
+  })
+
+  it("passes isOriginalQuality=false (storage saver) through to output item", async () => {
+    setupGptkApi([
+      {
+        mediaKey: "mk2",
+        dedupKey: "dk2",
+        thumb: "https://thumb/2",
+        timestamp: 1000,
+        creationTimestamp: 2000,
+        isOriginalQuality: false,
+      },
+    ])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-oq-2", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.data[0].isOriginalQuality).toBe(false)
+    restore()
+  })
+
+  it("maps undefined isOriginalQuality to null", async () => {
+    setupGptkApi([
+      {
+        mediaKey: "mk3",
+        dedupKey: "dk3",
+        thumb: "https://thumb/3",
+        timestamp: 1000,
+        creationTimestamp: 2000,
+        // isOriginalQuality intentionally absent
+      },
+    ])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-oq-3", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.data[0].isOriginalQuality).toBeNull()
+    restore()
+  })
+})
+
+// ============================================================
 // Unit tests: trashItems
 // ============================================================
 
