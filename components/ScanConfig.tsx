@@ -14,6 +14,14 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded"
 import type { ScanSettings } from "../lib/types"
 
+function formatWindow(sec: number): string {
+  if (sec < 60) return `${sec}s`
+  if (sec < 3600) return `${Math.round(sec / 60)}m`
+  if (sec < 86400) return `${Math.round(sec / 3600)}h`
+  if (sec < 604800) return `${Math.round(sec / 86400)}d`
+  return `${Math.round(sec / 604800)}w`
+}
+
 interface ScanConfigProps {
   settings: ScanSettings
   onSettingsChange: (settings: Partial<ScanSettings>) => void
@@ -102,6 +110,31 @@ export function ScanConfig({
                   : "Compares all photos against each other — thorough but slow for large libraries."}
               </Typography>
             </Box>
+
+            {settings.scanMode === "smart" && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
+                  Time window: <strong>{formatWindow(settings.smartWindowSec ?? 1)}</strong>
+                </Typography>
+                <ToggleButtonGroup
+                  value={settings.smartWindowSec ?? 1}
+                  exclusive
+                  size="small"
+                  fullWidth
+                  onChange={(_, value) => {
+                    if (value !== null) onSettingsChange({ smartWindowSec: value })
+                  }}>
+                  <ToggleButton value={1}>1s</ToggleButton>
+                  <ToggleButton value={60}>1m</ToggleButton>
+                  <ToggleButton value={3600}>1h</ToggleButton>
+                  <ToggleButton value={86400}>1d</ToggleButton>
+                  <ToggleButton value={604800}>1w</ToggleButton>
+                </ToggleButtonGroup>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                  How close in time items must be to be compared. Widen this to catch re-saved videos whose EXIF date was rewritten — at the cost of more pairs to check.
+                </Typography>
+              </Box>
+            )}
 
             <Box>
               <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>

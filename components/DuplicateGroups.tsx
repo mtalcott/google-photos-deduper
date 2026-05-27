@@ -17,6 +17,29 @@ import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
 const PAGE_SIZE = 30
 
+/**
+ * Label a group as "videos", "photos", or "items" depending on the kinds of
+ * media inside. Groups with both kinds (rare, only possible if a video's
+ * poster happens to match a still) fall back to the neutral "items".
+ */
+function groupItemKind(
+  group: DuplicateGroup,
+  mediaItems: Record<string, GpdMediaItem>,
+): string {
+  let videos = 0
+  let total = 0
+  for (const key of group.mediaKeys) {
+    const item = mediaItems[key]
+    if (!item) continue
+    total++
+    if (item.duration) videos++
+  }
+  if (total === 0) return "items"
+  if (videos === total) return total === 1 ? "video" : "videos"
+  if (videos === 0) return total === 1 ? "photo" : "photos"
+  return "items"
+}
+
 // ── Hoisted static sx objects ──────────────────────────────────────────
 const sxPaperBase = { mb: 2, overflow: "hidden", borderRadius: 2, transition: "opacity 0.15s" }
 const sxGroupHeader = {
@@ -130,7 +153,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           sx={sxCheckbox}
         />
         <Typography variant="subtitle2" sx={{ flex: 1 }}>
-          {group.mediaKeys.length} photos
+          {group.mediaKeys.length} {groupItemKind(group, mediaItems)}
         </Typography>
         <Chip
           label={`${Math.round(group.similarity * 100)}% similar`}

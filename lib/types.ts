@@ -198,6 +198,14 @@ export interface StoredState {
 export interface ScanSettings {
   similarityThreshold: number;
   scanMode: ScanMode;
+  /**
+   * Smart-mode timestamp bucket window in seconds. Items with `taken` dates
+   * within this window are compared against each other. Default is 1 second
+   * (matches the legacy hardcoded value). Widen to catch re-saved videos /
+   * photos whose EXIF timestamp was rewritten — at the cost of more pairs to
+   * compare.
+   */
+  smartWindowSec?: number;
   dateRange?: {
     from?: string;
     to?: string;
@@ -207,4 +215,5 @@ export interface ScanSettings {
 export const DEFAULT_SETTINGS: ScanSettings = {
   similarityThreshold: 0.99,
   scanMode: "smart",
+  smartWindowSec: 1,
 };
