@@ -51,6 +51,12 @@ import type {
 // Helpers
 // ============================================================
 
+// Initial healthCheck retries. The first probe often fails on a freshly
+// opened app tab because the bridge content script on photos.google.com has
+// not finished loading yet, or because the MV3 service worker is still
+// spinning up from idle. Backoff: 400ms, 800ms, 1600ms, 3200ms (5 attempts).
+const HEALTH_CHECK_MAX_ATTEMPTS = 5
+
 function generateRequestId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -119,6 +125,10 @@ export default function App() {
   // scans killed by reload can be dropped (they arrive late from the GP tab)
   const currentScanRequestIdRef = useRef<string | null>(null)
 
+  // Counts failed healthCheck attempts during initial connect so we can retry
+  // silently before showing a disconnected error.
+  const healthCheckAttemptsRef = useRef(0)
+
   // Holds selections loaded from storage; applied once when groups first load
   const pendingSelectionsRef = useRef<{
     selectedGroupIds: Set<string>
@@ -180,12 +190,33 @@ export default function App() {
       if (sender.tab) return
 
       switch (message.action) {
-        case "healthCheck.result":
+        case "healthCheck.result": {
+          const msg = message as HealthCheckResultMessage
+          // Swallow early "failed" results and retry — when the app tab opens
+          // before the bridge content script has fully loaded on a fresh
+          // photos.google.com tab, or when the service worker has just woken
+          // up from MV3 idle, the first probe often misses. Without this the
+          // user sees a spurious "disconnected" flash and has to manually hit
+          // Retry. We give up after a few attempts and let the reducer show
+          // the error.
+          if (
+            !msg.success &&
+            healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
+          ) {
+            healthCheckAttemptsRef.current++
+            const delay = 400 * Math.pow(2, healthCheckAttemptsRef.current - 1)
+            window.setTimeout(() => {
+              sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
+            }, delay)
+            return
+          }
+          if (msg.success) healthCheckAttemptsRef.current = 0
           dispatch({
             type: "HEALTH_CHECK_RESULT",
-            payload: message as HealthCheckResultMessage
+            payload: msg
           })
           break
+        }
         case "gptkResult": {
           const result = message as GptkResultMessage
           if (result.command === "getAllMediaItems") {
@@ -620,6 +651,7 @@ export default function App() {
 
   const handleReset = useCallback(() => {
     dispatch({ type: "RESET" })
+    healthCheckAttemptsRef.current = 0
     sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
   }, [])
 

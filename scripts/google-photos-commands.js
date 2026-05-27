@@ -73,13 +73,38 @@ async function getAllMediaItems(requestId, args) {
   const sinceTimestamp =
     args && args.sinceTimestamp ? args.sinceTimestamp : null
 
+  // Per-page timeout. Google's pagination endpoint occasionally hangs without
+  // ever rejecting fetch(), which used to lock the UI on "Fetching media
+  // items" indefinitely. A timeout lets us surface a real error to the user.
+  const PAGE_TIMEOUT_MS = 60_000
+
+  function withTimeout(promise, ms, label) {
+    let timer
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `${label} timed out after ${Math.round(ms / 1000)}s. Google's API likely stalled — please re-scan.`
+            )
+          ),
+        ms
+      )
+    })
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+  }
+
   try {
     let nextPageId = null
     const mediaItems = []
     let reachedCache = false
 
     do {
-      const page = await gptkApi.getItemsByUploadedDate(nextPageId)
+      const page = await withTimeout(
+        gptkApi.getItemsByUploadedDate(nextPageId),
+        PAGE_TIMEOUT_MS,
+        "Fetching page from Google Photos"
+      )
       if (!page) {
         console.warn("GPD: Empty page response, stopping pagination")
         break
