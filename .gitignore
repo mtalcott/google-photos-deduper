@@ -41,3 +41,7 @@ docs/
 .vscode/tasks.json
 .DS_Store
 *:Zone.Identifier
+
+# Local Chrome Debug Profiles
+.chrome-profile/
+

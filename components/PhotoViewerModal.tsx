@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography"
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft"
 import ChevronRightIcon from "@mui/icons-material/ChevronRight"
 import CloseIcon from "@mui/icons-material/Close"
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline"
 import OpenInNewIcon from "@mui/icons-material/OpenInNew"
 import type { GpdMediaItem } from "../lib/types"
 
@@ -105,6 +106,10 @@ export interface PhotoViewerModalProps {
   keptSet: Set<string>
   isGroupSelected: boolean
   onClose: () => void
+  onToggleKept?: (mediaKey: string) => void
+  onToggleGroup?: () => void
+  onNextGroup?: () => void
+  onPrevGroup?: () => void
 }
 
 const slideInFromRight = keyframes`
@@ -123,17 +128,22 @@ export function PhotoViewerModal({
   keptSet,
   isGroupSelected,
   onClose,
+  onToggleKept,
+  onToggleGroup,
+  onNextGroup,
+  onPrevGroup,
 }: PhotoViewerModalProps) {
   const [index, setIndex] = useState(initialIndex)
   const [slideDir, setSlideDir] = useState<"forward" | "backward">("forward")
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   // Preload all images in the group up front
   const blobUrls = useGroupBlobUrls(items)
 
-  // Reset index when the modal opens or the initial photo changes
+  // Reset index when the modal opens, the initial photo changes, or the items change
   useEffect(() => {
     setIndex(initialIndex)
-  }, [open, initialIndex])
+  }, [open, initialIndex, items])
 
   const navigate = (newIndex: number) => {
     if (newIndex === index) return
@@ -145,12 +155,46 @@ export function PhotoViewerModal({
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") navigate(Math.max(0, index - 1))
-      if (e.key === "ArrowRight") navigate(Math.min(items.length - 1, index + 1))
+      if (e.shiftKey) {
+        if (e.key === "ArrowUp") {
+          e.preventDefault()
+          if (!isGroupSelected) {
+            onToggleGroup?.()
+          }
+          onNextGroup?.()
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault()
+          if (isGroupSelected) {
+            onToggleGroup?.()
+          }
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault()
+          onPrevGroup?.()
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault()
+          onNextGroup?.()
+        }
+      } else {
+        if (e.key === "ArrowLeft") {
+          navigate(Math.max(0, index - 1))
+        } else if (e.key === "ArrowRight") {
+          navigate(Math.min(items.length - 1, index + 1))
+        } else if (e.key === "ArrowUp") {
+          const item = items[Math.min(index, items.length - 1)]
+          if (item && !keptSet.has(item.mediaKey)) {
+            onToggleKept?.(item.mediaKey)
+          }
+        } else if (e.key === "ArrowDown") {
+          const item = items[Math.min(index, items.length - 1)]
+          if (item && keptSet.has(item.mediaKey)) {
+            onToggleKept?.(item.mediaKey)
+          }
+        }
+      }
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [open, index, items.length])
+  }, [open, index, items, keptSet, isGroupSelected, onToggleKept, onToggleGroup, onNextGroup, onPrevGroup])
 
   if (items.length === 0) return null
 
@@ -365,7 +409,64 @@ export function PhotoViewerModal({
             <OpenInNewIcon sx={{ fontSize: 12 }} />
           </Link>
         )}
+
+        {/* Shortcuts Help Button */}
+        <IconButton
+          onClick={() => setShortcutsOpen(true)}
+          size="small"
+          aria-label="Keyboard shortcuts"
+          sx={{ color: "rgba(255,255,255,0.7)", "&:hover": { color: "white" } }}>
+          <HelpOutlineIcon sx={{ fontSize: 18 }} />
+        </IconButton>
       </Box>
+
+      {/* Shortcuts Modal */}
+      <Dialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "#222",
+            color: "white",
+          },
+        }}>
+        <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>Keyboard Shortcuts</Typography>
+          <IconButton onClick={() => setShortcutsOpen(false)} size="small" sx={{ color: "white" }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, p: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Previous / Next photo</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>← / →</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Keep photo</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>↑</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Trash photo</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>↓</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Previous / Next group</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>Shift + ← / →</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Confirm group's choices & Next</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>Shift + ↑</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Unconfirm group</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>Shift + ↓</Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

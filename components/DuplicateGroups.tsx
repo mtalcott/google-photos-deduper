@@ -301,6 +301,22 @@ export function DuplicateGroups({
     setViewerState({ group, index })
   }, [])
 
+  const currentGroupIndex = viewerState
+    ? groups.findIndex((g) => g.id === viewerState.group.id)
+    : -1
+
+  const handleNextGroup = useCallback(() => {
+    if (currentGroupIndex !== -1 && currentGroupIndex < groups.length - 1) {
+      setViewerState({ group: groups[currentGroupIndex + 1], index: 0 })
+    }
+  }, [currentGroupIndex, groups])
+
+  const handlePrevGroup = useCallback(() => {
+    if (currentGroupIndex > 0) {
+      setViewerState({ group: groups[currentGroupIndex - 1], index: 0 })
+    }
+  }, [currentGroupIndex, groups])
+
   const viewerItems = useMemo(() => {
     if (!viewerState) return []
     return viewerState.group.mediaKeys
@@ -354,6 +370,10 @@ export function DuplicateGroups({
           keptSet={keptByGroupId.get(viewerState.group.id)!}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
           onClose={() => setViewerState(null)}
+          onToggleKept={(mediaKey) => onToggleKept(viewerState.group, mediaKey)}
+          onToggleGroup={() => onToggleGroup(viewerState.group.id)}
+          onNextGroup={handleNextGroup}
+          onPrevGroup={handlePrevGroup}
         />
       )}
     </Box>
