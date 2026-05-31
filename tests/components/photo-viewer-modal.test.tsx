@@ -197,6 +197,12 @@ describe("PhotoViewerModal — navigation", () => {
     expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument()
   })
 
+  it("does not go above last index with ArrowRight at last item", () => {
+    wrap(<PhotoViewerModal {...defaultProps} initialIndex={2} />)
+    fireEvent.keyDown(window, { key: "ArrowRight" })
+    expect(screen.getByText(/3 \/ 3/)).toBeInTheDocument()
+  })
+
   it("resets index to initialIndex when items change", () => {
     const { rerender } = wrap(<PhotoViewerModal {...defaultProps} initialIndex={0} />)
     

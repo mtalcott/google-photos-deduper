@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { keyframes } from "@emotion/react"
 import Box from "@mui/material/Box"
 import CardMedia from "@mui/material/CardMedia"
@@ -145,11 +145,13 @@ export function PhotoViewerModal({
     setIndex(initialIndex)
   }, [open, initialIndex, items])
 
-  const navigate = (newIndex: number) => {
-    if (newIndex === index) return
-    setSlideDir(newIndex > index ? "forward" : "backward")
-    setIndex(newIndex)
-  }
+  const navigate = useCallback((newIndex: number) => {
+    setIndex((prev) => {
+      if (newIndex === prev) return prev
+      setSlideDir(newIndex > prev ? "forward" : "backward")
+      return newIndex
+    })
+  }, [])
 
   // Keyboard navigation (arrow keys only; MUI Dialog handles Escape → onClose)
   useEffect(() => {
@@ -180,11 +182,13 @@ export function PhotoViewerModal({
         } else if (e.key === "ArrowRight") {
           navigate(Math.min(items.length - 1, index + 1))
         } else if (e.key === "ArrowUp") {
+          e.preventDefault()
           const item = items[Math.min(index, items.length - 1)]
           if (item && !keptSet.has(item.mediaKey)) {
             onToggleKept?.(item.mediaKey)
           }
         } else if (e.key === "ArrowDown") {
+          e.preventDefault()
           const item = items[Math.min(index, items.length - 1)]
           if (item && keptSet.has(item.mediaKey)) {
             onToggleKept?.(item.mediaKey)
@@ -426,6 +430,7 @@ export function PhotoViewerModal({
         onClose={() => setShortcutsOpen(false)}
         maxWidth="xs"
         fullWidth
+        aria-label="Keyboard shortcuts"
         PaperProps={{
           sx: {
             bgcolor: "#222",

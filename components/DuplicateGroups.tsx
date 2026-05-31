@@ -301,9 +301,11 @@ export function DuplicateGroups({
     setViewerState({ group, index })
   }, [])
 
-  const currentGroupIndex = viewerState
-    ? groups.findIndex((g) => g.id === viewerState.group.id)
-    : -1
+  const currentGroupIndex = useMemo(() => {
+    return viewerState
+      ? groups.findIndex((g) => g.id === viewerState.group.id)
+      : -1
+  }, [viewerState, groups])
 
   const handleNextGroup = useCallback(() => {
     if (currentGroupIndex !== -1 && currentGroupIndex < groups.length - 1) {
