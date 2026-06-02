@@ -14,6 +14,8 @@ jobs:
   test:
     name: Unit & integration tests
     runs-on: ubuntu-latest
+    # Hard cap so a stalled Playwright download fails in minutes, not the 6h default.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
@@ -21,7 +23,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          # Node 22 LTS: Node 24.16.0 hangs forever extracting the Playwright
+          # browser zip (worked on 24.14.1; broke on a 24.x patch bump). See #123.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -39,9 +43,41 @@ jobs:
       - name: Build extension
         run: npm run build
 
-      # Integration tests require a headed browser; use Xvfb on Linux
-      - name: Install Playwright + system deps
-        run: npx playwright install chromium --with-deps
+      # Integration tests require a headed browser; use Xvfb on Linux.
+      # Cache the browser binaries so we only hit the CDN when the Playwright
+      # version changes — keyed on the resolved @playwright/test version.
+      - name: Resolve Playwright version
+        id: pw-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+
+      # System deps (apt) must be installed on every run; they aren't cached.
+      - name: Install Playwright system deps
+        run: npx playwright install-deps chromium
+
+      # Download the browser only on a cache miss. Wrap in timeout + retry:
+      # the CDN download intermittently stalls at 100%, which previously hung
+      # the job for the full 6h runner limit (see #123).
+      - name: Install Playwright browser
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3; do
+            echo "::group::Playwright browser install (attempt $attempt)"
+            if timeout 300 npx playwright install chromium; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Attempt $attempt timed out or failed; retrying..."
+          done
+          echo "Playwright browser install failed after 3 attempts" >&2
+          exit 1
 
       - name: Integration tests
         run: xvfb-run --auto-servernum npm run test:integration
