@@ -47,7 +47,16 @@ Do **not** use `npm run build` for development — that builds prod and overwrit
 
 ---
 
+**Note**: In newer versions of Chrome (v137 and later), the `--load-extension` CLI flag is completely ignored on standard builds for security reasons. Unpacked extensions must be loaded **manually once** via the `chrome://extensions` page with **Developer mode** enabled.
+
 Chrome must be running with remote debugging enabled on port 9222. If not started:
+
+**macOS:**
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222 --user-data-dir=".chrome-profile" --no-first-run
+```
+
+**Windows [WSL]:**
 ```bash
 "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\Users\mackt\Chrome Profiles\chrome-debug" --no-first-run
 ```
