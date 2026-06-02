@@ -26,9 +26,48 @@ const pendingCommands: Record<
 // Find tabs
 // ============================================================
 
+/**
+ * Find a Google Photos tab that the bridge content script can actually reach.
+ *
+ * When the user has multiple photos.google.com tabs open (e.g. opened before
+ * the extension was installed, or duplicated via the "Open Google Photos"
+ * button), picking the first one returned by chrome.tabs.query is unreliable:
+ * the bridge may not be loaded in it, and chrome.tabs.sendMessage rejects with
+ * "Receiving end does not exist", surfacing as a spurious "Cannot connect to
+ * Google Photos" error.
+ *
+ * Strategy: prefer the active tab, then sort by lastAccessed descending, and
+ * ping each one until we find a reachable bridge. The bridge ignores
+ * unrecognized actions, so a no-op ping resolves with undefined when reachable
+ * and rejects when no content script is present.
+ */
 async function findGooglePhotosTab(): Promise<chrome.tabs.Tab | null> {
   const tabs = await chrome.tabs.query({ url: "https://photos.google.com/*" })
-  return tabs.length > 0 ? tabs[0] : null
+  if (tabs.length === 0) return null
+
+  // `lastAccessed` is available in Chrome 121+ but missing from this version
+  // of @types/chrome.
+  type TabWithLastAccessed = chrome.tabs.Tab & { lastAccessed?: number }
+  const sorted = [...tabs].sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1
+    const aAccessed = (a as TabWithLastAccessed).lastAccessed ?? 0
+    const bAccessed = (b as TabWithLastAccessed).lastAccessed ?? 0
+    return bAccessed - aAccessed
+  })
+
+  for (const candidate of sorted) {
+    if (!candidate.id) continue
+    try {
+      await chrome.tabs.sendMessage(candidate.id, {
+        app: APP_ID,
+        action: "ping",
+      })
+      return candidate
+    } catch {
+      // Bridge not loaded in this tab; try the next one.
+    }
+  }
+  return null
 }
 
 /**
