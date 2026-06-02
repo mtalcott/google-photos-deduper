@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -212,6 +212,7 @@ function makeItem(
   mediaKey: string,
   timestamp: number,
   creationTimestamp = 0,
+  extra: Partial<GpdMediaItem> = {},
 ): GpdMediaItem {
   return {
     mediaKey,
@@ -219,8 +220,46 @@ function makeItem(
     thumb: `https://example.com/${mediaKey}`,
     timestamp,
     creationTimestamp,
+    ...extra,
   }
 }
+
+// ============================================================
+// fullDetectDuplicates — candidate filtering (PR #121)
+//
+// Videos used to be excluded from scanning (`item.thumb && !item.duration`).
+// PR #121 changed the filter to `item.thumb` so two copies of the same clip —
+// which share an identical poster frame — get caught. These tests assert the
+// filter via the early-return path (< 2 candidates), which reports the count
+// in `timing.candidates` without touching the embedding model or IndexedDB.
+// ============================================================
+
+describe("fullDetectDuplicates — candidate filtering", () => {
+  it("includes a video (item with duration) as a candidate", async () => {
+    const video = makeItem("vid", 1000, 0, { duration: 5000 })
+    const { groups, timing } = await fullDetectDuplicates([video], 0.99)
+    // Single candidate → early return, but it was counted (not filtered out).
+    expect(timing.candidates).toBe(1)
+    expect(timing.totalItems).toBe(1)
+    expect(groups).toEqual([])
+  })
+
+  it("excludes items without a thumbnail", async () => {
+    const noThumb = makeItem("noThumb", 1000, 0, { thumb: undefined })
+    const { timing } = await fullDetectDuplicates([noThumb], 0.99)
+    expect(timing.candidates).toBe(0)
+    expect(timing.totalItems).toBe(1)
+  })
+
+  it("keeps the video but drops the thumbless item", async () => {
+    const video = makeItem("video", 1000, 0, { duration: 3000 })
+    const noThumb = makeItem("noThumb", 1000, 0, { thumb: undefined })
+    const { timing } = await fullDetectDuplicates([video, noThumb], 0.99)
+    // Only the video survives the filter → 1 candidate, still early-return.
+    expect(timing.candidates).toBe(1)
+    expect(timing.totalItems).toBe(2)
+  })
+})
 
 // ============================================================
 // groupByTimestamp

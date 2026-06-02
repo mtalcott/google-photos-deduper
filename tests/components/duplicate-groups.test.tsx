@@ -120,6 +120,55 @@ describe("DuplicateGroups — chip rendering", () => {
 })
 
 // ============================================================
+// Group header item-kind label (PR #121)
+// ============================================================
+
+describe("DuplicateGroups — group item-kind label", () => {
+  const video = (k: string): GpdMediaItem => ({ ...makeItem(k), duration: 5000 })
+
+  /** Render a single group built from the given media-item map + key order. */
+  function renderGroup(items: Record<string, GpdMediaItem>, keys: string[]) {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[makeGroup("gk", ...keys)]}
+        mediaItems={items}
+        selectedGroupIds={new Set(["gk"])}
+        keptByGroupId={new Map([["gk", new Set([keys[0]])]])}
+      />
+    )
+  }
+
+  it('labels an all-photo group "N photos"', () => {
+    renderGroup(
+      { a: makeItem("a"), b: makeItem("b"), c: makeItem("c") },
+      ["a", "b", "c"]
+    )
+    expect(screen.getByText(/^3 photos$/)).toBeInTheDocument()
+  })
+
+  it('labels a single-photo group "1 photo" (singular)', () => {
+    renderGroup({ a: makeItem("a") }, ["a"])
+    expect(screen.getByText(/^1 photo$/)).toBeInTheDocument()
+  })
+
+  it('labels an all-video group "N videos"', () => {
+    renderGroup({ a: video("a"), b: video("b") }, ["a", "b"])
+    expect(screen.getByText(/^2 videos$/)).toBeInTheDocument()
+  })
+
+  it('labels a single-video group "1 video" (singular)', () => {
+    renderGroup({ a: video("a") }, ["a"])
+    expect(screen.getByText(/^1 video$/)).toBeInTheDocument()
+  })
+
+  it('falls back to the neutral "items" for a mixed photo + video group', () => {
+    renderGroup({ a: makeItem("a"), b: video("b") }, ["a", "b"])
+    expect(screen.getByText(/^2 items$/)).toBeInTheDocument()
+  })
+})
+
+// ============================================================
 // Card click → onToggleKept
 // ============================================================
 
