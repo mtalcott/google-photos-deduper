@@ -342,7 +342,7 @@ export default function App() {
             ? await smartDetectDuplicates(
                 items,
                 settingsRef.current.similarityThreshold,
-                1000,
+                (settingsRef.current.smartWindowSec ?? 1) * 1000,
                 onProgressCallback,
                 signal,
                 logger
