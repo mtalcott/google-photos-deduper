@@ -344,3 +344,63 @@ describe("integration: trashItems full flow", () => {
     restore()
   })
 })
+
+// ============================================================
+// getAllMediaItems — per-page timeout (PR #122)
+//
+// Google's pagination endpoint occasionally hangs without ever rejecting
+// fetch(), which used to lock the UI on "Fetching media items" forever.
+// withTimeout() races each page against a 60s timer so a stall surfaces as a
+// real error instead of an indefinite hang.
+// ============================================================
+
+describe("getAllMediaItems — page timeout", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    delete (window as any).gptkApi
+  })
+
+  it("surfaces a timeout error when a page fetch never resolves", async () => {
+    ;(window as any).gptkApi = {
+      // Never resolves — simulates Google's pagination endpoint hanging.
+      getItemsByUploadedDate: vi.fn(() => new Promise(() => {})),
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-timeout-1", {})
+
+    // Advance past the 60s per-page timeout to trip the withTimeout race.
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.success).toBe(false)
+    expect(result?.error).toMatch(/timed out/i)
+    restore()
+  })
+
+  it("does not error when the page resolves before the timeout fires", async () => {
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi
+        .fn()
+        .mockResolvedValue({ items: [], nextPageId: null }),
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-timeout-2", {})
+
+    // Flush microtasks (no real delay needed — the page resolves immediately).
+    await vi.advanceTimersByTimeAsync(0)
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.success).toBe(true)
+    restore()
+  })
+})

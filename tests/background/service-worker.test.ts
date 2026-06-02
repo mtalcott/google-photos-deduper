@@ -149,6 +149,153 @@ describe("healthCheck", () => {
 })
 
 // ============================================================
+// findGooglePhotosTab — multi-tab selection (PR #120)
+//
+// When several photos.google.com tabs are open, picking tabs[0] was
+// unreliable: the bridge may not be loaded in it, and sendMessage rejects
+// with "Receiving end does not exist". The SW now pings each candidate —
+// preferring the active tab, then most-recently-accessed — until one replies.
+// ============================================================
+
+describe("findGooglePhotosTab — multi-tab selection", () => {
+  /** Filter recorded sendMessage calls down to ping probes. */
+  function pingCalls() {
+    return mockChrome.tabs.sendMessage.mock.calls.filter(
+      (c: unknown[]) => (c[1] as { action?: string })?.action === "ping"
+    )
+  }
+
+  it("skips an unreachable tab and forwards to the reachable one", async () => {
+    const unreachableId = 31
+    const reachableId = 32
+    const appTabId = 33
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("photos.google.com"))
+        return Promise.resolve([
+          { id: unreachableId, active: false, lastAccessed: 200 },
+          { id: reachableId, active: false, lastAccessed: 100 },
+        ])
+      return Promise.resolve([{ id: appTabId }])
+    })
+
+    mockChrome.tabs.sendMessage.mockImplementation(
+      (
+        tabId: number,
+        msg: { action?: string; command?: string; requestId?: string }
+      ) => {
+        // The more-recently-accessed tab has no bridge loaded → ping rejects.
+        if (msg?.action === "ping") {
+          return tabId === unreachableId
+            ? Promise.reject(new Error("Receiving end does not exist"))
+            : Promise.resolve()
+        }
+        // healthCheck forwarded to the chosen tab → reply with success.
+        if (msg?.command === "healthCheck") {
+          setTimeout(() => {
+            dispatchMessage(
+              {
+                app: APP_ID,
+                action: "gptkResult",
+                command: "healthCheck",
+                requestId: msg.requestId,
+                success: true,
+                data: { hasGptk: true, hasWizData: true },
+              },
+              gpSender(reachableId)
+            )
+          }, 0)
+        }
+        return Promise.resolve()
+      }
+    )
+
+    dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
+    await new Promise((r) => setTimeout(r, 30))
+
+    // Command went to the reachable tab, never to the unreachable one.
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      reachableId,
+      expect.objectContaining({ command: "healthCheck" })
+    )
+    expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalledWith(
+      unreachableId,
+      expect.objectContaining({ command: "healthCheck" })
+    )
+    // And the app tab sees a successful connection.
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({ action: "healthCheck.result", success: true })
+    )
+  })
+
+  it("prefers the active tab over a more-recently-accessed inactive one", async () => {
+    const activeId = 41
+    const inactiveId = 42
+    const appTabId = 43
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("photos.google.com"))
+        return Promise.resolve([
+          { id: inactiveId, active: false, lastAccessed: 999 },
+          { id: activeId, active: true, lastAccessed: 1 },
+        ])
+      return Promise.resolve([{ id: appTabId }])
+    })
+    // Both tabs reachable — selection comes down purely to ordering.
+    mockChrome.tabs.sendMessage.mockResolvedValue(undefined)
+
+    dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
+    await new Promise((r) => setTimeout(r, 20))
+
+    // The first (and only) ping hits the active tab; the inactive one is
+    // never probed because the active tab answers first.
+    const pings = pingCalls()
+    expect(pings[0][0]).toBe(activeId)
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      activeId,
+      expect.objectContaining({ command: "healthCheck" })
+    )
+  })
+
+  it("reports failure when no Google Photos tab has the bridge loaded", async () => {
+    const tabA = 51
+    const tabB = 52
+    const appTabId = 53
+
+    mockChrome.tabs.query.mockImplementation((query: { url?: string }) => {
+      if (query?.url?.includes("photos.google.com"))
+        return Promise.resolve([
+          { id: tabA, active: false, lastAccessed: 2 },
+          { id: tabB, active: false, lastAccessed: 1 },
+        ])
+      return Promise.resolve([{ id: appTabId }])
+    })
+    // Every ping rejects → no reachable bridge anywhere.
+    mockChrome.tabs.sendMessage.mockImplementation(
+      (_tabId: number, msg: { action?: string }) => {
+        if (msg?.action === "ping")
+          return Promise.reject(new Error("no bridge"))
+        return Promise.resolve()
+      }
+    )
+
+    dispatchMessage({ app: APP_ID, action: "healthCheck" }, appSender())
+    await new Promise((r) => setTimeout(r, 30))
+
+    // Both candidates were probed before giving up.
+    const pingedIds = pingCalls().map((c: unknown[]) => c[0])
+    expect(pingedIds).toContain(tabA)
+    expect(pingedIds).toContain(tabB)
+    // App tab is told it cannot connect.
+    expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      appTabId,
+      expect.objectContaining({ action: "healthCheck.result", success: false })
+    )
+  })
+})
+
+// ============================================================
 // gptkCommand routing
 // ============================================================
 
