@@ -23,7 +23,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          # Node 22 LTS: Node 24.16.0 hangs forever extracting the Playwright
+          # browser zip (worked on 24.14.1; broke on a 24.x patch bump). See #123.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
