@@ -53,6 +53,94 @@ function chunkArray(arr, size) {
   return chunks
 }
 
+function mapMediaItem(item) {
+  return {
+    mediaKey: item.mediaKey,
+    dedupKey: item.dedupKey,
+    thumb: item.thumb,
+    timestamp: item.timestamp,
+    creationTimestamp: item.creationTimestamp,
+    resWidth: item.resWidth,
+    resHeight: item.resHeight,
+    duration: item.duration,
+    isOwned: item.isOwned,
+    isOriginalQuality: item.isOriginalQuality ?? null,
+    fileName: item.descriptionShort || null,
+    productUrl: "https://photos.google.com/photo/" + item.mediaKey
+  }
+}
+
+// ============================================================
+// Command: getAlbums
+// Fetches all albums from the library via GPTK pagination.
+// ============================================================
+
+// Per-page timeout. Google's pagination endpoint occasionally hangs without
+// ever rejecting fetch(), which used to lock the UI on "Fetching media
+// items" indefinitely. A timeout lets us surface a real error to the user.
+const PAGE_TIMEOUT_MS = 60_000
+
+function withTimeout(promise, ms, label) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `${label} timed out after ${Math.round(ms / 1000)}s. Google's API likely stalled — please re-scan.`
+          )
+        ),
+      ms
+    )
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
+
+async function getAlbums(requestId) {
+  const gptkApi = window.gptkApi
+  if (!gptkApi) {
+    postError(
+      "getAlbums",
+      requestId,
+      "GPTK API not available. Reload the Google Photos page."
+    )
+    return
+  }
+
+  try {
+    let nextPageId = null
+    const albums = []
+
+    do {
+      const page = await withTimeout(
+        gptkApi.getAlbums(nextPageId),
+        PAGE_TIMEOUT_MS,
+        "Fetching albums from Google Photos"
+      )
+      if (!page) {
+        console.warn("GPD: Empty page response, stopping pagination")
+        break
+      }
+      if (page.items && page.items.length > 0) {
+        for (const album of page.items) {
+          albums.push({
+            mediaKey: album.mediaKey,
+            title: album.title,
+            thumb: album.thumb,
+            itemCount: album.itemCount
+          })
+        }
+      }
+      nextPageId = page.nextPageId || null
+    } while (nextPageId)
+
+    postResult("getAlbums", requestId, albums)
+  } catch (error) {
+    postError("getAlbums", requestId, error)
+  }
+}
+
 // ============================================================
 // Command: getAllMediaItems
 // Fetches all media items from the library via GPTK pagination.
@@ -73,78 +161,100 @@ async function getAllMediaItems(requestId, args) {
   const sinceTimestamp =
     args && args.sinceTimestamp ? args.sinceTimestamp : null
 
-  // Per-page timeout. Google's pagination endpoint occasionally hangs without
-  // ever rejecting fetch(), which used to lock the UI on "Fetching media
-  // items" indefinitely. A timeout lets us surface a real error to the user.
-  const PAGE_TIMEOUT_MS = 60_000
-
-  function withTimeout(promise, ms, label) {
-    let timer
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(
-        () =>
-          reject(
-            new Error(
-              `${label} timed out after ${Math.round(ms / 1000)}s. Google's API likely stalled — please re-scan.`
-            )
-          ),
-        ms
-      )
-    })
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
-  }
-
   try {
-    let nextPageId = null
     const mediaItems = []
-    let reachedCache = false
+    const albumKeys = (args && args.albumMediaKeys) ? args.albumMediaKeys : []
+    const isAlbumScan = albumKeys.length > 0
 
-    do {
-      const page = await withTimeout(
-        gptkApi.getItemsByUploadedDate(nextPageId),
-        PAGE_TIMEOUT_MS,
-        "Fetching page from Google Photos"
-      )
-      if (!page) {
-        console.warn("GPD: Empty page response, stopping pagination")
-        break
-      }
-      if (page.items && page.items.length > 0) {
-        for (const item of page.items) {
-          // Items are sorted newest-first — stop when we hit the cached watermark
-          if (
-            sinceTimestamp !== null &&
-            item.creationTimestamp <= sinceTimestamp
-          ) {
-            reachedCache = true
-            break
+    const dateRange = (args && args.dateRange) ? args.dateRange : null
+    const fromTs = dateRange?.from ? new Date(dateRange.from).getTime() : null
+    const toTs = dateRange?.to ? new Date(dateRange.to).getTime() : null
+
+    if (isAlbumScan) {
+      const seenKeys = new Set()
+      for (const albumMediaKey of albumKeys) {
+        let nextPageId = null
+        do {
+          let page = null;
+          let retries = 0;
+          const MAX_RETRIES = 3;
+          while (true) {
+            try {
+              page = await withTimeout(
+                gptkApi.getAlbumPage(albumMediaKey, nextPageId),
+                PAGE_TIMEOUT_MS,
+                "Fetching album page from Google Photos"
+              )
+              if (!page) {
+                throw new Error("Empty page response from Google Photos API");
+              }
+              break; // Success
+            } catch (error) {
+              if (retries >= MAX_RETRIES) {
+                throw new Error(`Failed to fetch album ${albumMediaKey} after ${MAX_RETRIES} retries: ${error.message}`);
+              }
+              retries++;
+              console.warn(`GPD: Error fetching album page, retrying (${retries}/${MAX_RETRIES}):`, error);
+              await new Promise(r => setTimeout(r, 1000));
+            }
           }
-          mediaItems.push({
-            mediaKey: item.mediaKey,
-            dedupKey: item.dedupKey,
-            thumb: item.thumb,
-            timestamp: item.timestamp,
-            creationTimestamp: item.creationTimestamp,
-            resWidth: item.resWidth,
-            resHeight: item.resHeight,
-            duration: item.duration,
-            isOwned: item.isOwned,
-            isOriginalQuality: item.isOriginalQuality ?? null,
-            fileName: item.descriptionShort || null,
-            productUrl: "https://photos.google.com/photo/" + item.mediaKey
-          })
-        }
+          if (page.items && page.items.length > 0) {
+            for (const item of page.items) {
+              if (seenKeys.has(item.mediaKey)) continue
+              if (fromTs !== null && item.timestamp < fromTs) continue
+              if (toTs !== null && item.timestamp > toTs) continue
+              seenKeys.add(item.mediaKey)
+              mediaItems.push(mapMediaItem(item))
+            }
+          }
+          nextPageId = page.nextPageId || null
+
+          postProgress(
+            requestId,
+            mediaItems.length,
+            `Fetched ${mediaItems.length} items from albums`
+          )
+        } while (nextPageId)
       }
-      nextPageId = page.nextPageId || null
+    } else {
+      let reachedCache = false
+      let nextPageId = null
+      do {
+        const page = await withTimeout(
+          gptkApi.getItemsByUploadedDate(nextPageId),
+          PAGE_TIMEOUT_MS,
+          "Fetching page from Google Photos"
+        )
+        if (!page) {
+          console.warn("GPD: Empty page response, stopping pagination")
+          break
+        }
+        if (page.items && page.items.length > 0) {
+          for (const item of page.items) {
+            // Items are sorted newest-first — stop when we hit the cached watermark
+            if (
+              sinceTimestamp !== null &&
+              item.creationTimestamp <= sinceTimestamp
+            ) {
+              reachedCache = true
+              break
+            }
+            if (fromTs !== null && item.timestamp < fromTs) continue
+            if (toTs !== null && item.timestamp > toTs) continue
+            mediaItems.push(mapMediaItem(item))
+          }
+        }
+        nextPageId = page.nextPageId || null
 
-      postProgress(
-        requestId,
-        mediaItems.length,
-        `Fetched ${mediaItems.length} items`
-      )
+        postProgress(
+          requestId,
+          mediaItems.length,
+          `Fetched ${mediaItems.length} items`
+        )
 
-      if (reachedCache) break
-    } while (nextPageId)
+        if (reachedCache) break
+      } while (nextPageId)
+    }
 
     postResult("getAllMediaItems", requestId, mediaItems)
   } catch (error) {
@@ -285,6 +395,9 @@ window.addEventListener("message", async (event) => {
   console.log("GPD: Received command", command, requestId)
 
   switch (command) {
+    case "getAlbums":
+      await getAlbums(requestId)
+      break
     case "getAllMediaItems":
       await getAllMediaItems(requestId, args)
       break

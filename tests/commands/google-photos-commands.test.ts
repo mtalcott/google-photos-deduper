@@ -87,8 +87,159 @@ afterEach(() => {
 })
 
 // ============================================================
+// Unit tests: getAlbums
+// ============================================================
+
+describe("getAlbums", () => {
+  it("fetches and maps albums", async () => {
+    ;(window as any).gptkApi = {
+      getAlbums: vi.fn().mockResolvedValue({
+        items: [
+          { mediaKey: "a1", title: "Album 1", thumb: "http://thumb/1", itemCount: 10 },
+          { mediaKey: "a2", title: "Album 2", thumb: "http://thumb/2", itemCount: 20 }
+        ],
+        nextPageId: null
+      }),
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAlbums", "req-alb-1", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAlbums"
+    ) as any
+    expect(result?.success).toBe(true)
+    expect(result?.data).toHaveLength(2)
+    expect(result?.data[0].title).toBe("Album 1")
+    restore()
+    delete (window as any).gptkApi
+  })
+})
+
+// ============================================================
 // Unit tests: getAllMediaItems
 // ============================================================
+
+describe("getAllMediaItems — album fetching", () => {
+  it("fetches items from provided albumMediaKeys and deduplicates by mediaKey", async () => {
+    ;(window as any).gptkApi = {
+      getAlbumPage: vi.fn().mockImplementation((albumKey) => {
+        if (albumKey === "album1") {
+          return Promise.resolve({
+            items: [
+              { mediaKey: "mk1", dedupKey: "dk1", thumb: "th1", timestamp: 1000, creationTimestamp: 2000, resWidth: 1920, resHeight: 1080, isOwned: true, isOriginalQuality: true, descriptionShort: "file1.jpg" },
+              { mediaKey: "mk2", dedupKey: "dk2", thumb: "th2", timestamp: 1001, creationTimestamp: 2001, resWidth: 1920, resHeight: 1080, isOwned: true, isOriginalQuality: true, descriptionShort: "file2.jpg" }
+            ],
+            nextPageId: null
+          })
+        }
+        if (albumKey === "album2") {
+          return Promise.resolve({
+            items: [
+              { mediaKey: "mk2", dedupKey: "dk2", thumb: "th2", timestamp: 1001, creationTimestamp: 2001, resWidth: 1920, resHeight: 1080, isOwned: true, isOriginalQuality: true, descriptionShort: "file2.jpg" }, // Duplicate
+              { mediaKey: "mk3", dedupKey: "dk3", thumb: "th3", timestamp: 1002, creationTimestamp: 2002, resWidth: 1920, resHeight: 1080, isOwned: true, isOriginalQuality: false, descriptionShort: "file3.jpg" }
+            ],
+            nextPageId: null
+          })
+        }
+      })
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-alb-2", { albumMediaKeys: ["album1", "album2"] })
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    
+    expect(result?.success).toBe(true)
+    // Should have 3 unique items
+    expect(result?.data).toHaveLength(3)
+    expect(result?.data.map((i: any) => i.mediaKey)).toEqual(["mk1", "mk2", "mk3"])
+    restore()
+    delete (window as any).gptkApi
+  })
+
+  it("retries fetching an album page upon failure and succeeds", async () => {
+    vi.useFakeTimers()
+    let attempts = 0
+    ;(window as any).gptkApi = {
+      getAlbumPage: vi.fn().mockImplementation((albumKey) => {
+        attempts++
+        if (attempts <= 2) {
+          // Fail the first two times
+          return Promise.reject(new Error("Network Error"))
+        }
+        // Succeed on the third try
+        return Promise.resolve({
+          items: [
+            { mediaKey: "mk1", dedupKey: "dk1", thumb: "th1", timestamp: 1000, creationTimestamp: 2000, resWidth: 1920, resHeight: 1080, isOwned: true, isOriginalQuality: true, descriptionShort: "file1.jpg" }
+          ],
+          nextPageId: null
+        })
+      })
+    }
+
+    const { messages, restore } = collectMessages()
+    try {
+      sendCommand("getAllMediaItems", "req-alb-retry-success", { albumMediaKeys: ["album1"] })
+      
+      // Advance timers to trigger the retries without using flush()
+      await vi.advanceTimersByTimeAsync(10)
+      await vi.advanceTimersByTimeAsync(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      const result = messages.find(
+        (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+      ) as any
+      
+      expect(result?.success).toBe(true)
+      expect(result?.data).toHaveLength(1)
+      expect(attempts).toBe(3)
+    } finally {
+      restore()
+      delete (window as any).gptkApi
+      vi.useRealTimers()
+    }
+  })
+
+  it("fails after maximum retries when fetching an album page", async () => {
+    vi.useFakeTimers()
+    let attempts = 0
+    ;(window as any).gptkApi = {
+      getAlbumPage: vi.fn().mockImplementation((albumKey) => {
+        attempts++
+        return Promise.resolve(null) // Simulates an empty payload, which triggers retry
+      })
+    }
+
+    const { messages, restore } = collectMessages()
+    try {
+      sendCommand("getAllMediaItems", "req-alb-retry-fail", { albumMediaKeys: ["album1"] })
+      
+      // Advance timers three times for the 3 retries
+      for (let i = 0; i < 4; i++) {
+        await vi.advanceTimersByTimeAsync(10)
+        await vi.advanceTimersByTimeAsync(1000)
+      }
+
+      const result = messages.find(
+        (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+      ) as any
+      
+      expect(result?.success).toBe(false)
+      expect(result?.error).toMatch(/after 3 retries/i)
+      // 1 initial try + 3 retries = 4 attempts total
+      expect(attempts).toBe(4)
+    } finally {
+      restore()
+      delete (window as any).gptkApi
+      vi.useRealTimers()
+    }
+  })
+})
 
 describe("getAllMediaItems — field mapping", () => {
   function setupGptkApi(items: unknown[], nextPageId: string | null = null) {
@@ -168,6 +319,72 @@ describe("getAllMediaItems — field mapping", () => {
       (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
     ) as any
     expect(result?.data[0].isOriginalQuality).toBeNull()
+    restore()
+  })
+})
+
+// ============================================================
+// Unit tests: getAllMediaItems — dateRange filtering
+// ============================================================
+
+describe("getAllMediaItems — dateRange filtering", () => {
+  const mk1 = { mediaKey: "mk1", timestamp: new Date("2021-01-01").getTime(), thumb: "th1" }
+  const mk2 = { mediaKey: "mk2", timestamp: new Date("2022-01-01").getTime(), thumb: "th2" }
+  const mk3 = { mediaKey: "mk3", timestamp: new Date("2023-01-01").getTime(), thumb: "th3" }
+
+  function setupGptkApi(items: unknown[]) {
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi.fn().mockResolvedValue({ items, nextPageId: null }),
+      getAlbumPage: vi.fn().mockResolvedValue({ items, nextPageId: null }),
+    }
+  }
+
+  afterEach(() => {
+    delete (window as any).gptkApi
+  })
+
+  it("filters out items outside the dateRange (full scan)", async () => {
+    setupGptkApi([mk1, mk2, mk3])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-date-1", {
+      dateRange: {
+        from: "2021-06-01T00:00:00.000Z",
+        to: "2022-06-01T00:00:00.000Z",
+      }
+    })
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    
+    expect(result?.success).toBe(true)
+    expect(result?.data).toHaveLength(1)
+    expect(result?.data[0].mediaKey).toBe("mk2")
+    restore()
+  })
+
+  it("filters out items outside the dateRange (album scan)", async () => {
+    setupGptkApi([mk1, mk2, mk3])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-date-2", {
+      albumMediaKeys: ["album1"],
+      dateRange: {
+        from: "2021-06-01T00:00:00.000Z",
+        to: "2022-06-01T00:00:00.000Z",
+      }
+    })
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    
+    expect(result?.success).toBe(true)
+    expect(result?.data).toHaveLength(1)
+    expect(result?.data[0].mediaKey).toBe("mk2")
     restore()
   })
 })

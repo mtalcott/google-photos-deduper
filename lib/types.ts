@@ -175,6 +175,13 @@ export interface DuplicateGroup {
   similarity: number; // average pairwise similarity in the group
 }
 
+export interface GptkAlbum {
+  mediaKey: string;
+  title: string;
+  thumb: string;
+  itemCount: number;
+}
+
 // ============================================================
 // Stored state (chrome.storage.local)
 // ============================================================
@@ -210,10 +217,15 @@ export interface ScanSettings {
     from?: string;
     to?: string;
   };
+  onlyFromAlbums?: boolean;
+  albumMediaKeys?: string[];
+  albumAccountEmail?: string;
 }
 
 export const DEFAULT_SETTINGS: ScanSettings = {
   similarityThreshold: 0.99,
   scanMode: "smart",
   smartWindowSec: 1,
+  onlyFromAlbums: false,
+  albumMediaKeys: [],
 };

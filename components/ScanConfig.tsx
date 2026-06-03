@@ -1,9 +1,20 @@
+import { useState, useEffect } from "react"
+import Avatar from "@mui/material/Avatar"
+import Checkbox from "@mui/material/Checkbox"
+import CircularProgress from "@mui/material/CircularProgress"
+import FormControlLabel from "@mui/material/FormControlLabel"
+import List from "@mui/material/List"
+import ListItem from "@mui/material/ListItem"
+import ListItemAvatar from "@mui/material/ListItemAvatar"
+import ListItemButton from "@mui/material/ListItemButton"
+import ListItemText from "@mui/material/ListItemText"
 import Accordion from "@mui/material/Accordion"
 import AccordionDetails from "@mui/material/AccordionDetails"
 import AccordionSummary from "@mui/material/AccordionSummary"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
+import IconButton from "@mui/material/IconButton"
 import Paper from "@mui/material/Paper"
 import Slider from "@mui/material/Slider"
 import ToggleButton from "@mui/material/ToggleButton"
@@ -12,7 +23,9 @@ import Typography from "@mui/material/Typography"
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded"
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded"
-import type { ScanSettings } from "../lib/types"
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
+import type { ScanSettings, GptkAlbum, AppMessage, GptkResultMessage } from "../lib/types"
+import { APP_ID } from "../lib/types"
 
 function formatWindow(sec: number): string {
   if (sec < 60) return `${sec}s`
@@ -35,6 +48,56 @@ export function ScanConfig({
   onStartScan,
   hasGptk,
 }: ScanConfigProps) {
+  const [albums, setAlbums] = useState<GptkAlbum[] | null>(null)
+  const [isFetchingAlbums, setIsFetchingAlbums] = useState(false)
+  const [albumError, setAlbumError] = useState<string | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setScanError(null)
+  }, [settings.onlyFromAlbums, settings.albumMediaKeys])
+
+  useEffect(() => {
+    if (settings.onlyFromAlbums && !albums) {
+      setIsFetchingAlbums(true)
+      setAlbumError(null)
+      const requestId = `${Date.now()}-albums`
+
+      const listener = (message: AppMessage) => {
+        if (message?.app !== APP_ID) return
+        if (message.action === "gptkResult" && (message as GptkResultMessage).command === "getAlbums") {
+          const result = message as GptkResultMessage
+          if (result.requestId !== requestId) return
+          if (result.success) {
+            setAlbums(result.data as GptkAlbum[])
+          } else {
+            setAlbumError(result.error || "Failed to load albums")
+          }
+          setIsFetchingAlbums(false)
+          chrome.runtime.onMessage.removeListener(listener)
+        }
+      }
+      chrome.runtime.onMessage.addListener(listener)
+
+      chrome.runtime.sendMessage({
+        app: APP_ID,
+        action: "gptkCommand",
+        command: "getAlbums",
+        requestId
+      })
+
+      return () => chrome.runtime.onMessage.removeListener(listener)
+    }
+  }, [settings.onlyFromAlbums, albums])
+
+  const handleToggleAlbum = (mediaKey: string) => {
+    const current = settings.albumMediaKeys || []
+    const next = current.includes(mediaKey)
+      ? current.filter((k) => k !== mediaKey)
+      : [...current, mediaKey]
+    onSettingsChange({ albumMediaKeys: next })
+  }
+
   if (!hasGptk) {
     return (
       <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
@@ -64,12 +127,25 @@ export function ScanConfig({
           AI-powered image comparison.
         </Typography>
 
+        {scanError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {scanError}
+          </Alert>
+        )}
+
         <Button
           variant="contained"
           fullWidth
           size="large"
           startIcon={<SearchRoundedIcon />}
-          onClick={onStartScan}
+          onClick={() => {
+            if (settings.onlyFromAlbums && (!settings.albumMediaKeys || settings.albumMediaKeys.length === 0)) {
+              setScanError('Selected "Only from specific Album(s)" but no albums selected!')
+              return
+            }
+            setScanError(null)
+            onStartScan()
+          }}
           sx={{ mb: 2 }}>
           Scan Library
         </Button>
@@ -135,6 +211,88 @@ export function ScanConfig({
                 </Typography>
               </Box>
             )}
+
+            <Box sx={{ mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.onlyFromAlbums ?? false}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      onSettingsChange({
+                        onlyFromAlbums: checked,
+                        ...(checked ? {} : { albumMediaKeys: [] })
+                      })
+                    }}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      Only from specific Album(s)
+                    </Typography>
+                    {isFetchingAlbums && <CircularProgress size={16} />}
+                    {settings.onlyFromAlbums && !isFetchingAlbums && (
+                      <IconButton
+                        size="small"
+                        title="Refresh albums"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setAlbums(null)
+                        }}
+                        sx={{ p: 0.5, ml: 0.5 }}
+                      >
+                        <RefreshRoundedIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+                }
+              />
+              
+              {settings.onlyFromAlbums && (
+                <Box sx={{ mt: 1, maxHeight: 300, overflowY: "auto", border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+                  {albumError && (
+                    <Alert severity="error" sx={{ m: 1 }}>{albumError}</Alert>
+                  )}
+                  {albums && albums.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: "center" }}>
+                      No albums found.
+                    </Typography>
+                  )}
+                  {albums && albums.length > 0 && (
+                    <List dense disablePadding>
+                      {albums.map((album) => {
+                        const isChecked = (settings.albumMediaKeys || []).includes(album.mediaKey)
+                        return (
+                          <ListItem key={album.mediaKey} disablePadding>
+                            <ListItemButton onClick={() => handleToggleAlbum(album.mediaKey)}>
+                              <Checkbox
+                                edge="start"
+                                checked={isChecked}
+                                tabIndex={-1}
+                                disableRipple
+                                size="small"
+                              />
+                              <ListItemAvatar sx={{ minWidth: 40 }}>
+                                <Avatar src={album.thumb} variant="rounded" sx={{ width: 24, height: 24 }} />
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={album.title}
+                                secondary={`${album.itemCount} items`}
+                                primaryTypographyProps={{ variant: "body2", noWrap: true }}
+                                secondaryTypographyProps={{ variant: "caption" }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        )
+                      })}
+                    </List>
+                  )}
+                </Box>
+              )}
+            </Box>
 
             <Box>
               <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>

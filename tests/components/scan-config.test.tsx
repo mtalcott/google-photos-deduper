@@ -96,3 +96,31 @@ describe("ScanConfig — time window toggle", () => {
     expect(screen.queryByText(/Time window:/)).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Album Selection checkbox
+// ============================================================
+
+describe("ScanConfig — album selection", () => {
+  it("clears albumMediaKeys when Only from specific Album(s) is unchecked", () => {
+    vi.stubGlobal("chrome", {
+      runtime: {
+        onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+        sendMessage: vi.fn()
+      }
+    })
+
+    const { onSettingsChange } = renderConfig({ 
+      onlyFromAlbums: true,
+      albumMediaKeys: ["album1", "album2"]
+    })
+    
+    const checkbox = screen.getByRole("checkbox", { hidden: true })
+    fireEvent.click(checkbox)
+    
+    expect(onSettingsChange).toHaveBeenCalledWith({
+      onlyFromAlbums: false,
+      albumMediaKeys: []
+    })
+  })
+})

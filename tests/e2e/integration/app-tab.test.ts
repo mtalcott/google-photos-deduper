@@ -12,6 +12,7 @@ import {
   injectScanResults,
   injectSelections,
   clearStorage,
+  openGptkStubPage,
 } from "../fixtures/extension"
 
 let context: BrowserContext
@@ -147,5 +148,62 @@ test("persists kept overrides through page reload", async () => {
   await expect(cards.nth(1)).toContainText("Keep")
 
   await page.close()
+  await clearStorage(context)
+})
+
+test("does not overwrite main library cache during album scans", async () => {
+  // Inject a full library cache first
+  await injectScanResults(
+    context,
+    [
+      { id: "g1", mediaKeys: ["key1", "key2"], originalMediaKey: "key1", similarity: 0.99 },
+    ],
+    BASE_MEDIA_ITEMS,
+    6
+  )
+
+  const gpPage = await openGptkStubPage(context, {
+    getAlbums: {
+      data: [{ mediaKey: "album1", title: "Test Album", itemCount: 2, thumb: "" }]
+    },
+    getAllMediaItems: {
+      data: [
+        { mediaKey: "album-item1", dedupKey: "d-album", thumb: "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=", timestamp: 0, creationTimestamp: 1, resWidth: 100, resHeight: 100, duration: null, isOwned: true, fileName: "a1.jpg" }
+      ]
+    }
+  })
+
+  const page = await openAppTab(context, extensionId)
+  await expect(page.getByText("1 Duplicate Group Found")).toBeVisible({ timeout: 5000 })
+
+  // Go back to scanning UI
+  await page.getByRole("button", { name: "Re-scan" }).click()
+
+  // Setup album scan
+  await page.getByText("More options").click()
+  await page.getByRole("checkbox", { name: /Only from specific Album/i }).check()
+  await expect(page.getByText("Test Album")).toBeVisible()
+  
+  // Actually click the list item button which contains the checkbox
+  await page.getByText("Test Album").click()
+  
+  await page.getByRole("button", { name: "Scan Library" }).click()
+
+  // wait for album scan to finish (1 item -> instant completion, 0 groups)
+  await expect(page.getByText("No duplicates found in your library.")).toBeVisible({ timeout: 5000 })
+
+  // assert storage
+  const scanResults = await page.evaluate((): Promise<any> => {
+    return new Promise((resolve) => {
+      chrome.storage.local.get("scanResults", (res) => resolve(res.scanResults))
+    })
+  })
+
+  // The album scan should not have overwritten the full library cache.
+  // It should still have 6 items from BASE_MEDIA_ITEMS, not 2 from the album.
+  expect(Object.keys(scanResults.mediaItems).length).toBe(6)
+
+  await page.close()
+  await gpPage.close()
   await clearStorage(context)
 })

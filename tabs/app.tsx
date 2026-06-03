@@ -125,6 +125,10 @@ export default function App() {
   // scans killed by reload can be dropped (they arrive late from the GP tab)
   const currentScanRequestIdRef = useRef<string | null>(null)
 
+  // Tracks whether the active scan targets specific albums (vs full library).
+  // Album scans must not overwrite the main library media-items cache.
+  const isAlbumScanRef = useRef(false)
+
   // Counts failed healthCheck attempts during initial connect so we can retry
   // silently before showing a disconnected error.
   const healthCheckAttemptsRef = useRef(0)
@@ -310,6 +314,17 @@ export default function App() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [])
 
+  const currentAccountEmail = "accountEmail" in state ? state.accountEmail : undefined;
+  useEffect(() => {
+    if (currentAccountEmail) {
+      if (settings.albumAccountEmail && currentAccountEmail !== settings.albumAccountEmail) {
+        setSettings({ albumMediaKeys: [], onlyFromAlbums: false, albumAccountEmail: currentAccountEmail });
+      } else if (!settings.albumAccountEmail) {
+        setSettings({ albumAccountEmail: currentAccountEmail });
+      }
+    }
+  }, [currentAccountEmail, settings.albumAccountEmail]);
+
   // Keep refs so async callbacks always see latest values
   const settingsRef = useRef(settings)
   settingsRef.current = settings
@@ -485,6 +500,9 @@ export default function App() {
   const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
   useEffect(() => {
     if (!mediaItems) return
+    // Album scan results must not overwrite the main library cache —
+    // they contain only a subset of items and would break incremental fetching.
+    if (isAlbumScanRef.current) return
     if (groups.length > 0) {
       const newestCreationTimestamp = Object.values(mediaItems).reduce(
         (max, item) => Math.max(max, item.creationTimestamp ?? 0),
@@ -509,6 +527,7 @@ export default function App() {
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
     if (state.status !== "results") return
+    if (isAlbumScanRef.current) return
     if (groups.length === 0) {
       chrome.storage.local.remove("selections")
       return
@@ -541,40 +560,47 @@ export default function App() {
       currentState.status === "connected" || currentState.status === "results"
         ? currentState.accountEmail
         : undefined
+    const isAlbumScan = !!(settings.onlyFromAlbums && settings.albumMediaKeys?.length)
+    isAlbumScanRef.current = isAlbumScan
+
     dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
 
     console.log(
-      `[GPD] starting scan: mode=${settings.scanMode}, threshold=${settings.similarityThreshold}`
+      `[GPD] starting scan: mode=${settings.scanMode}, threshold=${settings.similarityThreshold}, albumScan=${isAlbumScan}`
     )
 
     // Load cached media items for incremental fetch. On a repeat scan we only
     // fetch items newer than the most-recently-seen upload timestamp.
+    // Skip for album scans — album items must not pollute the main library
+    // cache, and incremental fetching doesn't apply to album queries.
     cachedMediaItemsRef.current = null
     let sinceTimestamp: number | undefined
-    try {
-      const stored = (await chrome.storage.local.get(
-        "scanResults"
-      )) as Partial<StoredState>
-      const prev = stored.scanResults
-      if (
-        prev?.mediaItems &&
-        Object.keys(prev.mediaItems).length > 0 &&
-        areScanResultsValid(prev, { accountEmail })
-      ) {
-        cachedMediaItemsRef.current = prev.mediaItems
-        // Compute watermark if not stored (migration: first run after this deploy)
-        sinceTimestamp =
-          prev.newestCreationTimestamp ??
-          Object.values(prev.mediaItems).reduce(
-            (max, item) => Math.max(max, item.creationTimestamp ?? 0),
-            0
+    if (!isAlbumScan) {
+      try {
+        const stored = (await chrome.storage.local.get(
+          "scanResults"
+        )) as Partial<StoredState>
+        const prev = stored.scanResults
+        if (
+          prev?.mediaItems &&
+          Object.keys(prev.mediaItems).length > 0 &&
+          areScanResultsValid(prev, { accountEmail })
+        ) {
+          cachedMediaItemsRef.current = prev.mediaItems
+          // Compute watermark if not stored (migration: first run after this deploy)
+          sinceTimestamp =
+            prev.newestCreationTimestamp ??
+            Object.values(prev.mediaItems).reduce(
+              (max, item) => Math.max(max, item.creationTimestamp ?? 0),
+              0
+            )
+          console.log(
+            `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} items, fetching since ${new Date(sinceTimestamp).toISOString()}`
           )
-        console.log(
-          `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} items, fetching since ${new Date(sinceTimestamp).toISOString()}`
-        )
+        }
+      } catch {
+        // Cache unavailable — do full fetch
       }
-    } catch {
-      // Cache unavailable — do full fetch
     }
 
     sendToServiceWorker({
@@ -584,7 +610,8 @@ export default function App() {
       requestId,
       args: {
         dateRange: settings.dateRange,
-        sinceTimestamp
+        sinceTimestamp,
+        albumMediaKeys: isAlbumScan ? settings.albumMediaKeys : undefined
       }
     })
   }, [settings])
