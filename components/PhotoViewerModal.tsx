@@ -17,6 +17,15 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew"
 import type { GpdMediaItem } from "../lib/types"
 
 /**
+ * Computes the optimal Google Photos URL for full-screen viewing based on current window size.
+ */
+function getFullResThumbUrl(thumb: string): string {
+  const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1))
+  const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1))
+  return `${thumb}=w${width}-h${height}`
+}
+
+/**
  * Preloads full-res blob URLs for all items in the group as soon as the modal
  * opens. Returns a stable map of mediaKey → blobUrl so navigating between
  * images is instant (no per-image fetch on demand).
@@ -40,7 +49,10 @@ function useGroupBlobUrls(items: GpdMediaItem[]): Record<string, string | undefi
       const controller = new AbortController()
       controllers.push(controller)
 
-      fetch(item.thumb, { credentials: "include", signal: controller.signal })
+      // Request thumnails of same size as window
+      // Use window.devicePixelRatio to handle high-DPI displays
+      const fetchUrl = getFullResThumbUrl(item.thumb)
+      fetch(fetchUrl, { credentials: "include", signal: controller.signal })
         .then((r) => (r.ok ? r.blob() : null))
         .then((blob) => {
           if (blob && !cancelled) {
@@ -99,9 +111,30 @@ function FullResImage({ item, blobUrl }: FullResImageProps) {
   )
 }
 
+function usePrefetchNextGroup(nextItems: GpdMediaItem[]) {
+  useEffect(() => {
+    if (nextItems.length === 0) return
+
+    const controllers: AbortController[] = []
+
+    nextItems.forEach((item) => {
+      const controller = new AbortController()
+      controllers.push(controller)
+      const fetchUrl = getFullResThumbUrl(item.thumb)
+      // Fire and forget to prime the browser HTTP cache
+      fetch(fetchUrl, { credentials: "include", signal: controller.signal }).catch(() => {})
+    })
+
+    return () => {
+      controllers.forEach((c) => c.abort())
+    }
+  }, [nextItems])
+}
+
 export interface PhotoViewerModalProps {
   open: boolean
   items: GpdMediaItem[]
+  nextGroupItems?: GpdMediaItem[]
   initialIndex: number
   keptSet: Set<string>
   isGroupSelected: boolean
@@ -124,6 +157,7 @@ const slideInFromLeft = keyframes`
 export function PhotoViewerModal({
   open,
   items,
+  nextGroupItems = [],
   initialIndex,
   keptSet,
   isGroupSelected,
@@ -139,6 +173,9 @@ export function PhotoViewerModal({
 
   // Preload all images in the group up front
   const blobUrls = useGroupBlobUrls(items)
+
+  // Prefetch the next group into browser cache so it's instant if the user navigates
+  usePrefetchNextGroup(nextGroupItems)
 
   // Reset index when the modal opens, the initial photo changes, or the items change
   useEffect(() => {
@@ -228,8 +265,7 @@ export function PhotoViewerModal({
     <Dialog
       open={open}
       onClose={onClose}
-      fullWidth
-      maxWidth="lg"
+      fullScreen
       aria-label="Photo viewer"
       PaperProps={{
         sx: {
@@ -237,6 +273,8 @@ export function PhotoViewerModal({
           color: "white",
           position: "relative",
           overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         },
       }}>
       {/* Header bar: filename left, counter center, close right */}
@@ -292,7 +330,7 @@ export function PhotoViewerModal({
           justifyContent: "center",
           position: "relative",
           bgcolor: "#111",
-          height: "70vh",
+          flex: 1,
           overflow: "hidden",
         }}>
         {/* Previous */}
