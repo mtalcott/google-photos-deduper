@@ -40,7 +40,12 @@ function useGroupBlobUrls(items: GpdMediaItem[]): Record<string, string | undefi
       const controller = new AbortController()
       controllers.push(controller)
 
-      fetch(item.thumb, { credentials: "include", signal: controller.signal })
+      // Request thumnails of same size as window
+      // Use window.devicePixelRatio to handle high-DPI displays
+      const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1))
+      const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1))
+      const fetchUrl = `${item.thumb}=w${width}-h${height}`
+      fetch(fetchUrl, { credentials: "include", signal: controller.signal })
         .then((r) => (r.ok ? r.blob() : null))
         .then((blob) => {
           if (blob && !cancelled) {
@@ -228,8 +233,7 @@ export function PhotoViewerModal({
     <Dialog
       open={open}
       onClose={onClose}
-      fullWidth
-      maxWidth="lg"
+      fullScreen
       aria-label="Photo viewer"
       PaperProps={{
         sx: {
@@ -237,6 +241,8 @@ export function PhotoViewerModal({
           color: "white",
           position: "relative",
           overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
         },
       }}>
       {/* Header bar: filename left, counter center, close right */}
@@ -292,7 +298,7 @@ export function PhotoViewerModal({
           justifyContent: "center",
           position: "relative",
           bgcolor: "#111",
-          height: "70vh",
+          flex: 1,
           overflow: "hidden",
         }}>
         {/* Previous */}
