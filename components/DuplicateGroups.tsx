@@ -349,6 +349,14 @@ export function DuplicateGroups({
       .filter((item): item is GpdMediaItem => !!item)
   }, [viewerState, mediaItems])
 
+  const nextGroupItems = useMemo(() => {
+    if (!viewerState || currentGroupIndex === -1 || currentGroupIndex >= groups.length - 1) return []
+    const nextGroup = groups[currentGroupIndex + 1]
+    return nextGroup.mediaKeys
+      .map((k) => mediaItems[k])
+      .filter((item): item is GpdMediaItem => !!item)
+  }, [viewerState, currentGroupIndex, groups, mediaItems])
+
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
     return (
@@ -391,6 +399,7 @@ export function DuplicateGroups({
         <PhotoViewerModal
           open={true}
           items={viewerItems}
+          nextGroupItems={nextGroupItems}
           initialIndex={viewerState.index}
           keptSet={keptByGroupId.get(viewerState.group.id)!}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}
