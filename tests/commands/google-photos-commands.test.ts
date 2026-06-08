@@ -170,6 +170,52 @@ describe("getAllMediaItems — field mapping", () => {
     expect(result?.data[0].isOriginalQuality).toBeNull()
     restore()
   })
+
+  it("constructs productUrl using root prefix for standard single account", async () => {
+    window.history.pushState({}, "", "/");
+    setupGptkApi([
+      {
+        mediaKey: "mk-single",
+        dedupKey: "dk",
+        thumb: "https://thumb",
+        timestamp: 1000,
+        creationTimestamp: 2000,
+      },
+    ])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-url-1", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.data[0].productUrl).toBe("https://photos.google.com/photo/mk-single")
+    restore()
+  })
+
+  it("constructs productUrl using /u/X/ prefix for multiple accounts", async () => {
+    window.history.pushState({}, "", "/u/2/search/");
+    setupGptkApi([
+      {
+        mediaKey: "mk-multi",
+        dedupKey: "dk",
+        thumb: "https://thumb",
+        timestamp: 1000,
+        creationTimestamp: 2000,
+      },
+    ])
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-url-2", {})
+    await flush()
+
+    const result = messages.find(
+      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
+    ) as any
+    expect(result?.data[0].productUrl).toBe("https://photos.google.com/u/2/photo/mk-multi")
+    restore()
+  })
 })
 
 // ============================================================

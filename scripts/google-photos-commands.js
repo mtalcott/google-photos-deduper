@@ -131,7 +131,7 @@ async function getAllMediaItems(requestId, args) {
             isOwned: item.isOwned,
             isOriginalQuality: item.isOriginalQuality ?? null,
             fileName: item.descriptionShort || null,
-            productUrl: "https://photos.google.com/photo/" + item.mediaKey
+            productUrl: "https://photos.google.com" + (window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/") + "photo/" + item.mediaKey
           })
         }
       }
