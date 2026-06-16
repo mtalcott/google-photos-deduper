@@ -169,7 +169,19 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
       </Box>
 
       {/* Thumbnails */}
-      <Box sx={sxThumbnailsWrapper}>
+      <Box
+        sx={sxThumbnailsWrapper}
+        onMouseOver={(e) => {
+          const target = (e.target as HTMLElement).closest("[data-item-index]")
+          if (target) {
+            const index = parseInt(target.getAttribute("data-item-index") || "0", 10)
+            onMouseEnterPhoto(group, index)
+          }
+        }}
+        onMouseOut={(e) => {
+          const target = (e.target as HTMLElement).closest("[data-item-index]")
+          if (target) onMouseLeavePhoto()
+        }}>
         {group.mediaKeys.map((key, itemIndex) => {
           const item = mediaItems[key]
           if (!item) return null
@@ -179,8 +191,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             <Box
               key={key}
               sx={sxItemWrapper}
-              onMouseEnter={() => onMouseEnterPhoto(group, itemIndex)}
-              onMouseLeave={() => onMouseLeavePhoto()}>
+              data-item-index={itemIndex}>
               <Card
                 variant="outlined"
                 sx={[sxCardBase, {
