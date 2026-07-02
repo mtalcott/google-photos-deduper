@@ -1,5 +1,12 @@
 // MAIN world command handler for iCloud Photos pages.
 
+(() => {
+  if (window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__) {
+    console.log("GPD: iCloud command handler already loaded")
+    return
+  }
+  window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ = true
+
 const GPD_APP_ID = "GPD"
 
 function postResult(command, requestId, data) {
@@ -1080,3 +1087,5 @@ window.addEventListener("message", async (event) => {
 })
 
 console.log("GPD: iCloud command handler loaded")
+
+})();

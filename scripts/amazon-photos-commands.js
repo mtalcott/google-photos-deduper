@@ -1,4 +1,11 @@
 // MAIN world command handler for Amazon Photos pages.
+
+(() => {
+  if (window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__) {
+    console.log("GPD: Amazon Photos command handler already loaded")
+    return
+  }
+  window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
 // Uses Amazon Photos' private web API from the signed-in page context.
 
 const GPD_APP_ID = "GPD"
@@ -779,3 +786,5 @@ window.addEventListener("message", async (event) => {
 })
 
 console.log("GPD: Amazon Photos command handler loaded")
+
+})();

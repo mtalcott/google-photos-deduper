@@ -12,6 +12,15 @@ export const config: PlasmoCSConfig = {
   run_at: "document_idle",
 }
 
+function safeSendRuntimeMessage(message: AppMessage) {
+  try {
+    chrome.runtime?.sendMessage?.(message)
+  } catch {
+    // The extension was likely reloaded while this content script remained on
+    // the page. Ignore stale bridge messages instead of surfacing noisy errors.
+  }
+}
+
 // MAIN world -> service worker
 // Forward gptkResult, gptkProgress, gptkLog messages from the page to the extension.
 window.addEventListener("message", (event) => {
@@ -25,7 +34,7 @@ window.addEventListener("message", (event) => {
     msg.action === "gptkProgress" ||
     msg.action === "gptkLog"
   ) {
-    chrome.runtime.sendMessage(msg)
+    safeSendRuntimeMessage(msg)
   }
 })
 
