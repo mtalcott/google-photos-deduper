@@ -142,7 +142,7 @@ export function createNodeRequestHandler({
 export function startNodeLicenseServer({
   env = process.env,
   port = Number(env.PORT ?? DEFAULT_PORT),
-  host = env.HOST ?? "127.0.0.1",
+  host = env.HOST ?? "0.0.0.0",
   handler = createNodeRequestHandler({ env })
 } = {}) {
   const server = http.createServer(handler)

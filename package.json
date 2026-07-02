@@ -23,7 +23,8 @@
     "build": "plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
     "package": "npm run build && plasmo package",
     "release": "bash tools/release.sh",
-    "framer:probe": "node tools/framer-probe.mjs"
+    "framer:probe": "node tools/framer-probe.mjs",
+    "start": "node server/node-server.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
