@@ -4,6 +4,7 @@ import {
   DEV_ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_STORAGE_KEY,
   ENTITLEMENT_TOKEN_STORAGE_KEY,
+  LICENSE_API_BASE_URL,
   LicenseClient,
   getEffectiveLicenseApiBaseUrl,
   loadStoredEntitlement,
@@ -270,7 +271,10 @@ describe("loadStoredEntitlement", () => {
 
 describe("getEffectiveLicenseApiBaseUrl", () => {
   it("ignores storage API overrides unless dev entitlement builds allow them", () => {
-    expect(getEffectiveLicenseApiBaseUrl("https://attacker.example")).toBeUndefined()
+    const effectiveBaseUrl = getEffectiveLicenseApiBaseUrl("https://attacker.example")
+
+    expect(effectiveBaseUrl).toBe(LICENSE_API_BASE_URL)
+    expect(effectiveBaseUrl).not.toBe("https://attacker.example")
   })
 })
 
