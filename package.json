@@ -24,7 +24,8 @@
     "package": "npm run build && plasmo package",
     "release": "bash tools/release.sh",
     "framer:probe": "node tools/framer-probe.mjs",
-    "start": "node server/node-server.mjs"
+    "start": "node server/node-server.mjs",
+    "audit:extension-package": "node tools/audit-extension-package.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -133,11 +134,7 @@
       "https://*.googleusercontent.com/*",
       "https://*.usercontent.google.com/*",
       "https://*.googleapis.com/*",
-      "https://license.photosweep.app/*",
-      "http://127.0.0.1:8787/*",
-      "http://localhost:8787/*",
-      "http://127.0.0.1:8788/*",
-      "http://localhost:8788/*"
+      "$PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION"
     ],
     "content_security_policy": {
       "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

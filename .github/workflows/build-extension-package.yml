@@ -1,0 +1,86 @@
+name: Build Extension Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Backend environment to embed in the extension package"
+        type: choice
+        required: true
+        default: sandbox
+        options:
+          - sandbox
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  build-package:
+    name: Build ${{ inputs.environment }} Chrome package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Configure extension release environment
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ENTITLEMENT_PUBLIC_KEY}" ]]; then
+            echo "PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY repository secret is required" >&2
+            exit 1
+          fi
+          if [[ "${TARGET_ENVIRONMENT}" == "sandbox" ]]; then
+            api_base="https://photosweep-license-api-206538169327.us-west1.run.app"
+          else
+            api_base="https://license.photosweep.app"
+          fi
+          {
+            echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=${api_base}"
+            echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=${api_base}/*"
+            echo "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=0"
+            echo "PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY=${ENTITLEMENT_PUBLIC_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Google-Photos-Toolkit dependencies
+        run: npm ci
+        working-directory: Google-Photos-Toolkit
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run focused release tests
+        run: npx vitest run tests/lib/entitlement.test.ts tests/lib/license-client.test.ts tests/components/upgrade-dialog.test.tsx tests/components/scan-config.test.tsx tests/tabs/app-reducer.test.tsx
+
+      - name: Build and package extension
+        run: npm run package
+
+      - name: Audit extension package
+        run: npm run audit:extension-package
+
+      - name: Rename package artifact
+        run: |
+          cp build/chrome-mv3-prod.zip "build/photosweep-${{ inputs.environment }}-${{ github.sha }}.zip"
+
+      - name: Upload extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: photosweep-${{ inputs.environment }}-chrome-mv3
+          path: |
+            build/photosweep-${{ inputs.environment }}-${{ github.sha }}.zip
+            build/chrome-mv3-prod/manifest.json
+          retention-days: 14

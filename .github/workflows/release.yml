@@ -8,6 +8,11 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://license.photosweep.app
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://license.photosweep.app/*
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+      PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
     permissions:
       contents: write
     steps:
@@ -29,6 +34,9 @@ jobs:
 
       - name: Build production package
         run: npm run package
+
+      - name: Audit extension package
+        run: npm run audit:extension-package
 
       - name: Rename zip
         run: |

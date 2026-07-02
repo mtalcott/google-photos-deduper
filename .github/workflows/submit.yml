@@ -10,6 +10,11 @@ jobs:
   submit:
     name: Build and publish extension
     runs-on: ubuntu-latest
+    env:
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://license.photosweep.app
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://license.photosweep.app/*
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+      PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +35,9 @@ jobs:
 
       - name: Build and package extension
         run: npm run package
+
+      - name: Audit extension package
+        run: npm run audit:extension-package
 
       - name: Publish to Chrome Web Store
         uses: PlasmoHQ/bpp@v3

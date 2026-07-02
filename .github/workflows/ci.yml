@@ -14,6 +14,11 @@ jobs:
   test:
     name: Unit & integration tests
     runs-on: ubuntu-latest
+    env:
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://photosweep-license-api-206538169327.us-west1.run.app
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://photosweep-license-api-206538169327.us-west1.run.app/*
+      PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
+      PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ci-public-key-placeholder
     # Hard cap so a stalled Playwright download fails in minutes, not the 6h default.
     timeout-minutes: 20
     steps:
