@@ -1,0 +1,9 @@
+.git
+build
+node_modules
+playwright-report
+test-results
+tmp-live-duplicate-test
+Google-Photos-Toolkit
+*.log
+.DS_Store
