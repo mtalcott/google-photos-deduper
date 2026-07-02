@@ -2,6 +2,7 @@ import http from "node:http"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
+import { createFirestoreLicenseStore } from "./firestore-license-store.mjs"
 import { createJsonFileLicenseStore, createLicenseApi } from "./license-api.mjs"
 
 const DEFAULT_PORT = 8787
@@ -77,6 +78,18 @@ function withRecoveryEmailSender(store, recoveryEmailSender) {
   }
 }
 
+function createDefaultLicenseStore(env) {
+  if (env.PHOTOSWEEP_LICENSE_STORE === "firestore") {
+    return createFirestoreLicenseStore({
+      collectionPrefix: env.PHOTOSWEEP_FIRESTORE_COLLECTION_PREFIX
+    })
+  }
+  return createJsonFileLicenseStore(
+    env.PHOTOSWEEP_LICENSE_STORE_PATH ??
+      path.resolve(process.cwd(), DEFAULT_STORE_PATH)
+  )
+}
+
 export function createNodeRequestHandler({
   env = process.env,
   store = undefined,
@@ -84,12 +97,7 @@ export function createNodeRequestHandler({
   recoveryEmailSender = undefined,
   api = undefined
 } = {}) {
-  const baseStore =
-    store ??
-    createJsonFileLicenseStore(
-      env.PHOTOSWEEP_LICENSE_STORE_PATH ??
-        path.resolve(process.cwd(), DEFAULT_STORE_PATH)
-    )
+  const baseStore = store ?? createDefaultLicenseStore(env)
   const licenseStore = withRecoveryEmailSender(
     baseStore,
     recoveryEmailSender ??

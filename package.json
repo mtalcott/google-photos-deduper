@@ -29,6 +29,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/dm-sans": "^5.2.8",
+    "@google-cloud/firestore": "^8.6.0",
     "@mediapipe/tasks-vision": "^0.10.18",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
