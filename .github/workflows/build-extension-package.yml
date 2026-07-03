@@ -41,11 +41,9 @@ jobs:
             echo "PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY repository secret is required" >&2
             exit 1
           fi
-          if [[ "${TARGET_ENVIRONMENT}" == "sandbox" ]]; then
-            api_base="https://photosweep-license-api-206538169327.us-west1.run.app"
-          else
-            api_base="https://license.photosweep.app"
-          fi
+          # Until PhotoSweep has a custom domain, both sandbox and production
+          # extension packages use the verified Cloud Run backend URL.
+          api_base="https://photosweep-license-api-206538169327.us-west1.run.app"
           {
             echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL=${api_base}"
             echo "PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION=${api_base}/*"
