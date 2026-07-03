@@ -9,8 +9,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://license.photosweep.app
-      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://license.photosweep.app/*
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL: https://photosweep-license-api-206538169327.us-west1.run.app
+      PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION: https://photosweep-license-api-206538169327.us-west1.run.app/*
       PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT: "0"
       PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
     permissions:
