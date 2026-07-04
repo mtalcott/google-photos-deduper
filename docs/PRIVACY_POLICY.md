@@ -76,7 +76,7 @@ compliance.
 
 Users can request support, refunds, or deletion of license records by contacting:
 
-`support@photosweep.app`
+`pawsitivegames@gmail.com`
 
 Some payment, tax, accounting, fraud-prevention, and legal records may need to be
 retained even after a deletion request.

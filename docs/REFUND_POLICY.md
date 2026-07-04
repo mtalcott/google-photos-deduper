@@ -58,7 +58,7 @@ Users can contact support with:
 
 Support contact:
 
-`support@photosweep.app`
+`pawsitivegames@gmail.com`
 
 Do not ask users to send photo URLs, thumbnails, filenames, album names, raw
 reports, exact timestamps, people/location labels, or page content for refund

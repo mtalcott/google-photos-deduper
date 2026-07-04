@@ -6,7 +6,7 @@ Last updated: 2026-06-30
 
 For paid license, refund, privacy, or deletion requests, email:
 
-`support@photosweep.app`
+`pawsitivegames@gmail.com`
 
 For public bug reports and feature requests, use the GitHub issue tracker:
 

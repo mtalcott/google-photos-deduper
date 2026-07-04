@@ -146,7 +146,7 @@ Google deprecated the Photos Library API's write access in 2025, and duplicate d
 
 ## Support
 
-For paid license, refund, privacy, or deletion requests, email `support@photosweep.app`.
+For paid license, refund, privacy, or deletion requests, email `pawsitivegames@gmail.com`.
 
 Found a bug or have a feature request? [Open an issue](https://github.com/mtalcott/google-photos-deduper/issues/new/choose).
 
