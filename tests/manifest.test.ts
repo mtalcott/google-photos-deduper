@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest"
 import packageJson from "../package.json"
 
 describe("extension manifest", () => {
-  it("allows the production license API origin", () => {
+  it("uses an injected license API origin for release packages", () => {
     expect(packageJson.manifest.host_permissions).toContain(
-      "https://license.photosweep.app/*"
+      "$PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_HOST_PERMISSION"
     )
   })
 

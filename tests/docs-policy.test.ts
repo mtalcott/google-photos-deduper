@@ -42,7 +42,7 @@ describe("launch policy docs", () => {
     expect(text).toContain("does not upload photo content")
     expect(text).toContain("does not sell user data")
     expect(text).toContain("checkout opens externally through stripe")
-    expect(text).toContain("support@photosweep.app")
+    expect(text).toContain("pawsitivegames@gmail.com")
     expect(text).not.toContain("support@example.com")
     expect(text).not.toContain("launch draft")
 
@@ -71,7 +71,7 @@ describe("launch policy docs", () => {
     expect(text).toContain("amazon photos")
     expect(text).toContain("same free and paid feature limits")
     expect(text).toContain("deactivate the matching license entitlement")
-    expect(text).toContain("support@photosweep.app")
+    expect(text).toContain("pawsitivegames@gmail.com")
     expect(text).not.toContain("support@example.com")
     expect(text).not.toContain("launch draft")
 
@@ -92,7 +92,7 @@ describe("launch policy docs", () => {
   it("publishes support instructions without requesting photo-derived data", () => {
     const support = compact(readDoc("docs/SUPPORT.md"))
 
-    expect(support).toContain("support@photosweep.app")
+    expect(support).toContain("pawsitivegames@gmail.com")
     expect(support).toContain("github issue tracker")
     expect(support).toContain("do not send photo urls")
     expect(support).toContain("optional paid-user diagnostics export")
@@ -108,7 +108,7 @@ describe("launch policy docs", () => {
     expect(checklist).toContain("live google photos validation")
     expect(checklist).toContain("google photos, icloud photos, and amazon photos")
     expect(checklist).toContain("plasmo_public_photosweep_allow_dev_entitlement=0")
-    expect(checklist).toContain("support@photosweep.app")
+    expect(checklist).toContain("pawsitivegames@gmail.com")
   })
 
   it("keeps live validation aligned with the paid multi-provider launch", () => {

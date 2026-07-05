@@ -88,7 +88,7 @@ launch complete until every item has current evidence.
   - privacy policy from `docs/PRIVACY_POLICY.md`
   - refund policy from `docs/REFUND_POLICY.md`
   - support page from `docs/SUPPORT.md`
-- Verify `support@photosweep.app` receives mail.
+- Verify `pawsitivegames@gmail.com` receives mail.
 - Chrome Web Store listing must state paid support covers Google Photos, iCloud
   Photos, and Amazon Photos under the same free and paid limits.
 - Store listing must disclose:
