@@ -31,7 +31,9 @@ import {
   getEstimatedScanCount,
   getEffectivePlanId,
   getScanGate,
+  isFreeIcloudPlan,
   PLAN_LABELS,
+  scanSettingsForEntitlement,
   type Entitlement
 } from "../lib/entitlement"
 import { photoSweepColors } from "../lib/theme"
@@ -65,7 +67,7 @@ function providerLabel(provider: ScanSettings["sourceProvider"]): string {
 
 function providerHelpText(provider: ScanSettings["sourceProvider"]): string {
   if (provider === "icloud") {
-    return "Scan iCloud Photos through the signed-in web session. Free and paid limits match the Google Photos workflow; review tiny test batches before moving items to Recently Deleted."
+    return "Scan iCloud Photos through the signed-in web session. Free users can review scoped Smart scans; paid plans can use test batches before moving items to Recently Deleted."
   }
   if (provider === "amazon") {
     return "Scan Amazon Photos through the signed-in web session. Free and paid limits match the Google Photos workflow."
@@ -151,15 +153,17 @@ export function ScanConfig({
   const isIcloud = sourceProvider === "icloud"
   const isAmazon = sourceProvider === "amazon"
   const supportsAlbumScope = sourceProvider === "google"
-  const batchLimit = providerBatchLimit(settings)
+  const entitlementSettings = scanSettingsForEntitlement(settings, entitlement)
+  const batchLimit = providerBatchLimit(entitlementSettings)
+  const freeIcloudPlan = isFreeIcloudPlan(settings, entitlement)
   const libraryAreaValueLabel = albumLabel || compactScopeLabel(sourceProvider)
   const hasScanScope = Boolean(
     settings.albumScope || settings.dateRange?.from || settings.dateRange?.to
   )
   const showUnscopedFullScanWarning =
     settings.scanMode === "full" && !hasScanScope
-  const estimatedScanCount = getEstimatedScanCount(settings)
-  const scanGate = getScanGate(settings, estimatedScanCount, entitlement)
+  const estimatedScanCount = getEstimatedScanCount(entitlementSettings)
+  const scanGate = getScanGate(entitlementSettings, estimatedScanCount, entitlement)
   const fullScanAllowed = canUseScanMode("full", entitlement)
   const planName = PLAN_LABELS[getEffectivePlanId(entitlement)]
   const providerPaidSupported = canUsePaidProvider(sourceProvider, entitlement)
@@ -655,9 +659,11 @@ export function ScanConfig({
           <Alert severity="info" sx={{ mb: 2 }}>
             {scanGate.reason === "full_scan_locked"
               ? "Full scan is a paid cleanup tool. Switch to Smart scan to try PhotoSweep for free."
-              : scanGate.reason === "unscoped_scan_locked"
-                ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
-                : `This scope is above the ${scanGate.limit?.toLocaleString()} photo scan limit for ${planName}.`}
+              : scanGate.reason === "unscoped_scan_locked" && freeIcloudPlan
+                ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
+                : scanGate.reason === "unscoped_scan_locked"
+                  ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
+                  : `This scope is above the ${scanGate.limit?.toLocaleString()} photo scan limit for ${planName}.`}
           </Alert>
         )}
 
@@ -686,7 +692,11 @@ export function ScanConfig({
               onUpgrade?.(
                 scanGate.reason === "full_scan_locked"
                   ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-                  : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
+                  : scanGate.reason === "unscoped_scan_locked" && freeIcloudPlan
+                    ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
+                    : scanGate.reason === "unscoped_scan_locked"
+                      ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
+                      : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
               )
               return
             }
@@ -874,7 +884,7 @@ export function ScanConfig({
               </Box>
             )}
 
-            {sourceProvider === "icloud" && (
+            {sourceProvider === "icloud" && !freeIcloudPlan && (
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
                   iCloud test batch size
@@ -896,7 +906,7 @@ export function ScanConfig({
                           : undefined
                     })
                   }}
-                  helperText="Use 100 or 200 to verify iCloud end-to-end before scanning the full library. Leave blank for the full library."
+                  helperText="Use 200 to verify iCloud end-to-end before scanning the full library. Leave blank for the full library."
                 />
               </Box>
             )}

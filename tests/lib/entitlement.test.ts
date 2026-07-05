@@ -11,9 +11,11 @@ import {
   getPlanLimits,
   getVisibleGroups,
   isEntitlementActive,
+  isFreeIcloudPlan,
   limitScanItems,
   OFFLINE_GRACE_MS,
   PLAN_LIMITS,
+  scanSettingsForEntitlement,
   type Entitlement
 } from "../../lib/entitlement"
 import type { DuplicateGroup, GpdMediaItem, ScanSettings } from "../../lib/types"
@@ -144,6 +146,54 @@ describe("entitlement gates", () => {
       totalEstimate: 1200,
       message: "paused"
     }
+    expect(canResumeCheckpoint(checkpoint, entitlement("free"))).toBe(false)
+    expect(canResumeCheckpoint(checkpoint, entitlement("cleanup_pass"))).toBe(true)
+  })
+
+  it("treats saved iCloud test batches as paid-only scan scope", () => {
+    const savedFreeIcloudSettings: ScanSettings = {
+      sourceProvider: "icloud",
+      scanMode: "smart",
+      similarityThreshold: 0.95,
+      icloudBatchLimit: 50
+    }
+    const sanitized = scanSettingsForEntitlement(
+      savedFreeIcloudSettings,
+      entitlement("free")
+    )
+
+    expect(isFreeIcloudPlan(savedFreeIcloudSettings, entitlement("free"))).toBe(
+      true
+    )
+    expect(sanitized.icloudBatchLimit).toBeUndefined()
+    expect(canStartScan(sanitized, undefined, entitlement("free"))).toBe(false)
+    expect(
+      scanSettingsForEntitlement(
+        savedFreeIcloudSettings,
+        entitlement("cleanup_pass")
+      ).icloudBatchLimit
+    ).toBe(50)
+  })
+
+  it("does not let stale free iCloud batch checkpoints resume as scoped scans", () => {
+    const checkpoint = {
+      id: "scan",
+      status: "interrupted" as const,
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+      settings: {
+        sourceProvider: "icloud" as const,
+        scanMode: "smart" as const,
+        similarityThreshold: 0.95,
+        icloudBatchLimit: 50
+      },
+      phase: "fetching" as const,
+      itemsProcessed: 0,
+      totalEstimate: 0,
+      message: "paused",
+      mediaItems: Array.from({ length: 50 }, (_, i) => item(i))
+    }
+
     expect(canResumeCheckpoint(checkpoint, entitlement("free"))).toBe(false)
     expect(canResumeCheckpoint(checkpoint, entitlement("cleanup_pass"))).toBe(true)
   })

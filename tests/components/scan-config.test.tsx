@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest"
 import { ScanConfig } from "../../components/ScanConfig"
 import { createScanCheckpoint } from "../../lib/scan-checkpoint"
 import theme from "../../lib/theme"
+import type { Entitlement } from "../../lib/entitlement"
 import type { ScanSettings } from "../../lib/types"
 
 // ============================================================
@@ -20,10 +21,15 @@ import type { ScanSettings } from "../../lib/types"
 
 function renderConfig(
   settings: Partial<ScanSettings> = {},
-  options: { compact?: boolean; hasGptk?: boolean } = {}
+  options: {
+    compact?: boolean
+    hasGptk?: boolean
+    entitlement?: Entitlement | null
+  } = {}
 ) {
   const onSettingsChange = vi.fn()
   const onStartScan = vi.fn()
+  const onUpgrade = vi.fn()
   const full: ScanSettings = {
     similarityThreshold: 0.99,
     scanMode: "smart",
@@ -36,6 +42,7 @@ function renderConfig(
         settings={full}
         onSettingsChange={onSettingsChange}
         onStartScan={onStartScan}
+        onUpgrade={onUpgrade}
         onClearCache={vi.fn()}
         onRebuildCache={vi.fn()}
         onExportCacheDiagnostics={vi.fn()}
@@ -55,11 +62,12 @@ function renderConfig(
             isShared: true
           }
         ]}
+        entitlement={options.entitlement}
         compact={options.compact}
       />
     </ThemeProvider>
   )
-  return { onSettingsChange, onStartScan }
+  return { onSettingsChange, onStartScan, onUpgrade }
 }
 
 // ============================================================
@@ -280,14 +288,14 @@ describe("ScanConfig — photo source", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/Recently Deleted/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Free and paid limits match the Google Photos workflow/i)
+      screen.getByText(/Free users can review scoped Smart scans/i)
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /More options/i }))
     expect(
       screen.queryByRole("combobox", { name: /Library area/i })
     ).not.toBeInTheDocument()
-    expect(screen.getByText(/iCloud test batch size/i)).toBeInTheDocument()
+    expect(screen.queryByText(/iCloud test batch size/i)).not.toBeInTheDocument()
   })
 
   it("uses the same compact scope visual pattern for non-Google providers", () => {
@@ -333,8 +341,39 @@ describe("ScanConfig — photo source", () => {
     ).toBeInTheDocument()
   })
 
-  it("labels iCloud capped scans as test batches", () => {
-    renderConfig({ sourceProvider: "icloud", icloudBatchLimit: 50 })
+  it("ignores saved iCloud test batches for Free users", () => {
+    const { onStartScan, onUpgrade } = renderConfig({
+      sourceProvider: "icloud",
+      icloudBatchLimit: 50
+    })
+
+    const startButton = screen.getByRole("button", {
+      name: /Check entire library/i
+    })
+    expect(startButton).toBeInTheDocument()
+    expect(screen.queryByText(/Test batch is on/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/Free iCloud scans need a date range before scanning/i)
+    ).toBeInTheDocument()
+
+    fireEvent.click(startButton)
+    expect(onStartScan).not.toHaveBeenCalled()
+    expect(onUpgrade).toHaveBeenCalledWith(
+      expect.stringMatching(/Free iCloud scans need a date range/i)
+    )
+  })
+
+  it("labels iCloud capped scans as test batches for paid users", () => {
+    renderConfig(
+      { sourceProvider: "icloud", icloudBatchLimit: 50 },
+      {
+        entitlement: {
+          planId: "cleanup_pass",
+          active: true,
+          source: "signed_token"
+        }
+      }
+    )
 
     expect(
       screen.getByRole("button", { name: /Check 50 item test batch/i })

@@ -81,8 +81,10 @@ import {
   getPlanLimits,
   getScanGate,
   getVisibleGroups,
+  isFreeIcloudPlan,
   limitScanItems,
   PLAN_LABELS,
+  scanSettingsForEntitlement,
   type Entitlement,
   type PlanId
 } from "../lib/entitlement"
@@ -464,13 +466,17 @@ function providerFromTabUrl(url: string | undefined): PhotoProvider | null {
   return null
 }
 
-function providerBatchLimit(settings: ScanSettings): number | undefined {
-  const provider = settings.sourceProvider ?? "google"
+function providerBatchLimit(
+  settings: ScanSettings,
+  entitlement?: Entitlement | null
+): number | undefined {
+  const effectiveSettings = scanSettingsForEntitlement(settings, entitlement)
+  const provider = effectiveSettings.sourceProvider ?? "google"
   const limit =
     provider === "amazon"
-      ? settings.amazonBatchLimit
+      ? effectiveSettings.amazonBatchLimit
       : provider === "icloud"
-        ? settings.icloudBatchLimit
+        ? effectiveSettings.icloudBatchLimit
         : undefined
   return typeof limit === "number" && Number.isFinite(limit) && limit > 0
     ? Math.floor(limit)
@@ -2644,7 +2650,8 @@ export default function App() {
     if (groups.length > 0) {
       const storedMediaItemCount = Object.keys(mediaItems).length
       const mediaItemsAreComplete =
-        !providerBatchLimit(settings) && storedMediaItemCount === totalItems
+        !providerBatchLimit(settings, entitlement) &&
+        storedMediaItemCount === totalItems
       const newestCreationTimestamp = mediaItemsAreComplete
         ? Object.values(mediaItems).reduce(
             (max, item) => Math.max(max, item.creationTimestamp ?? 0),
@@ -2742,17 +2749,26 @@ export default function App() {
 
   const handleStartScan = useCallback(
     async (settingsOverride?: ScanSettings) => {
-      const scanSettings = settingsOverride ?? settings
-      const estimatedCount = getEstimatedScanCount(scanSettings)
+      const requestedSettings = settingsOverride ?? settings
       const actionEntitlement = await refreshTimeLimitedEntitlementForAction()
       if (!actionEntitlement) return
+      const scanSettings = scanSettingsForEntitlement(
+        requestedSettings,
+        actionEntitlement
+      )
+      const estimatedCount = getEstimatedScanCount(scanSettings)
       const scanGate = getScanGate(scanSettings, estimatedCount, actionEntitlement)
       if (!scanGate.allowed) {
         openTrackedUpgradePrompt(
           "scan",
           scanGate.reason === "full_scan_locked"
             ? "Full scan unlocks with Cleanup Pass or Lifetime Early Access."
-            : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]}.`
+            : scanGate.reason === "unscoped_scan_locked" &&
+                isFreeIcloudPlan(scanSettings, actionEntitlement)
+              ? "Free iCloud scans need a date range before scanning. Upgrade to use paid iCloud test batches."
+              : scanGate.reason === "unscoped_scan_locked"
+                ? `Your ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]} plan needs an album, date range, or smaller test batch before scanning.`
+                : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${PLAN_LABELS[getEffectivePlanId(actionEntitlement)]}.`
         )
         return
       }
@@ -3477,12 +3493,13 @@ export default function App() {
     state.status === "trashing"
   const scanStepComplete =
     state.status === "results" || state.status === "trashing"
+  const sidePanelBatchLimit = providerBatchLimit(settings, entitlement)
   const sidePanelScopeSummary = settings.albumScope?.title
     ? settings.albumScope.title
     : settings.albumScope?.mediaKey
       ? "Selected album"
-      : providerBatchLimit(settings)
-        ? `${providerBatchLimit(settings)?.toLocaleString()} item test batch`
+      : sidePanelBatchLimit
+        ? `${sidePanelBatchLimit.toLocaleString()} item test batch`
         : "Entire library"
   const sidePanelDuplicateSummary =
     groups.length > 0

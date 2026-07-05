@@ -138,6 +138,25 @@ export function getPlanLimits(
   return PLAN_LIMITS[getEffectivePlanId(entitlement, now)]
 }
 
+export function isFreeIcloudPlan(
+  settings: ScanSettings,
+  entitlement: Entitlement | null | undefined
+): boolean {
+  return (
+    (settings.sourceProvider ?? "google") === "icloud" &&
+    getEffectivePlanId(entitlement) === "free"
+  )
+}
+
+export function scanSettingsForEntitlement(
+  settings: ScanSettings,
+  entitlement: Entitlement | null | undefined
+): ScanSettings {
+  return isFreeIcloudPlan(settings, entitlement)
+    ? { ...settings, icloudBatchLimit: undefined }
+    : settings
+}
+
 export function canUseScanMode(
   scanMode: ScanMode,
   entitlement: Entitlement | null | undefined
@@ -283,10 +302,14 @@ export function canResumeCheckpoint(
   entitlement: Entitlement | null | undefined
 ): boolean {
   const limits = getPlanLimits(entitlement)
+  const settings = scanSettingsForEntitlement(checkpoint.settings, entitlement)
+  if (isFreeIcloudPlan(checkpoint.settings, entitlement) && !hasScopedScan(settings)) {
+    return false
+  }
   const estimate =
     checkpoint.totalEstimate ||
     checkpoint.mediaItems?.length ||
-    getEstimatedScanCount(checkpoint.settings)
+    getEstimatedScanCount(settings)
   if (
     !limits.largeLibraryResume &&
     estimate !== undefined &&
@@ -294,5 +317,5 @@ export function canResumeCheckpoint(
   ) {
     return false
   }
-  return canStartScan(checkpoint.settings, estimate, entitlement)
+  return canStartScan(settings, estimate, entitlement)
 }
