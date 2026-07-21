@@ -1,6 +1,6 @@
 # PhotoSweep Privacy Policy
 
-Last updated: 2026-06-30
+Last updated: 2026-07-21
 
 ## Summary
 
@@ -20,6 +20,8 @@ review, report, Trash, undo, and diagnostics features:
 - duplicate groups, review decisions, keep/skip choices, scan checkpoints, and
   locally generated reports
 - local embedding/cache data used to avoid repeating expensive duplicate analysis
+- a provider account email or identifier exposed by a signed-in provider page,
+  when needed to associate saved scan state with the provider account
 
 This local data is stored with Chrome extension storage on the user's device.
 Users can clear saved results and cache data from the extension UI.
@@ -39,6 +41,12 @@ Allowed license/support data includes:
 - signed entitlement token state
 - extension version, provider, plan, scan mode, count buckets, error category,
   and redacted diagnostic logs if the user chooses to export diagnostics
+- limited product telemetry such as app opened, scan, checkout, export, Trash,
+  entitlement, and categorized error events, with provider, scan mode, plan, and
+  count buckets where applicable
+
+Telemetry is sent to help measure reliability and feature use. It does not
+include photo content, filenames, album names, raw reports, or provider URLs.
 
 PhotoSweep's license service must not receive photo URLs, thumbnails, filenames,
 album names, raw reports, exact timestamps, people/location labels, or page
