@@ -61,8 +61,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Run focused release tests
-        run: npx vitest run tests/lib/entitlement.test.ts tests/lib/license-client.test.ts tests/components/upgrade-dialog.test.tsx tests/components/scan-config.test.tsx tests/tabs/app-reducer.test.tsx
+      - name: Run release tests
+        run: npm test
 
       - name: Build and package extension
         run: npm run package

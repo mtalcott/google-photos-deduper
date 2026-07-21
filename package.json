@@ -1,8 +1,8 @@
 {
   "name": "google-photos-deduper",
-  "displayName": "PhotoSweep",
-  "version": "2.2.2",
-  "description": "Find and review duplicate photos in supported cloud photo libraries",
+  "displayName": "PhotoSweep - Duplicate Photo Finder",
+  "version": "2.2.3",
+  "description": "Find and review duplicate photos in Google Photos, iCloud Photos, and Amazon Photos, with provider-specific flows where supported.",
   "author": "Mack Talcott",
   "scripts": {
     "build:gptk": "git submodule update --init && (test -d Google-Photos-Toolkit/node_modules || npm --prefix Google-Photos-Toolkit install --no-fund --no-audit) && cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js",

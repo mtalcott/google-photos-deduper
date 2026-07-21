@@ -55,6 +55,13 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
   await confirmButton.click()
 }
 
+async function includeAllAndOpenTrashDialog(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Include all" }).click()
+  await page
+    .getByRole("button", { name: /Move \d+ to Trash/i })
+    .click()
+}
+
 // ============================================================
 // Trash: baseline (< 25 items, single batch)
 // ============================================================
@@ -78,9 +85,7 @@ test("trashes selected groups and removes them from the UI", async () => {
   })
 
   // Click "Move N to Trash" in the ActionBar
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
 
   // Confirm dialog appears
   await expect(page.getByRole("dialog")).toBeVisible()
@@ -208,9 +213,7 @@ test("shows trashing state for multi-batch trash (> 25 items)", async () => {
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await expect(page.getByRole("dialog")).toBeVisible()
   await confirmTrashDialog(page, 300)
 
@@ -248,9 +251,7 @@ test("undo restores all groups to the UI", async () => {
   })
 
   // Trash all groups
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await confirmTrashDialog(page, 3)
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
     timeout: 10_000
@@ -294,9 +295,7 @@ test("undo after multi-batch trash restores all groups", async () => {
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await confirmTrashDialog(page, 300)
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
     timeout: 15_000
@@ -332,9 +331,7 @@ test("shows a retryable warning when restore undo fails", async () => {
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await confirmTrashDialog(page, 3)
   await expect(page.getByText(/moved to trash/i)).toBeVisible({
     timeout: 10_000
@@ -382,9 +379,7 @@ test("shows error state when trashItems fails", async () => {
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await confirmTrashDialog(page, 3)
 
   // TRASH_ERROR dispatches { status: "disconnected", error: "HTTP 504" }.
@@ -428,9 +423,7 @@ test("keeps failed items visible and reports partial trash results", async () =>
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await confirmTrashDialog(page, 3)
 
   await expect(page.getByText(/Moved 1 item before trash failed/i)).toBeVisible(
@@ -489,9 +482,7 @@ test("cancel dialog does not trigger trash", async () => {
     timeout: 8_000
   })
 
-  await page
-    .getByRole("button", { name: /Move \d+ to Trash/i })
-    .click()
+  await includeAllAndOpenTrashDialog(page)
   await expect(page.getByRole("dialog")).toBeVisible()
 
   // Click Cancel in the dialog

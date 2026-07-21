@@ -5,7 +5,6 @@ import {
   countBucket,
   sendPrivacySafeAnalyticsEvent
 } from "../../lib/privacy-analytics"
-import { OFFLINE_GRACE_MS } from "../../lib/entitlement"
 import { buildSupportDiagnosticsReport } from "../../lib/support-diagnostics"
 
 describe("privacy analytics", () => {
@@ -109,7 +108,23 @@ describe("support diagnostics", () => {
     expect(JSON.stringify(report)).not.toContain("AF1QipPrivateKey")
   })
 
-  it("reports the paid plan during the offline grace window", () => {
+  it("reports the paid plan before the signed entitlement expires", () => {
+    const report = buildSupportDiagnosticsReport({
+      version: "2.2.2",
+      provider: "google",
+      scanMode: "smart",
+      entitlement: {
+        planId: "cleanup_pass",
+        active: true,
+        source: "signed_token",
+        expiresAt: Date.now() + 60_000
+      }
+    })
+
+    expect(report.planId).toBe("cleanup_pass")
+  })
+
+  it("reports free immediately after a signed entitlement expires", () => {
     const report = buildSupportDiagnosticsReport({
       version: "2.2.2",
       provider: "google",
@@ -119,22 +134,6 @@ describe("support diagnostics", () => {
         active: true,
         source: "signed_token",
         expiresAt: Date.now() - 1000
-      }
-    })
-
-    expect(report.planId).toBe("cleanup_pass")
-  })
-
-  it("reports free once an expired entitlement is past the grace window", () => {
-    const report = buildSupportDiagnosticsReport({
-      version: "2.2.2",
-      provider: "google",
-      scanMode: "smart",
-      entitlement: {
-        planId: "cleanup_pass",
-        active: true,
-        source: "signed_token",
-        expiresAt: Date.now() - OFFLINE_GRACE_MS - 1000
       }
     })
 

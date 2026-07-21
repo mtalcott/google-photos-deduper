@@ -32,6 +32,12 @@ jobs:
         run: npm ci
         working-directory: Google-Photos-Toolkit
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run release tests
+        run: npm test
+
       - name: Build production package
         run: npm run package
 
