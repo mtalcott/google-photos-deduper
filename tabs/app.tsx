@@ -52,6 +52,7 @@ import {
 import { ActionBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
 import { DuplicateGroups } from "../components/DuplicateGroups"
+import { RatingPromptDialog } from "../components/RatingPromptDialog"
 import { ScanConfig } from "../components/ScanConfig"
 import { ScanProgress } from "../components/ScanProgress"
 import {
@@ -101,6 +102,12 @@ import {
   sendPrivacySafeAnalyticsEvent,
   type PrivacySafeAnalyticsEvent
 } from "../lib/privacy-analytics"
+import {
+  chromeWebStoreReviewUrl,
+  completeRatingPrompt,
+  deferRatingPrompt,
+  recordSuccessfulScan
+} from "../lib/rating-prompt"
 import { buildReviewReport, reviewReportToCsv } from "../lib/review-report"
 import {
   canResumeScanCheckpoint,
@@ -1231,6 +1238,7 @@ export default function App() {
     reason: UpgradeReason
     detail?: string
   } | null>(null)
+  const [ratingPromptOpen, setRatingPromptOpen] = useState(false)
   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
     string | undefined
   >()
@@ -2246,6 +2254,13 @@ export default function App() {
           photoCountBucket: countBucket(items.length),
           duplicateGroupCountBucket: countBucket(groups.length)
         })
+        void recordSuccessfulScan()
+          .then((shouldPrompt) => {
+            if (shouldPrompt) setRatingPromptOpen(true)
+          })
+          .catch(() => {
+            // A storage failure must never interfere with scan results.
+          })
         refreshEmbeddingCacheCount()
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
@@ -4115,6 +4130,32 @@ export default function App() {
         onChoosePlan={handleChooseUpgradePlan}
         onRefreshLicense={handleRefreshEntitlement}
         onRecoverLicense={handleRecoverLicense}
+      />
+
+      <RatingPromptDialog
+        open={ratingPromptOpen}
+        onReview={() => {
+          setRatingPromptOpen(false)
+          void completeRatingPrompt()
+          void chrome.tabs.create({
+            url: chromeWebStoreReviewUrl(chrome.runtime.id)
+          })
+        }}
+        onFeedback={() => {
+          setRatingPromptOpen(false)
+          void completeRatingPrompt()
+          void chrome.tabs.create({
+            url: "mailto:pawsitivegames@gmail.com?subject=PhotoSweep%20feedback"
+          })
+        }}
+        onLater={() => {
+          setRatingPromptOpen(false)
+          void deferRatingPrompt()
+        }}
+        onNever={() => {
+          setRatingPromptOpen(false)
+          void completeRatingPrompt()
+        }}
       />
 
       {/* Trash confirm dialog */}

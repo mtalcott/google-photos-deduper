@@ -110,6 +110,9 @@ test("restores saved scan results from storage on load", async () => {
   await expect(
     page.getByText("2 duplicate sets to review", { exact: true }).first()
   ).toBeVisible()
+  await expect(
+    page.getByText("How was your PhotoSweep scan?")
+  ).not.toBeVisible()
 
   await page.close()
   await clearStorage(context)
@@ -511,6 +514,26 @@ test("resumes duplicate detection from a checkpointed media list without refetch
   await page.getByRole("button", { name: /Continue previous scan/i }).click()
   await expect(page.getByText(/No duplicates found/i)).toBeVisible({
     timeout: 10_000
+  })
+  await expect(page.getByText("How was your PhotoSweep scan?")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Leave an honest review" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Send feedback" })
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Maybe later" }).click()
+
+  const ratingPrompt = await context.serviceWorkers()[0].evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) => {
+        chrome.storage.local.get("ratingPrompt", resolve)
+      })
+  )
+  expect(ratingPrompt.ratingPrompt).toEqual({
+    successfulScans: 1,
+    nextPromptAt: 4,
+    completed: false
   })
 
   const commands = await gpPage.evaluate(

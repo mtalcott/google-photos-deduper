@@ -417,6 +417,11 @@ has enough experience to evaluate PhotoSweep. There is no verified "magic"
 rating count or average-rating target. Never buy, fabricate, or incentivize
 ratings or reviews.
 
+The in-extension prompt gives every user equal access to both an honest public
+review and direct support feedback. Do not first ask whether the experience was
+positive or route unhappy users away from the Chrome Web Store. Users can defer
+the prompt or permanently dismiss it.
+
 The previously reported Enhanced Safe Browsing "not trusted" warning was not
 reverified in the current release pass, so it is not treated as a confirmed
 finding.
@@ -490,7 +495,7 @@ Tasks:
 6. User reviews sample groups.
 7. Upgrade prompt unlocks full cleanup.
 8. User exports report and moves duplicates to Trash.
-9. App asks for rating/testimonial after successful cleanup.
+9. App offers an honest review or direct feedback after a successful real scan.
 
 Best upgrade moment:
 

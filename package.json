@@ -1,7 +1,7 @@
 {
   "name": "google-photos-deduper",
   "displayName": "PhotoSweep - Duplicate Photo Finder",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "Find and review duplicate photos in Google Photos, iCloud Photos, and Amazon Photos, with provider-specific flows where supported.",
   "author": "Mack Talcott",
   "scripts": {
