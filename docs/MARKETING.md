@@ -376,29 +376,50 @@ Questions:
 
 ### Title
 
-PhotoSweep: Duplicate Cleaner for Google Photos
+PhotoSweep - Duplicate Photo Finder
 
 ### Short Description
 
-Find duplicate photos in Google Photos, review every group, and move confirmed duplicates to Trash. Local-first and privacy-aware.
+Duplicate photo finder for Google Photos™, with iCloud and Amazon support where available. Review matches before cleanup.
 
 ### Detailed Description
 
-PhotoSweep helps you find duplicate and similar photos in Google Photos without uploading your library to another service.
+PhotoSweep helps you find duplicate and similar photos in Google Photos™, with iCloud Photos and Amazon Photos support available where the provider flow, region, account state, loaded library area, and media type support it. Review matches first, then clean up confirmed items using each service's available Trash or Recently Deleted flow.
 
-Scan an album, date range, or larger library, review each duplicate group, choose what to keep, export a report, and move confirmed duplicates to Google Photos Trash. PhotoSweep is designed for careful cleanup: it separates exact and similar matches, explains why items were grouped, and uses typed confirmation before Trash actions.
+PhotoSweep is not affiliated with, created by, or endorsed by Google, Apple, Amazon, or their photo services. Google Photos is a trademark of Google LLC. Use of this trademark is subject to Google Permissions. Apple, iCloud, and iCloud Photos are trademarks of Apple Inc. Amazon and Amazon Photos are trademarks of Amazon.com, Inc. or its affiliates.
 
-Key features:
+Choose a provider, scan a focused library area, review duplicate groups, choose what to keep, export a report if needed, and clean up only after confirming the selected items.
+
+PhotoSweep is designed for careful cleanup:
 
 - Find exact and similar duplicate photos.
-- Scan by album or date range.
-- Review every duplicate group before cleanup.
-- Export JSON and CSV reports.
-- Move confirmed duplicates to Trash, not permanent deletion.
-- Resume interrupted scans.
-- Keep photo analysis local in your browser.
+- Use Google Photos, with iCloud Photos and Amazon Photos support where available from signed-in browser sessions.
+- Scan smaller scopes before working through a large library.
+- Review duplicate groups before cleanup.
+- Keep exact and similar matches separate.
+- Choose which copy to keep.
+- Export JSON or spreadsheet reports.
+- Use typed confirmation before Trash actions.
+- Use each provider's available Trash or Recently Deleted flow where supported.
 
-PhotoSweep is not affiliated with Google. Always review results before moving photos to Trash.
+Photo matching runs locally in your browser using bundled analysis assets. PhotoSweep does not upload your photo library for analysis. Payment, licensing, and support diagnostics are handled separately from photo matching.
+
+Availability and cleanup behavior can vary by provider, region, account state, loaded library area, and media type. Some cleanup steps may require the provider's own web interface. Always review results before moving photos to Trash or Recently Deleted.
+
+### Ratings and Trust
+
+Chrome Web Store prioritization considers both the number of ratings and the
+average rating. Users who have installed an extension can leave a rating and a
+written review.
+
+Ask for honest reviews only after a user successfully completes a real scan and
+has enough experience to evaluate PhotoSweep. There is no verified "magic"
+rating count or average-rating target. Never buy, fabricate, or incentivize
+ratings or reviews.
+
+The previously reported Enhanced Safe Browsing "not trusted" warning was not
+reverified in the current release pass, so it is not treated as a confirmed
+finding.
 
 ## Launch Plan
 
@@ -603,4 +624,5 @@ Do not track:
 - Google One storage pricing is a useful value anchor for cleanup messaging: https://one.google.com/about/plans
 - Chrome Web Store native payments were deprecated, so paid extension monetization needs an external payment/licensing flow: https://github.com/GoogleChrome/developer.chrome.com/blob/main/site/en/docs/webstore/cws-payments-deprecation/index.md
 - Chrome Web Store policies should shape privacy, ad, and data-use messaging: https://developer.chrome.com/docs/webstore/program-policies/policies
+- Chrome Web Store rating count and average rating are prioritization inputs, and installed users can leave ratings and written reviews: https://support.google.com/chrome_webstore/answer/12225786
 - ExtensionPay is a common extension-specific payment option for one-time and recurring unlocks: https://extensionpay.com/
