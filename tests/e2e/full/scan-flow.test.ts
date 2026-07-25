@@ -59,7 +59,7 @@ test("connects to Google Photos and completes a scan", async () => {
     await expect(appPage.getByText(/items scanned/)).toBeVisible({ timeout: 300_000 })
 
     // Should show either results or no-duplicates state
-    const hasDuplicates = await appPage.getByText(/Duplicate Groups Found/).isVisible()
+    const hasDuplicates = await appPage.getByText(/duplicate groups/i).isVisible()
     const hasNoDuplicates = await appPage
       .getByText("No duplicates found in your library.")
       .isVisible()

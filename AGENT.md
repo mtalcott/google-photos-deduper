@@ -16,6 +16,16 @@
 * Heavy processing (embedding computation, pairwise similarity checks) is offloaded to Web Workers (`workers/embedder.worker.ts`) to keep the React UI responsive.
 * The duplicate detector (`lib/duplicate-detector.ts`) communicates with the worker. When updating scan settings (like early termination limits), ensure the parameters are passed all the way down to the worker script (via `postMessage`) so the worker can halt execution efficiently.
 
+### 4. Security Best Practices
+* Validate all incoming messages in background workers and content scripts using a strict structure check (e.g., `message.app === APP_ID`).
+* Do not trust the sender blindly; when handling messages from the web page, sanitize data before passing it to Chrome APIs or executing it.
+* Adhere to MV3 Content Security Policy (CSP) rules. Avoid using `eval()` or injecting raw strings as scripts unless strictly necessary.
+
+### 5. Testing
+* We use Playwright for End-to-End (E2E) and integration tests (`tests/e2e/`).
+* Extension pages are tested by mocking the Google Photos web environment (`GooglePhotosStub`).
+* Test states are injected via `chrome.storage.local` to isolate UI logic testing from backend operations.
+
 ## Debugging the Extension
 
 ### Chrome DevTools MCP does NOT show extension pages

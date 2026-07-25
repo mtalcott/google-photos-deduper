@@ -54,6 +54,12 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+    onIgnoreGroup: () => {},
+    groupIndex: 0,
+    totalGroups: 1,
+    previewHeight: 120,
+    previewWidth: 160,
+    fetchHeight: 200,
       })
       unmount()
     },
@@ -70,6 +76,12 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+    onIgnoreGroup: () => {},
+    groupIndex: 0,
+    totalGroups: 1,
+    previewHeight: 120,
+    previewWidth: 160,
+    fetchHeight: 200,
       })
       rerender(
         <ThemeProvider theme={theme}>
@@ -98,6 +110,12 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+    onIgnoreGroup: () => {},
+    groupIndex: 0,
+    totalGroups: 1,
+    previewHeight: 120,
+    previewWidth: 160,
+    fetchHeight: 200,
       })
       rerender(
         <ThemeProvider theme={theme}>

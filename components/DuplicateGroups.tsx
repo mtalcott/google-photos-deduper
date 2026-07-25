@@ -14,6 +14,8 @@ import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff"
 import VisibilityIcon from "@mui/icons-material/Visibility"
+import DeleteIcon from "@mui/icons-material/Delete"
+import CheckCircleIcon from "@mui/icons-material/CheckCircle"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
@@ -228,10 +230,15 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
               <Card
                 variant="outlined"
                 sx={[sxCardBase, {
-                  borderColor: isKept ? "primary.main" : "error.light",
+                  borderColor: isKept ? "primary.main" : "error.main",
                   borderWidth: 2,
                 }]}>
-                <CardActionArea onClick={() => onToggleKept(group, key)}>
+                <CardActionArea onClick={() => {
+                  if (!isSelected) {
+                    onToggleGroup(group.id)
+                  }
+                  onToggleKept(group, key)
+                }}>
                   <Box sx={{ position: "relative" }}>
                     <ThumbnailImage
                       src={item.thumb + `=s${Math.max(itemWidth, itemHeight) * 2}`}
@@ -284,6 +291,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                     )}
                     {isKept ? (
                       <Chip
+                        icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                         label="Keep"
                         size="small"
                         color="primary"
@@ -292,6 +300,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                       />
                     ) : (
                       <Chip
+                        icon={<DeleteIcon sx={{ fontSize: 14 }} />}
                         label="Trash"
                         size="small"
                         color="error"
@@ -451,10 +460,6 @@ export function DuplicateGroups({
 
   return (
     <Box sx={{ pb: 6 }}>
-      <Typography variant="h6" fontWeight={600} sx={{ px: 0, py: 2 }}>
-        {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
-      </Typography>
-
       {groups.slice(0, visibleCount).map((group, index) => (
         <DuplicateGroupRow
           key={group.id}

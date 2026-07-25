@@ -205,7 +205,7 @@ export function ScanConfig({
                     label="Quick Preset"
                     value=""
                     onChange={(e) => {
-                      const val = e.target.value
+                      const val = e.target.value as string
                       if (val === "clear") {
                         onSettingsChange({ dateRange: undefined })
                       } else if (val) {
@@ -295,7 +295,7 @@ export function ScanConfig({
               </Typography>
               <TextField
                 size="small"
-                fullWidth
+                sx={{ width: 120 }}
                 type="number"
                 placeholder="No limit"
                 value={settings.maxGroupResults ?? ""}

@@ -44,6 +44,7 @@ export type AppState =
       totalToTrash: number
       trashedSoFar: number
       accountEmail?: string
+      hasGptk: boolean
     }
 
 export type AppAction =

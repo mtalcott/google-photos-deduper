@@ -36,7 +36,7 @@ test("trashes duplicates via API and undoes via undo snackbar", async () => {
     // Wait for the app to be ready — either fresh connected state or already showing results
     const scanButton = appPage.getByRole("button", { name: /scan library/i })
     const rescanButton = appPage.getByRole("button", { name: /re-scan/i })
-    const resultsHeading = appPage.getByText(/Duplicate Groups Found/)
+    const resultsHeading = appPage.getByText(/duplicate groups/i)
 
     await expect(
       scanButton.or(rescanButton).or(resultsHeading).first()

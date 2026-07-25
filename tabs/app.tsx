@@ -428,13 +428,33 @@ export default function App() {
     scanLoggerRef.current.recoverStale()
   }, [])
 
-  // Load saved settings on mount
+  // Load saved settings and results on mount
   useEffect(() => {
     chrome.storage.local.get(
-      ["settings"],
+      ["settings", "scanResults", "selections"],
       (result: Partial<StoredState>) => {
+        console.log("STORAGE RESULT", result)
         if (result.settings) {
           setSettings(result.settings)
+        }
+        if (result.selections) {
+          // Store deserialized selections before dispatching LOAD_SAVED_RESULTS so
+          // the groups-change effect can apply them when groups first appear
+          pendingSelectionsRef.current = {
+            selectedGroupIds: new Set(result.selections.selectedGroupIds),
+            keptOverrides: Object.fromEntries(
+              Object.entries(result.selections.keptOverrides).map(([k, v]) => [k, new Set(v)])
+            ),
+          }
+        }
+        if (result.scanResults?.totalItems && Array.isArray(result.scanResults.groups)) {
+          dispatch({
+            type: "LOAD_SAVED_RESULTS",
+            mediaItems: result.scanResults.mediaItems,
+            groups: result.scanResults.groups,
+            totalItems: result.scanResults.totalItems,
+            accountEmail: result.scanResults.accountEmail
+          })
         }
         setStorageChecked(true)
       }
@@ -443,6 +463,48 @@ export default function App() {
 
   // Persist scan results when they change (after scan or trash)
   const mediaItems = state.status === "results" ? state.mediaItems : null
+  const totalItems = state.status === "results" ? state.totalItems : 0
+  const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
+
+  useEffect(() => {
+    if (!mediaItems) return
+    if (groups.length > 0) {
+      const newestCreationTimestamp = Object.values(mediaItems).reduce(
+        (max, item) => Math.max(max, item.creationTimestamp ?? 0),
+        0
+      )
+      chrome.storage.local.set({
+        scanResults: {
+          mediaItems,
+          groups,
+          scanDate: Date.now(),
+          totalItems,
+          newestCreationTimestamp,
+          accountEmail: accountEmailForStorage
+        }
+      })
+    } else {
+      // All duplicates removed — clear saved results so next open starts fresh
+      chrome.storage.local.remove("scanResults")
+    }
+  }, [groups, mediaItems, totalItems, accountEmailForStorage])
+
+  // Persist selections when they change (only while results are showing)
+  useEffect(() => {
+    if (state.status !== "results") return
+    if (groups.length === 0) {
+      chrome.storage.local.remove("selections")
+      return
+    }
+    chrome.storage.local.set({
+      selections: {
+        selectedGroupIds: [...selectedGroupIds],
+        keptOverrides: Object.fromEntries(
+          Object.entries(keptOverrides).map(([k, v]) => [k, [...v]])
+        ),
+      },
+    })
+  }, [selectedGroupIds, keptOverrides, state.status, groups.length])
 
   // Stable default kept sets (one per group, only changes when groups or mediaItems change).
   // Uses smart keep selection: original quality > higher resolution > oldest upload date.

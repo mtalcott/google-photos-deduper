@@ -56,7 +56,7 @@ test("trashes selected groups and removes them from the UI", async () => {
   const page = await openAppTab(context, extensionId)
 
   // App should load results from storage (no GP auth needed for results view)
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   // Click "Move N Duplicates to Trash" in the ActionBar
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
@@ -74,7 +74,7 @@ test("trashes selected groups and removes them from the UI", async () => {
   ).toBeVisible({ timeout: 10_000 })
 
   // Groups list should no longer show duplicate groups
-  await expect(page.getByText("3 Duplicate Groups Found")).not.toBeVisible()
+  await expect(page.getByText("3 duplicate groups")).not.toBeVisible()
 
   await stub.close()
   await page.close()
@@ -94,7 +94,7 @@ test("shows trashing state for multi-batch trash (> 250 items)", async () => {
   const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
@@ -106,7 +106,7 @@ test("shows trashing state for multi-batch trash (> 250 items)", async () => {
   ).toBeVisible({ timeout: 15_000 })
 
   // Groups should be gone
-  await expect(page.getByText("3 Duplicate Groups Found")).not.toBeVisible()
+  await expect(page.getByText("3 duplicate groups")).not.toBeVisible()
 
   await stub.close()
   await page.close()
@@ -124,7 +124,7 @@ test("undo restores all groups to the UI", async () => {
   const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   // Trash all groups
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
@@ -135,7 +135,7 @@ test("undo restores all groups to the UI", async () => {
   await page.getByRole("button", { name: /undo/i }).click()
 
   // All 3 groups should be restored
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 10_000 })
 
   // Undo snackbar should be dismissed
   await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
@@ -157,7 +157,7 @@ test("undo after multi-batch trash restores all groups", async () => {
   const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
   await page.getByRole("button", { name: /Move to Trash/i }).last().click()
@@ -166,7 +166,7 @@ test("undo after multi-batch trash restores all groups", async () => {
   await page.getByRole("button", { name: /undo/i }).click()
 
   // Pre-trash state fully restored
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 10_000 })
 
   await stub.close()
   await page.close()
@@ -187,7 +187,7 @@ test("shows error state when trashItems fails", async () => {
   })
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
   await page.getByRole("button", { name: /Move to Trash/i }).last().click()
@@ -216,7 +216,7 @@ test("cancel dialog does not trigger trash", async () => {
   const stub = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 8_000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 8_000 })
 
   await page.getByRole("button", { name: /Move \d+ Duplicates? to Trash/i }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
@@ -226,7 +226,7 @@ test("cancel dialog does not trigger trash", async () => {
 
   // Dialog should close; groups remain intact
   await expect(page.getByRole("dialog")).not.toBeVisible()
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible()
+  await expect(page.getByText("3 duplicate groups")).toBeVisible()
   await expect(page.getByText(/moved to trash/i)).not.toBeVisible()
 
   await stub.close()
