@@ -27,8 +27,11 @@ import { appReducer } from "../lib/app-reducer"
 import type { AppAction, AppState } from "../lib/app-reducer"
 import { debug } from "../lib/debug"
 import {
+  filterItemsByDateRange,
   fullDetectDuplicates,
-  smartDetectDuplicates
+  smartDetectDuplicates,
+  getGroupSignatures,
+  isGroupIgnored
 } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
 import { selectDefaultKeep } from "../lib/duplicate-detector"
@@ -140,7 +143,23 @@ export default function App() {
     state.status === "results" || state.status === "trashing"
       ? state.groups
       : null
-  const groups = useMemo(() => stateGroups ?? [], [stateGroups])
+
+  const groups = useMemo(() => {
+    const rawGroups = stateGroups ?? []
+    const mItems = state.status === "results" || state.status === "trashing" ? state.mediaItems : null
+    if (!mItems) return rawGroups
+    
+    return [...rawGroups].sort((a, b) => {
+      if (settings.sortMode === "dateDesc" || settings.sortMode === "dateAsc") {
+        const tsA = a.mediaKeys.length > 0 ? (mItems[a.mediaKeys[0]]?.timestamp ?? 0) : 0
+        const tsB = b.mediaKeys.length > 0 ? (mItems[b.mediaKeys[0]]?.timestamp ?? 0) : 0
+        if (tsA !== tsB) {
+          return settings.sortMode === "dateDesc" ? tsB - tsA : tsA - tsB
+        }
+      }
+      return b.mediaKeys.length - a.mediaKeys.length
+    })
+  }, [stateGroups, settings.sortMode, state.status, state])
   useEffect(() => {
     if (pendingSelectionsRef.current) {
       const saved = pendingSelectionsRef.current
@@ -200,7 +219,7 @@ export default function App() {
           // Retry. We give up after a few attempts and let the reducer show
           // the error.
           if (
-            !msg.success &&
+            (!msg.success || !msg.hasGptk) &&
             healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
           ) {
             healthCheckAttemptsRef.current++
@@ -319,8 +338,12 @@ export default function App() {
   // Run MediaPipe duplicate detection on fetched media items
   const runDuplicateDetection = useCallback(
     async (items: GpdMediaItem[], signal: AbortSignal) => {
+      const filteredItems = filterItemsByDateRange(
+        items,
+        settingsRef.current.dateRange
+      )
       const logger = scanLoggerRef.current
-      await logger.start(items.length)
+      await logger.start(filteredItems.length)
       try {
         const onProgressCallback = (progress: DetectionProgress) => {
           dispatch({
@@ -340,25 +363,32 @@ export default function App() {
         const groups =
           settingsRef.current.scanMode === "smart"
             ? await smartDetectDuplicates(
-                items,
+                filteredItems,
                 settingsRef.current.similarityThreshold,
                 (settingsRef.current.smartWindowSec ?? 1) * 1000,
                 onProgressCallback,
                 signal,
-                logger
+                logger,
+                settingsRef.current.dateRange?.fallbackToUploadDate,
+                settingsRef.current.maxGroupResults
               )
             : await (async () => {
                 const result = await fullDetectDuplicates(
-                  items,
+                  filteredItems,
                   settingsRef.current.similarityThreshold,
                   onProgressCallback,
                   signal,
-                  logger
+                  logger,
+                  settingsRef.current.maxGroupResults
                 )
                 return result.groups
               })()
 
-        await logger.finalize("complete", { groupsFound: groups.length })
+        const filteredGroups = groups.filter(
+          (g) => !isGroupIgnored(g, settingsRef.current.ignoredSignatures)
+        )
+
+        await logger.finalize("complete", { groupsFound: filteredGroups.length })
         currentScanRequestIdRef.current = null
 
         const mediaItemMap: Record<string, GpdMediaItem> = {}
@@ -369,7 +399,8 @@ export default function App() {
         dispatch({
           type: "SCAN_COMPLETE",
           mediaItems: mediaItemMap,
-          groups
+          groups: filteredGroups,
+          scannedCount: filteredItems.length
         })
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
@@ -397,32 +428,13 @@ export default function App() {
     scanLoggerRef.current.recoverStale()
   }, [])
 
-  // Load saved settings and results on mount
+  // Load saved settings on mount
   useEffect(() => {
     chrome.storage.local.get(
-      ["settings", "scanResults", "selections"],
+      ["settings"],
       (result: Partial<StoredState>) => {
         if (result.settings) {
           setSettings(result.settings)
-        }
-        if (result.selections) {
-          // Store deserialized selections before dispatching LOAD_SAVED_RESULTS so
-          // the groups-change effect can apply them when groups first appear
-          pendingSelectionsRef.current = {
-            selectedGroupIds: new Set(result.selections.selectedGroupIds),
-            keptOverrides: Object.fromEntries(
-              Object.entries(result.selections.keptOverrides).map(([k, v]) => [k, new Set(v)])
-            ),
-          }
-        }
-        if (result.scanResults?.totalItems && Array.isArray(result.scanResults.groups)) {
-          dispatch({
-            type: "LOAD_SAVED_RESULTS",
-            mediaItems: result.scanResults.mediaItems,
-            groups: result.scanResults.groups,
-            totalItems: result.scanResults.totalItems,
-            accountEmail: result.scanResults.accountEmail
-          })
         }
         setStorageChecked(true)
       }
@@ -466,6 +478,13 @@ export default function App() {
 
   const handleToggleKept = useCallback(
     (group: DuplicateGroup, mediaKey: string) => {
+      setSelectedGroupIds((prev) => {
+        if (prev.has(group.id)) return prev
+        const next = new Set(prev)
+        next.add(group.id)
+        return next
+      })
+
       setKeptOverrides((prev) => {
         const current = prev[group.id] ?? defaultKeptSets.get(group.id) ?? new Set([group.originalMediaKey])
         // Prevent removing the last kept item
@@ -481,47 +500,40 @@ export default function App() {
     },
     [defaultKeptSets]
   )
-  const totalItems = state.status === "results" ? state.totalItems : 0
-  const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
-  useEffect(() => {
-    if (!mediaItems) return
-    if (groups.length > 0) {
-      const newestCreationTimestamp = Object.values(mediaItems).reduce(
-        (max, item) => Math.max(max, item.creationTimestamp ?? 0),
-        0
-      )
-      chrome.storage.local.set({
-        scanResults: {
-          mediaItems,
-          groups,
-          scanDate: Date.now(),
-          totalItems,
-          newestCreationTimestamp,
-          accountEmail: accountEmailForStorage
-        }
+
+  const handleIgnoreGroup = useCallback((group: DuplicateGroup) => {
+    const sigs = getGroupSignatures(group.mediaKeys)
+    const current = new Set(settingsRef.current.ignoredSignatures || [])
+    
+    if (isGroupIgnored(group, settingsRef.current.ignoredSignatures)) {
+      for (const s of sigs) {
+        current.delete(s)
+      }
+      setSettings({ ignoredSignatures: Array.from(current) })
+      
+      // Select it when un-ignoring
+      setSelectedGroupIds((prev) => {
+        if (prev.has(group.id)) return prev
+        const next = new Set(prev)
+        next.add(group.id)
+        return next
       })
     } else {
-      // All duplicates removed — clear saved results so next open starts fresh
-      chrome.storage.local.remove("scanResults")
+      for (const s of sigs) {
+        current.add(s)
+      }
+      setSettings({ ignoredSignatures: Array.from(current) })
+      // Unselect it so it won't be deleted in the current run
+      setSelectedGroupIds((prev) => {
+        if (!prev.has(group.id)) return prev
+        const next = new Set(prev)
+        next.delete(group.id)
+        return next
+      })
     }
-  }, [groups, mediaItems, totalItems, accountEmailForStorage])
+  }, [])
 
-  // Persist selections when they change (only while results are showing)
-  useEffect(() => {
-    if (state.status !== "results") return
-    if (groups.length === 0) {
-      chrome.storage.local.remove("selections")
-      return
-    }
-    chrome.storage.local.set({
-      selections: {
-        selectedGroupIds: [...selectedGroupIds],
-        keptOverrides: Object.fromEntries(
-          Object.entries(keptOverrides).map(([k, v]) => [k, [...v]])
-        ),
-      },
-    })
-  }, [selectedGroupIds, keptOverrides, state.status, groups.length])
+
 
   // Save settings on change
   useEffect(() => {
@@ -758,13 +770,16 @@ export default function App() {
         )}
 
         {state.status === "connected" && (
-          <ScanConfig
-            settings={settings}
-            onSettingsChange={setSettings}
-            onStartScan={handleStartScan}
-            hasGptk={state.hasGptk}
-          />
+          <Box>
+            <ScanConfig
+              settings={settings}
+              onSettingsChange={setSettings}
+              onStartScan={handleStartScan}
+              hasGptk={state.hasGptk}
+            />
+          </Box>
         )}
+
 
         {state.status === "scanning" && (
           <ScanProgress
@@ -799,19 +814,33 @@ export default function App() {
             <ActionBar
               totalItems={state.totalItems}
               groupCount={groups.length}
+              selectedGroupCount={selectedGroupIds.size}
               duplicateCount={duplicateCount}
               onSelectAll={handleSelectAll}
               onDeselectAll={handleDeselectAll}
               onTrash={handleTrash}
               onRescan={handleReset}
+              sortMode={settings.sortMode}
+              onSortModeChange={(mode) => setSettings({ sortMode: mode })}
+              previewSize={settings.previewSize}
+              onPreviewSizeChange={(size) => setSettings({ previewSize: size })}
+              doNotCrop={settings.doNotCrop}
+              onDoNotCropChange={(checked) => setSettings({ doNotCrop: checked })}
+              hideMetadata={settings.hideMetadata}
+              onHideMetadataChange={(checked) => setSettings({ hideMetadata: checked })}
             />
             <DuplicateGroups
-              groups={state.groups}
+              groups={groups}
               mediaItems={state.mediaItems}
               selectedGroupIds={selectedGroupIds}
               onToggleGroup={handleToggleGroup}
               keptByGroupId={keptByGroupId}
               onToggleKept={handleToggleKept}
+              onIgnoreGroup={handleIgnoreGroup}
+              ignoredSignatures={settings.ignoredSignatures}
+              previewSize={settings.previewSize}
+              doNotCrop={settings.doNotCrop}
+              hideMetadata={settings.hideMetadata}
             />
           </>
         )}

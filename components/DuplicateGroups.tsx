@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Box from "@mui/material/Box"
+import Button from "@mui/material/Button"
 import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
 import CardContent from "@mui/material/CardContent"
@@ -11,9 +12,12 @@ import Paper from "@mui/material/Paper"
 import Skeleton from "@mui/material/Skeleton"
 import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff"
+import VisibilityIcon from "@mui/icons-material/Visibility"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
+import { isGroupIgnored } from "../lib/duplicate-detector"
 
 const PAGE_SIZE = 30
 
@@ -58,7 +62,6 @@ const sxChipSimilarity = { fontSize: 11 }
 const sxThumbnailsWrapper = { display: "flex", flexWrap: "wrap", gap: 1.5, p: 1.5 }
 const sxItemWrapper = {
   position: "relative",
-  width: 160,
   flexShrink: 0,
   "& .viewer-btn": { opacity: 0 },
   "&:hover .viewer-btn": { opacity: 1 },
@@ -80,7 +83,7 @@ const sxOpenInFullIcon = { fontSize: 14 }
 const sxStatusChip = { width: "fit-content", height: 20, fontSize: 11 }
 // ──────────────────────────────────────────────────────────────────────
 
-function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
+function ThumbnailImage({ src, alt, height, doNotCrop }: { src: string; alt: string; height: number; doNotCrop?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
@@ -109,10 +112,10 @@ function ThumbnailImage({ src, alt }: { src: string; alt: string }) {
           component="img"
           image={blobUrl}
           alt={alt}
-          sx={{ height: 120, objectFit: "cover" }}
+          sx={{ height, width: doNotCrop ? "auto" : "100%", objectFit: doNotCrop ? "contain" : "cover" }}
         />
       ) : (
-        <Skeleton variant="rectangular" height={120} animation="wave" />
+        <Skeleton variant="rectangular" height={height} sx={{ width: "100%" }} animation="wave" />
       )}
     </div>
   )
@@ -126,6 +129,15 @@ interface DuplicateGroupRowProps {
   onToggleGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
+  onIgnoreGroup: (group: DuplicateGroup) => void
+  ignoredSignatures?: string[]
+  groupIndex: number
+  totalGroups: number
+  previewHeight: number
+  previewWidth: number
+  fetchHeight: number
+  doNotCrop?: boolean
+  hideMetadata?: boolean
 }
 
 const DuplicateGroupRow = memo(function DuplicateGroupRow({
@@ -136,7 +148,17 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   onToggleGroup,
   onToggleKept,
   onOpenViewer,
+  onIgnoreGroup,
+  ignoredSignatures,
+  groupIndex,
+  totalGroups,
+  previewHeight,
+  previewWidth,
+  fetchHeight,
+  doNotCrop,
+  hideMetadata,
 }: DuplicateGroupRowProps) {
+  const isIgnored = isGroupIgnored(group, ignoredSignatures)
   return (
     <Paper
       variant="outlined"
@@ -144,15 +166,22 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
       {/* Group header */}
       <Box
         onClick={() => onToggleGroup(group.id)}
-        sx={sxGroupHeader}>
+        sx={[sxGroupHeader, isIgnored && { bgcolor: "action.hover", opacity: 0.8 }]}>
         <Checkbox
           size="small"
           checked={isSelected}
+          disabled={isIgnored}
           onChange={() => onToggleGroup(group.id)}
           onClick={(e) => e.stopPropagation()}
           sx={sxCheckbox}
         />
-        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mr: 1, textDecoration: isIgnored ? "line-through" : "none", color: isIgnored ? "text.secondary" : "text.primary" }}>
+          Group #{groupIndex + 1} of {totalGroups}
+        </Typography>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 0.75 }}>
+          •
+        </Typography>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1 }}>
           {group.mediaKeys.length} {groupItemKind(group, mediaItems)}
         </Typography>
         <Chip
@@ -161,6 +190,18 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           variant="outlined"
           sx={sxChipSimilarity}
         />
+        <Button
+          size="small"
+          color={isIgnored ? "primary" : "inherit"}
+          variant="text"
+          startIcon={isIgnored ? <VisibilityIcon sx={{ fontSize: 16 }} /> : <VisibilityOffIcon sx={{ fontSize: 16 }} />}
+          onClick={(e) => {
+            e.stopPropagation()
+            onIgnoreGroup(group)
+          }}
+          sx={{ ml: 1, minWidth: 0, py: 0, px: 1, textTransform: "none", color: isIgnored ? "primary.main" : "text.secondary", "&:hover": { color: isIgnored ? "primary.dark" : "text.primary" } }}>
+          {isIgnored ? "Un-ignore" : "Ignore"}
+        </Button>
       </Box>
 
       {/* Thumbnails */}
@@ -169,58 +210,78 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const item = mediaItems[key]
           if (!item) return null
           const isKept = keptSet.has(key)
+          
+          let itemWidth = previewWidth
+          let itemHeight = previewHeight
+          
+          if (doNotCrop && item.resWidth && item.resHeight) {
+            const aspect = item.resWidth / item.resHeight
+            itemWidth = Math.round(previewHeight * aspect)
+            if (itemWidth < previewWidth) {
+              itemWidth = previewWidth
+              itemHeight = Math.round(previewWidth / aspect)
+            }
+          }
 
           return (
-            <Box key={key} sx={sxItemWrapper}>
+            <Box key={key} sx={[sxItemWrapper, { width: itemWidth }]}>
               <Card
                 variant="outlined"
                 sx={[sxCardBase, {
-                  borderColor: isKept ? "primary.main" : "divider",
-                  borderWidth: isKept ? 2 : 1,
+                  borderColor: isKept ? "primary.main" : "error.light",
+                  borderWidth: 2,
                 }]}>
                 <CardActionArea onClick={() => onToggleKept(group, key)}>
-                  <ThumbnailImage
-                    src={item.thumb + "=h200"}
-                    alt={item.fileName || item.mediaKey}
-                  />
+                  <Box sx={{ position: "relative" }}>
+                    <ThumbnailImage
+                      src={item.thumb + `=s${Math.max(itemWidth, itemHeight) * 2}`}
+                      alt={item.fileName || item.mediaKey}
+                      height={itemHeight}
+                      doNotCrop={doNotCrop}
+                    />
+                  </Box>
                   <CardContent sx={sxCardContent}>
-                    {item.fileName && (
-                      <Typography
-                        variant="caption"
-                        display="block"
-                        noWrap
-                        title={item.fileName}>
-                        {item.fileName}
-                      </Typography>
+                    {!hideMetadata && (
+                      <>
+                        {item.fileName && (
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            noWrap
+                            title={item.fileName}>
+                            {item.fileName}
+                          </Typography>
+                        )}
+                        {item.resWidth && item.resHeight && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontFamily: "monospace" }}>
+                            {item.resWidth}×{item.resHeight}
+                          </Typography>
+                        )}
+                        {item.timestamp ? (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            <span style={{ opacity: 0.6 }}>Taken </span>
+                            {new Date(item.timestamp).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Typography>
+                        ) : null}
+                        {item.creationTimestamp ? (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            <span style={{ opacity: 0.6 }}>Uploaded </span>
+                            {new Date(item.creationTimestamp).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Typography>
+                        ) : null}
+                      </>
                     )}
-                    {item.resWidth && item.resHeight && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ fontFamily: "monospace" }}>
-                        {item.resWidth}×{item.resHeight}
-                      </Typography>
-                    )}
-                    {item.timestamp ? (
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        <span style={{ opacity: 0.6 }}>Taken </span>
-                        {new Date(item.timestamp).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </Typography>
-                    ) : null}
-                    {item.creationTimestamp ? (
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        <span style={{ opacity: 0.6 }}>Uploaded </span>
-                        {new Date(item.creationTimestamp).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </Typography>
-                    ) : null}
                     {isKept ? (
                       <Chip
                         label="Keep"
@@ -229,7 +290,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="outlined"
                         sx={sxStatusChip}
                       />
-                    ) : isSelected ? (
+                    ) : (
                       <Chip
                         label="Trash"
                         size="small"
@@ -237,7 +298,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                         variant="outlined"
                         sx={sxStatusChip}
                       />
-                    ) : null}
+                    )}
                   </CardContent>
                 </CardActionArea>
               </Card>
@@ -269,6 +330,11 @@ interface DuplicateGroupsProps {
   onToggleGroup: (groupId: string) => void
   keptByGroupId: Map<string, Set<string>>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
+  onIgnoreGroup: (group: DuplicateGroup) => void
+  ignoredSignatures?: string[]
+  previewSize?: "1x" | "1.5x" | "2x" | "3x"
+  doNotCrop?: boolean
+  hideMetadata?: boolean
 }
 
 export function DuplicateGroups({
@@ -278,7 +344,26 @@ export function DuplicateGroups({
   onToggleGroup,
   keptByGroupId,
   onToggleKept,
+  onIgnoreGroup,
+  ignoredSignatures = [],
+  previewSize = "1x",
+  doNotCrop = false,
+  hideMetadata = false,
 }: DuplicateGroupsProps) {
+  // Map previewSize to fixed heights and widths (maintaining 4:3 ratio for the wrapper box)
+  const heightMap = {
+    "1x": 120,
+    "1.5x": 180,
+    "2x": 240,
+    "3x": 360,
+  }
+  const previewHeight = heightMap[previewSize] || 120
+  const previewWidth = Math.round(previewHeight * (160 / 120)) // 4:3 base ratio from original 160x120
+
+  // We want to fetch a slightly larger thumbnail than what we display so it looks sharp
+  // High-DPI screens need about 2x the physical pixels
+  const fetchHeight = previewHeight * 2
+
   // Measure time from first non-empty groups render to commit
   const renderLoggedRef = useRef(false)
   const renderStartRef = useRef<number | null>(null)
@@ -370,7 +455,7 @@ export function DuplicateGroups({
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
       </Typography>
 
-      {groups.slice(0, visibleCount).map((group) => (
+      {groups.slice(0, visibleCount).map((group, index) => (
         <DuplicateGroupRow
           key={group.id}
           group={group}
@@ -380,6 +465,15 @@ export function DuplicateGroups({
           onToggleGroup={onToggleGroup}
           onToggleKept={onToggleKept}
           onOpenViewer={onOpenViewer}
+          onIgnoreGroup={onIgnoreGroup}
+          ignoredSignatures={ignoredSignatures}
+          groupIndex={index}
+          totalGroups={groups.length}
+          previewHeight={previewHeight}
+          previewWidth={previewWidth}
+          fetchHeight={fetchHeight}
+          doNotCrop={doNotCrop}
+          hideMetadata={hideMetadata}
         />
       ))}
 

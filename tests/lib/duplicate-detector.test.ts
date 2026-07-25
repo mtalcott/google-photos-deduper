@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, filterItemsByDateRange } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -327,6 +327,60 @@ describe("groupByTimestamp", () => {
     // a floors to 0, b floors to 1000
     const result = groupByTimestamp([a, b], 1000)
     expect(result).toHaveLength(0)
+  })
+
+  it("groups items missing EXIF by creationTimestamp when fallbackToUpload=true", () => {
+    const a = makeItem("a", 0, 5000)
+    const b = makeItem("b", 0, 5000)
+    const result = groupByTimestamp([a, b], 0, true)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toContain(a)
+    expect(result[0]).toContain(b)
+  })
+
+  it("does not fall back to creationTimestamp when fallbackToUpload=false", () => {
+    const a = makeItem("a", 0, 5000)
+    const b = makeItem("b", 0, 5000)
+    const result = groupByTimestamp([a, b], 0, false)
+    // When both timestamps are 0 and fallback=false, they both get timestamp 0 so they group into bucket 0
+    expect(result).toHaveLength(1)
+  })
+})
+
+// ============================================================
+// filterItemsByDateRange
+// ============================================================
+
+describe("filterItemsByDateRange", () => {
+  const jan1 = new Date(2023, 0, 1, 12, 0, 0).getTime()
+  const jun15 = new Date(2023, 5, 15, 12, 0, 0).getTime()
+  const dec31 = new Date(2023, 11, 31, 12, 0, 0).getTime()
+
+  it("returns items unchanged if no date range is set", () => {
+    const items = [makeItem("a", jan1), makeItem("b", jun15)]
+    expect(filterItemsByDateRange(items)).toEqual(items)
+    expect(filterItemsByDateRange(items, {})).toEqual(items)
+  })
+
+  it("filters items by EXIF taken date within range", () => {
+    const items = [makeItem("a", jan1), makeItem("b", jun15), makeItem("c", dec31)]
+    const result = filterItemsByDateRange(items, { from: "2023-05-01", to: "2023-07-01" })
+    expect(result).toHaveLength(1)
+    expect(result[0].mediaKey).toBe("b")
+  })
+
+  it("skips photos without EXIF by default when date option activated", () => {
+    const items = [makeItem("a", jun15), makeItem("missing_exif", 0, jun15)]
+    const result = filterItemsByDateRange(items, { from: "2023-01-01", to: "2023-12-31" })
+    expect(result).toHaveLength(1)
+    expect(result[0].mediaKey).toBe("a")
+  })
+
+  it("includes photos without EXIF by falling back to upload date when tickbox is checked", () => {
+    const items = [makeItem("a", jun15), makeItem("missing_exif", 0, jun15), makeItem("outside_exif", 0, jan1)]
+    const result = filterItemsByDateRange(items, { from: "2023-06-01", to: "2023-06-30", fallbackToUploadDate: true })
+    expect(result).toHaveLength(2)
+    expect(result.map((i) => i.mediaKey)).toEqual(expect.arrayContaining(["a", "missing_exif"]))
   })
 })
 

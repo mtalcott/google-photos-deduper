@@ -17,6 +17,7 @@ const theme = createTheme()
 interface Props {
   totalItems?: number
   groupCount?: number
+  selectedGroupCount?: number
   duplicateCount?: number
   onSelectAll?: () => void
   onDeselectAll?: () => void
@@ -28,6 +29,7 @@ function renderActionBar(props: Props = {}) {
   const defaults = {
     totalItems: 500,
     groupCount: 3,
+    selectedGroupCount: 0,
     duplicateCount: 6,
     onSelectAll: vi.fn(),
     onDeselectAll: vi.fn(),
@@ -68,19 +70,18 @@ describe("ActionBar", () => {
   })
 
   describe("button visibility", () => {
-    it("does not render action buttons when groupCount is 0", () => {
-      renderActionBar({ groupCount: 0 })
-      expect(screen.queryByRole("button", { name: /Re-scan/i })).not.toBeInTheDocument()
-      expect(screen.queryByRole("button", { name: /Select All/i })).not.toBeInTheDocument()
-      expect(screen.queryByRole("button", { name: /Trash/i })).not.toBeInTheDocument()
+    it("shows controls when groupCount > 0", () => {
+      renderActionBar({ groupCount: 1 })
+      expect(screen.getByRole("button", { name: /Re-scan/i })).toBeInTheDocument()
+      expect(screen.getByRole("checkbox", { name: /^Select All$/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /Move.*Trash/i })).toBeInTheDocument()
     })
 
-    it("renders action buttons when groupCount > 0", () => {
-      renderActionBar({ groupCount: 2 })
-      expect(screen.getByRole("button", { name: /Re-scan/i })).toBeInTheDocument()
-      // Use exact regex to avoid /Select All/i matching "Deselect All"
-      expect(screen.getByRole("button", { name: /^Select All$/i })).toBeInTheDocument()
-      expect(screen.getByRole("button", { name: /^Deselect All$/i })).toBeInTheDocument()
+    it("hides controls when groupCount is 0", () => {
+      renderActionBar({ groupCount: 0 })
+      expect(screen.queryByRole("button", { name: /Re-scan/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("checkbox", { name: /^Select All$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /Move.*Trash/i })).not.toBeInTheDocument()
     })
   })
 
@@ -112,15 +113,17 @@ describe("ActionBar", () => {
       expect(callbacks.onRescan).toHaveBeenCalledOnce()
     })
 
-    it("calls onSelectAll when Select All is clicked", () => {
-      const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /^Select All$/i }))
+    it("calls onSelectAll when Select All checkbox is checked", () => {
+      const { callbacks } = renderActionBar({ selectedGroupCount: 0, groupCount: 3 })
+      // Unchecked -> checked
+      fireEvent.click(screen.getByRole("checkbox", { name: /^Select All$/i }))
       expect(callbacks.onSelectAll).toHaveBeenCalledOnce()
     })
 
-    it("calls onDeselectAll when Deselect All is clicked", () => {
-      const { callbacks } = renderActionBar()
-      fireEvent.click(screen.getByRole("button", { name: /Deselect All/i }))
+    it("calls onDeselectAll when Select All checkbox is unchecked", () => {
+      const { callbacks } = renderActionBar({ selectedGroupCount: 3, groupCount: 3 })
+      // Checked -> unchecked
+      fireEvent.click(screen.getByRole("checkbox", { name: /^Select All$/i }))
       expect(callbacks.onDeselectAll).toHaveBeenCalledOnce()
     })
 

@@ -157,6 +157,7 @@ export async function fullDetectDuplicates(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   logger?: ScanLogger,
+  maxGroups?: number,
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
   const scanStart = performance.now();
 
@@ -273,6 +274,7 @@ export async function fullDetectDuplicates(
     workerUrl,
     trackedProgress,
     signal,
+    maxGroups,
   );
   const communityDetectionMs = Math.round(performance.now() - t3);
   const totalMs = Math.round(performance.now() - scanStart);
@@ -315,6 +317,96 @@ export async function fullDetectDuplicates(
 // ============================================================
 
 /**
+ * Filter items according to the requested date range and fallback option.
+ * If dateRange is not activated (from and to both empty/undefined), returns items unchanged.
+ */
+export function filterItemsByDateRange(
+  items: GpdMediaItem[],
+  dateRange?: {
+    from?: string;
+    to?: string;
+    fallbackToUploadDate?: boolean;
+  }
+): GpdMediaItem[] {
+  if (!dateRange || (!dateRange.from && !dateRange.to)) {
+    return items;
+  }
+
+  let fromMs: number | undefined;
+  if (dateRange.from) {
+    const parts = dateRange.from.split("-").map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      fromMs = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0).getTime();
+    }
+  }
+
+  let toMs: number | undefined;
+  if (dateRange.to) {
+    const parts = dateRange.to.split("-").map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      toMs = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999).getTime();
+    }
+  }
+
+  return items.filter((item) => {
+    const hasExif = typeof item.timestamp === "number" && item.timestamp > 0;
+
+    if (hasExif) {
+      if (fromMs !== undefined && item.timestamp < fromMs) return false;
+      if (toMs !== undefined && item.timestamp > toMs) return false;
+      return true;
+    }
+
+    if (dateRange.fallbackToUploadDate) {
+      const uploadTs = item.creationTimestamp ?? 0;
+      if (uploadTs <= 0) return false;
+      if (fromMs !== undefined && uploadTs < fromMs) return false;
+      if (toMs !== undefined && uploadTs > toMs) return false;
+      return true;
+    }
+
+    return false;
+  });
+}
+
+/**
+ * Returns an array of signatures for a group to use for the Ignore feature.
+ * Generates the full group signature and pairwise signatures.
+ */
+export function getGroupSignatures(mediaKeys: string[]): string[] {
+  const sorted = mediaKeys.slice().sort();
+  const sigs = [sorted.join("|")];
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (sorted[i] !== sorted[j]) {
+        sigs.push(`${sorted[i]}|${sorted[j]}`);
+      }
+    }
+  }
+  return Array.from(new Set(sigs));
+}
+
+/**
+ * Checks if a group is ignored based on saved signatures.
+ */
+export function isGroupIgnored(
+  group: DuplicateGroup,
+  ignoredSignatures?: string[]
+): boolean {
+  if (!ignoredSignatures || ignoredSignatures.length === 0) return false;
+  const ignoredSet = new Set(ignoredSignatures);
+  const sorted = group.mediaKeys.slice().sort();
+  if (ignoredSet.has(sorted.join("|"))) return true;
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (ignoredSet.has(`${sorted[i]}|${sorted[j]}`)) return true;
+    }
+  }
+  return false;
+}
+
+
+/**
  * Group media items by their `timestamp` field (EXIF taken date).
  * Only returns buckets with ≥ 2 items.
  *
@@ -326,13 +418,18 @@ export async function fullDetectDuplicates(
 export function groupByTimestamp(
   items: GpdMediaItem[],
   windowMs = 0,
+  fallbackToUpload = false,
 ): GpdMediaItem[][] {
   const buckets = new Map<number, GpdMediaItem[]>();
   for (const item of items) {
+    const ts =
+      fallbackToUpload && (!item.timestamp || item.timestamp <= 0)
+        ? (item.creationTimestamp ?? 0)
+        : item.timestamp;
     const key =
       windowMs > 0
-        ? Math.floor(item.timestamp / windowMs) * windowMs
-        : item.timestamp;
+        ? Math.floor(ts / windowMs) * windowMs
+        : ts;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(item);
   }
@@ -408,6 +505,7 @@ async function runSmartDetectionInWorker(
   workerUrl: string,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
+  maxGroups?: number,
 ): Promise<number[][]> {
   const n = embeddings.length;
   if (n === 0) return [];
@@ -451,7 +549,7 @@ async function runSmartDetectionInWorker(
     };
 
     worker.postMessage(
-      { type: "detectSmart", data: { flatEmbeddings: flat, n, dim, threshold, buckets } },
+      { type: "detectSmart", data: { flatEmbeddings: flat, n, dim, threshold, buckets, maxGroups } },
       [flat.buffer],
     );
   });
@@ -464,6 +562,8 @@ export async function smartDetectDuplicates(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   logger?: ScanLogger,
+  fallbackToUpload = false,
+  maxGroups?: number,
 ): Promise<DuplicateGroup[]> {
   const scanStart = performance.now();
   // Include items with thumbnails. Video posters work too — two copies of the
@@ -472,7 +572,7 @@ export async function smartDetectDuplicates(
   const candidates = mediaItems.filter((item) => item.thumb);
 
   // Step 1: Bucket by timestamp — no I/O, instant
-  const buckets = groupByTimestamp(candidates, windowMs);
+  const buckets = groupByTimestamp(candidates, windowMs, fallbackToUpload);
   console.log(
     `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${buckets.length} timestamp buckets`,
   );
@@ -571,6 +671,7 @@ export async function smartDetectDuplicates(
     workerUrl,
     trackedProgress,
     signal,
+    maxGroups,
   );
   const communityDetectionMs = Math.round(performance.now() - t3);
   const totalMs = Math.round(performance.now() - scanStart);
@@ -865,6 +966,7 @@ async function runCommunityDetectionInWorker(
   workerUrl: string,
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
+  maxGroups?: number,
 ): Promise<number[][]> {
   const n = embeddings.length;
   if (n === 0) return [];
@@ -911,7 +1013,7 @@ async function runCommunityDetectionInWorker(
     worker.postMessage(
       {
         type: "detect",
-        data: { flatEmbeddings: flat, n, dim, threshold, timestamps },
+        data: { flatEmbeddings: flat, n, dim, threshold, timestamps, maxGroups },
       },
       [flat.buffer],
     );

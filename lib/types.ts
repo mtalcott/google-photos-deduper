@@ -47,7 +47,9 @@ export interface ScanOptions {
   dateRange?: {
     from?: string; // ISO date string
     to?: string;
+    fallbackToUploadDate?: boolean;
   };
+  maxGroupResults?: number; // Stop scanning when this many groups are found
 }
 
 export interface ScanProgressMessage extends BaseMessage {
@@ -209,11 +211,22 @@ export interface ScanSettings {
   dateRange?: {
     from?: string;
     to?: string;
+    fallbackToUploadDate?: boolean;
   };
+  ignoredSignatures?: string[];
+  sortMode?: "sizeDesc" | "dateDesc" | "dateAsc";
+  previewSize?: "1x" | "1.5x" | "2x" | "3x";
+  doNotCrop?: boolean;
+  hideMetadata?: boolean;
+  maxGroupResults?: number;
 }
 
 export const DEFAULT_SETTINGS: ScanSettings = {
   similarityThreshold: 0.99,
   scanMode: "smart",
   smartWindowSec: 1,
+  sortMode: "sizeDesc",
+  previewSize: "1x",
+  doNotCrop: false,
+  hideMetadata: false,
 };

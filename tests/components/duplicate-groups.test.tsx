@@ -95,14 +95,15 @@ describe("DuplicateGroups — chip rendering", () => {
     expect(trashChips).toHaveLength(2)
   })
 
-  it("shows no Trash chips when group is deselected", () => {
+  it("shows Trash chips for non-kept items even when group is deselected", () => {
     wrap(
       <DuplicateGroups
         {...defaultProps}
         selectedGroupIds={new Set()} // deselected
       />
     )
-    expect(screen.queryByText("Trash")).not.toBeInTheDocument()
+    const trashChips = screen.getAllByText("Trash")
+    expect(trashChips).toHaveLength(2)
   })
 
   it("shows multiple Keep chips when multiple items are kept", () => {

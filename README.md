@@ -23,8 +23,8 @@ Uses [Google Photos Toolkit (GPTK)](https://github.com/xob0t/Google-Photos-Toolk
 
 1. Open Google Photos in Chrome with the extension installed
 2. Click the extension icon → **Open Deduper**
-3. Click **Scan Library** - the extension fetches your media items and uses MediaPipe image embeddings locally to find visually identical photos
-4. Review the duplicate groups, select which to keep, and click **Move to Trash**
+3. Configure your scan settings (like date ranges, scan modes, or max group limits) and click **Scan Library** - the extension fetches your media items and uses MediaPipe image embeddings locally to find visually identical photos
+4. Review the duplicate groups (customize preview sizes and layout), select which to keep, and click **Move to Trash**
 
 No OAuth setup. No Google Cloud project. No data leaves your browser.
 

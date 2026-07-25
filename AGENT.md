@@ -1,4 +1,20 @@
-# Project Notes for Claude
+# Project Notes for Agent
+
+## Architecture & Codebase Conventions
+
+### 1. State Management
+* The main state of the extension is managed in `tabs/app.tsx`. 
+* Settings (like `maxGroupResults`, `scanMode`, `hideMetadata`, `doNotCrop`, `previewSize`) are stored in `ScanSettings` and propagated from `app.tsx` to downstream components like `ActionBar` and `DuplicateGroups`.
+* Do not duplicate state locally if it relies on global configuration. Use the props passed down from `app.tsx`.
+
+### 2. UI & Styling (MUI)
+* We use **Material UI (MUI)**.
+* Maintain horizontal alignment for Action Bar menus (Sort, Size, Metadata toggles) using `flexBox` with fixed/consistent heights (e.g., `30.75px`) and `|` separators between distinct groups.
+* The "Select All" toggle operates as a single checkbox in the ActionBar, replacing older multi-button workflows.
+
+### 3. Duplicate Detection Logic
+* Heavy processing (embedding computation, pairwise similarity checks) is offloaded to Web Workers (`workers/embedder.worker.ts`) to keep the React UI responsive.
+* The duplicate detector (`lib/duplicate-detector.ts`) communicates with the worker. When updating scan settings (like early termination limits), ensure the parameters are passed all the way down to the worker script (via `postMessage`) so the worker can halt execution efficiently.
 
 ## Debugging the Extension
 
