@@ -4050,7 +4050,7 @@
       self.postMessage({ type: "results", results }, transferables);
     }
     if (type === "detect") {
-      const { flatEmbeddings, n: n2, dim, threshold, timestamps } = data;
+      const { flatEmbeddings, n: n2, dim, threshold, timestamps, maxGroups } = data;
       const embeddings = [];
       for (let i2 = 0; i2 < n2; i2++) {
         embeddings.push(flatEmbeddings.subarray(i2 * dim, (i2 + 1) * dim));
@@ -4061,16 +4061,17 @@
         timestamps,
         (current, total) => {
           self.postMessage({ type: "detectionProgress", current, total });
-        }
+        },
+        maxGroups
       );
       self.postMessage({ type: "detectionResults", groups });
     }
     if (type === "detectSmart") {
-      const { flatEmbeddings, n: n2, dim, threshold, buckets } = data;
+      const { flatEmbeddings, n: n2, dim, threshold, buckets, maxGroups } = data;
       const embeddings = [];
       for (let i2 = 0; i2 < n2; i2++)
         embeddings.push(flatEmbeddings.subarray(i2 * dim, (i2 + 1) * dim));
-      const allGroups = [];
+      let allGroups = [];
       for (let bi2 = 0; bi2 < buckets.length; bi2++) {
         const bucket = buckets[bi2];
         const parent = bucket.map((_2, j2) => j2);
@@ -4095,13 +4096,17 @@
         }
         for (const [, members] of components)
           if (members.length >= 2) allGroups.push(members);
+        if (maxGroups && allGroups.length >= maxGroups) {
+          allGroups = allGroups.slice(0, maxGroups);
+          break;
+        }
         if (bi2 % 100 === 0)
           self.postMessage({ type: "detectionProgress", current: bi2 + 1, total: buckets.length });
       }
       self.postMessage({ type: "detectionResults", groups: allGroups });
     }
   });
-  async function workerCommunityDetection(embeddings, threshold, _timestamps, onProgress) {
+  async function workerCommunityDetection(embeddings, threshold, _timestamps, onProgress, maxGroups) {
     const n2 = embeddings.length;
     const dim = embeddings[0].length;
     const batchSize = 128;
@@ -4141,6 +4146,9 @@
       if (nonOverlapping.length >= minCommunitySize) {
         uniqueCommunities.push(nonOverlapping);
         for (const idx of nonOverlapping) assignedIds.add(idx);
+        if (maxGroups && uniqueCommunities.length >= maxGroups) {
+          break;
+        }
       }
     }
     uniqueCommunities.sort((a2, b2) => b2.length - a2.length);

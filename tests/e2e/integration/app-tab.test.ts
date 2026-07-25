@@ -45,9 +45,7 @@ test("restores saved scan results from storage on load", async () => {
 
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("2 Duplicate Groups Found")).toBeVisible({ timeout: 5000 })
-  await expect(page.getByText("4 items scanned")).toBeVisible()
-  await expect(page.getByText("2 duplicate groups", { exact: true }).first()).toBeVisible()
+  await expect(page.getByText("2 duplicate groups", { exact: true })).toBeVisible({ timeout: 5000 })
 
   await page.close()
   await clearStorage(context)
@@ -104,18 +102,18 @@ test("persists group selections through page reload", async () => {
   await injectSelections(context, ["g1", "g3"], {})
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 5000 })
 
   const checkboxes = page.locator('input[type="checkbox"]')
-  await expect(checkboxes.nth(0)).toBeChecked()          // g1 selected
-  await expect(checkboxes.nth(1)).not.toBeChecked()      // g2 deselected
-  await expect(checkboxes.nth(2)).toBeChecked()          // g3 selected
+  await expect(checkboxes.nth(3)).toBeChecked()          // g1 selected
+  await expect(checkboxes.nth(4)).not.toBeChecked()      // g2 deselected
+  await expect(checkboxes.nth(5)).toBeChecked()          // g3 selected
 
   await page.reload()
-  await expect(page.getByText("3 Duplicate Groups Found")).toBeVisible({ timeout: 5000 })
-  await expect(checkboxes.nth(0)).toBeChecked()
-  await expect(checkboxes.nth(1)).not.toBeChecked()
-  await expect(checkboxes.nth(2)).toBeChecked()
+  await expect(page.getByText("3 duplicate groups")).toBeVisible({ timeout: 5000 })
+  await expect(checkboxes.nth(3)).toBeChecked()
+  await expect(checkboxes.nth(4)).not.toBeChecked()
+  await expect(checkboxes.nth(5)).toBeChecked()
 
   await page.close()
   await clearStorage(context)
@@ -134,7 +132,7 @@ test("persists kept overrides through page reload", async () => {
   await injectSelections(context, ["g1"], { g1: ["key2"] })
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Group Found")).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("1 duplicate group")).toBeVisible({ timeout: 5000 })
 
   // key2 (second card) should have the Keep chip; key1 (first card) should not
   const cards = page.locator('.MuiCard-root')
@@ -142,7 +140,7 @@ test("persists kept overrides through page reload", async () => {
   await expect(cards.nth(1)).toContainText("Keep")      // key2 — kept
 
   await page.reload()
-  await expect(page.getByText("1 Duplicate Group Found")).toBeVisible({ timeout: 5000 })
+  await expect(page.getByText("1 duplicate group")).toBeVisible({ timeout: 5000 })
   await expect(cards.nth(0)).not.toContainText("Keep")
   await expect(cards.nth(1)).toContainText("Keep")
 

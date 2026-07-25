@@ -1,0 +1,88 @@
+# Project Notes for Agent
+
+## Architecture & Codebase Conventions
+
+### 1. State Management
+* The main state of the extension is managed in `tabs/app.tsx`. 
+* Settings (like `maxGroupResults`, `scanMode`, `hideMetadata`, `doNotCrop`, `previewSize`) are stored in `ScanSettings` and propagated from `app.tsx` to downstream components like `ActionBar` and `DuplicateGroups`.
+* Do not duplicate state locally if it relies on global configuration. Use the props passed down from `app.tsx`.
+
+### 2. UI & Styling (MUI)
+* We use **Material UI (MUI)**.
+* Maintain horizontal alignment for Action Bar menus (Sort, Size, Metadata toggles) using `flexBox` with fixed/consistent heights (e.g., `30.75px`) and `|` separators between distinct groups.
+* The "Select All" toggle operates as a single checkbox in the ActionBar, replacing older multi-button workflows.
+
+### 3. Duplicate Detection Logic
+* Heavy processing (embedding computation, pairwise similarity checks) is offloaded to Web Workers (`workers/embedder.worker.ts`) to keep the React UI responsive.
+* The duplicate detector (`lib/duplicate-detector.ts`) communicates with the worker. When updating scan settings (like early termination limits), ensure the parameters are passed all the way down to the worker script (via `postMessage`) so the worker can halt execution efficiently.
+
+### 4. Security Best Practices
+* Validate all incoming messages in background workers and content scripts using a strict structure check (e.g., `message.app === APP_ID`).
+* Do not trust the sender blindly; when handling messages from the web page, sanitize data before passing it to Chrome APIs or executing it.
+* Adhere to MV3 Content Security Policy (CSP) rules. Avoid using `eval()` or injecting raw strings as scripts unless strictly necessary.
+
+### 5. Testing
+* We use Playwright for End-to-End (E2E) and integration tests (`tests/e2e/`).
+* Extension pages are tested by mocking the Google Photos web environment (`GooglePhotosStub`).
+* Test states are injected via `chrome.storage.local` to isolate UI logic testing from backend operations.
+
+## Debugging the Extension
+
+### Chrome DevTools MCP does NOT show extension pages
+
+The `mcp__chrome-devtools__*` tools only see regular browser tabs (e.g. `https://...`).
+Chrome extension pages (`chrome-extension://...`) — including the app tab, popup, and service worker — are **invisible** to the DevTools MCP.
+
+**Use `tools/cdp.py` instead** for all interactions with extension pages:
+
+```bash
+# List all targets (includes extension pages and service workers)
+python3 tools/cdp.py list
+
+# Evaluate JS in an extension page
+python3 tools/cdp.py eval <target_id> "document.title"
+
+# Take a screenshot of the extension app tab
+python3 tools/cdp.py screenshot <target_id> /tmp/ext.png
+
+# Click an element
+python3 tools/cdp.py click <target_id> "#some-button"
+```
+
+## Development
+
+Always use dev mode — it watches for changes and rebuilds automatically to `build/chrome-mv3-dev`:
+
+```bash
+npm run dev
+```
+
+After a rebuild, reload the extension via the service worker target:
+
+```bash
+python3 tools/cdp.py eval <service_worker_target_id> "chrome.runtime.reload()"
+```
+
+Then reopen the app tab (it closes on reload):
+
+```bash
+python3 tools/cdp.py navigate <gp_tab_id> "chrome-extension://<ext_id>/tabs/app.html"
+```
+
+Do **not** use `npm run build` for development — that builds prod and overwrites dev.
+
+---
+
+**Note**: In newer versions of Chrome (v137 and later), the `--load-extension` CLI flag is completely ignored on standard builds for security reasons. Unpacked extensions must be loaded **manually once** via the `chrome://extensions` page with **Developer mode** enabled.
+
+Chrome must be running with remote debugging enabled on port 9222. If not started:
+
+**macOS:**
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222 --user-data-dir=".chrome-profile" --no-first-run
+```
+
+**Windows [WSL]:**
+```bash
+"/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\Users\mackt\Chrome Profiles\chrome-debug" --no-first-run
+```

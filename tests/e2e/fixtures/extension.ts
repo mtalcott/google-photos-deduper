@@ -106,9 +106,9 @@ export async function launchExtension(): Promise<{
 
 export function openAppTab(context: BrowserContext, extensionId: string): Promise<Page> {
   return context.newPage().then((page) => {
-    return page
-      .goto(`chrome-extension://${extensionId}/tabs/app.html`)
-      .then(() => page)
+    page.on("console", msg => process.stdout.write(`APP_CONSOLE: ${msg.text()}\n`))
+    page.on("pageerror", err => process.stdout.write(`APP_ERROR: ${err.message}\n`))
+    return page.goto(`chrome-extension://${extensionId}/tabs/app.html`).then(() => page)
   })
 }
 

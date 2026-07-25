@@ -90,12 +90,13 @@ self.addEventListener("message", async (event: MessageEvent) => {
   }
 
   if (type === "detect") {
-    const { flatEmbeddings, n, dim, threshold, timestamps } = data as {
+    const { flatEmbeddings, n, dim, threshold, timestamps, maxGroups } = data as {
       flatEmbeddings: Float32Array;
       n: number;
       dim: number;
       threshold: number;
       timestamps?: number[];
+      maxGroups?: number;
     };
 
     // Unpack flat buffer back into array of row views (zero-copy)
@@ -111,17 +112,19 @@ self.addEventListener("message", async (event: MessageEvent) => {
       (current, total) => {
         self.postMessage({ type: "detectionProgress", current, total });
       },
+      maxGroups
     );
     self.postMessage({ type: "detectionResults", groups });
   }
 
   if (type === "detectSmart") {
-    const { flatEmbeddings, n, dim, threshold, buckets } = data as {
+    const { flatEmbeddings, n, dim, threshold, buckets, maxGroups } = data as {
       flatEmbeddings: Float32Array;
       n: number;
       dim: number;
       threshold: number;
       buckets: number[][];
+      maxGroups?: number;
     };
 
     // Unpack flat buffer into row views (zero-copy)
@@ -129,7 +132,7 @@ self.addEventListener("message", async (event: MessageEvent) => {
     for (let i = 0; i < n; i++)
       embeddings.push(flatEmbeddings.subarray(i * dim, (i + 1) * dim));
 
-    const allGroups: number[][] = [];
+    let allGroups: number[][] = [];
     for (let bi = 0; bi < buckets.length; bi++) {
       const bucket = buckets[bi];
       // Union-Find over bucket indices
@@ -159,6 +162,11 @@ self.addEventListener("message", async (event: MessageEvent) => {
       for (const [, members] of components)
         if (members.length >= 2) allGroups.push(members);
 
+      if (maxGroups && allGroups.length >= maxGroups) {
+        allGroups = allGroups.slice(0, maxGroups);
+        break;
+      }
+
       if (bi % 100 === 0)
         self.postMessage({ type: "detectionProgress", current: bi + 1, total: buckets.length });
     }
@@ -187,6 +195,7 @@ async function workerCommunityDetection(
   threshold: number,
   _timestamps?: number[],
   onProgress?: (current: number, total: number) => void,
+  maxGroups?: number,
 ): Promise<number[][]> {
   const n = embeddings.length;
   const dim = embeddings[0].length;
@@ -253,6 +262,10 @@ async function workerCommunityDetection(
     if (nonOverlapping.length >= minCommunitySize) {
       uniqueCommunities.push(nonOverlapping);
       for (const idx of nonOverlapping) assignedIds.add(idx);
+      
+      if (maxGroups && uniqueCommunities.length >= maxGroups) {
+        break;
+      }
     }
   }
 

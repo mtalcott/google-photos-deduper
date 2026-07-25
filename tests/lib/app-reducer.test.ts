@@ -49,6 +49,8 @@ const resultsState: AppState = {
   mediaItems,
   groups,
   totalItems: 4,
+  hasGptk: true,
+  accountEmail: undefined,
 }
 
 const trashingState: AppState = {
@@ -107,7 +109,7 @@ describe("HEALTH_CHECK_RESULT", () => {
   })
 
   it("clears results and moves to connected when a different account is detected", () => {
-    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com" }
+    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com", hasGptk: true }
     const next = appReducer(state, {
       type: "HEALTH_CHECK_RESULT",
       payload: { app: APP_ID, action: "healthCheck.result", success: true, hasGptk: true, accountEmail: "bob@example.com" },
@@ -117,7 +119,7 @@ describe("HEALTH_CHECK_RESULT", () => {
   })
 
   it("keeps results when the same account reconnects", () => {
-    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com" }
+    const state: AppState = { status: "results", mediaItems, groups, totalItems: 4, accountEmail: "alice@example.com", hasGptk: true }
     const next = appReducer(state, {
       type: "HEALTH_CHECK_RESULT",
       payload: { app: APP_ID, action: "healthCheck.result", success: true, hasGptk: true, accountEmail: "alice@example.com" },
@@ -253,7 +255,7 @@ describe("TRASH_COMPLETE", () => {
 describe("RESTORE_SNAPSHOT", () => {
   it("restores previous results state", () => {
     const next = appReducer(
-      { status: "results", mediaItems: {}, groups: [], totalItems: 0 },
+      { status: "results", mediaItems: {}, groups: [], totalItems: 0, hasGptk: false },
       {
         type: "RESTORE_SNAPSHOT",
         mediaItems,

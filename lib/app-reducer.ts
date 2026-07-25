@@ -34,6 +34,7 @@ export type AppState =
       groups: DuplicateGroup[]
       totalItems: number
       accountEmail?: string
+      hasGptk: boolean
     }
   | {
       status: "trashing"
@@ -43,6 +44,7 @@ export type AppState =
       totalToTrash: number
       trashedSoFar: number
       accountEmail?: string
+      hasGptk: boolean
     }
 
 export type AppAction =
@@ -54,6 +56,7 @@ export type AppAction =
       type: "SCAN_COMPLETE"
       mediaItems: Record<string, GpdMediaItem>
       groups: DuplicateGroup[]
+      scannedCount?: number
     }
   | { type: "SCAN_ERROR"; error: string }
   | { type: "SCAN_CANCELLED" }
@@ -98,8 +101,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
           }
           const email = action.payload.accountEmail ?? state.accountEmail
-          if (email === state.accountEmail) return state
-          return { ...state, accountEmail: email }
+          if (email === state.accountEmail && action.payload.hasGptk === state.hasGptk) return state
+          return { ...state, accountEmail: email, hasGptk: action.payload.hasGptk }
         }
         return { status: "connected", hasGptk: action.payload.hasGptk, accountEmail: action.payload.accountEmail }
       }
@@ -154,8 +157,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         status: "results",
         mediaItems: action.mediaItems,
         groups: action.groups,
-        totalItems: Object.keys(action.mediaItems).length,
+        totalItems: action.scannedCount ?? Object.keys(action.mediaItems).length,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        hasGptk: "hasGptk" in state ? state.hasGptk : false,
       }
 
     case "SCAN_ERROR":
@@ -201,6 +205,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: newGroups,
         totalItems: state.totalItems,
         accountEmail: state.accountEmail,
+        hasGptk: state.hasGptk,
       }
     }
 
@@ -214,6 +219,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         accountEmail: action.accountEmail,
+        hasGptk: false,
       }
 
     case "RESTORE_SNAPSHOT":
@@ -223,6 +229,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         groups: action.groups,
         totalItems: action.totalItems,
         accountEmail: "accountEmail" in state ? state.accountEmail : undefined,
+        hasGptk: "hasGptk" in state ? state.hasGptk : false,
       }
 
     case "GP_TAB_CLOSED":

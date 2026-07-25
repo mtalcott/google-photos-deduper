@@ -96,3 +96,64 @@ describe("ScanConfig — time window toggle", () => {
     expect(screen.queryByText(/Time window:/)).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Date range filter UI
+// ============================================================
+
+describe("ScanConfig — date range filter", () => {
+  it("renders from and to date inputs and hides fallback tickbox when no date is active", () => {
+    renderConfig({ dateRange: undefined })
+    expect(screen.getByLabelText("From")).toBeInTheDocument()
+    expect(screen.getByLabelText("To")).toBeInTheDocument()
+    expect(screen.queryByText("Use upload date for photos without EXIF")).not.toBeInTheDocument()
+  })
+
+  it("emits updated from date when From input changes", () => {
+    const { onSettingsChange } = renderConfig({ dateRange: undefined })
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2023-01-01" } })
+    expect(onSettingsChange).toHaveBeenCalledWith({
+      dateRange: { from: "2023-01-01" },
+    })
+  })
+
+  it("shows fallback tickbox and explanation when from or to date is set", () => {
+    renderConfig({ dateRange: { from: "2023-01-01" } })
+    expect(screen.getByText("Use upload date for photos without EXIF")).toBeInTheDocument()
+    expect(screen.getByText(/If checked, photos and videos missing an EXIF taken date/)).toBeInTheDocument()
+  })
+
+  it("emits fallbackToUploadDate change when tickbox is clicked", () => {
+    const { onSettingsChange } = renderConfig({ dateRange: { from: "2023-01-01", fallbackToUploadDate: false } })
+    fireEvent.click(screen.getByLabelText("Use upload date for photos without EXIF"))
+    expect(onSettingsChange).toHaveBeenCalledWith({
+      dateRange: { from: "2023-01-01", fallbackToUploadDate: true },
+    })
+  })
+})
+
+// ============================================================
+// hideScanButton
+// ============================================================
+
+describe("ScanConfig — hideScanButton", () => {
+  it("shows Scan Library button by default", () => {
+    renderConfig()
+    expect(screen.getByRole("button", { name: /Scan Library/i })).toBeInTheDocument()
+  })
+
+  it("hides Scan Library button when hideScanButton is true", () => {
+    render(
+      <ThemeProvider theme={theme}>
+        <ScanConfig
+          settings={{ similarityThreshold: 0.99, scanMode: "smart" } as any}
+          onSettingsChange={vi.fn()}
+          onStartScan={vi.fn()}
+          hasGptk={true}
+          hideScanButton={true}
+        />
+      </ThemeProvider>
+    )
+    expect(screen.queryByRole("button", { name: /Scan Library/i })).not.toBeInTheDocument()
+  })
+})
