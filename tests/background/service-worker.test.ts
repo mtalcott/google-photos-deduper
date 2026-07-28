@@ -583,8 +583,16 @@ describe("healthCheck", () => {
           {
             result:
               healthChecks === 0
-                ? { hasGptk: false, hasCommandHandler: true }
-                : { hasGptk: true, hasCommandHandler: true }
+                ? {
+                    hasGptk: false,
+                    hasCommandHost: true,
+                    hasCommandHandler: true
+                  }
+                : {
+                    hasGptk: true,
+                    hasCommandHost: true,
+                    hasCommandHandler: true
+                  }
           }
         ])
       }

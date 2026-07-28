@@ -8,6 +8,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest"
 beforeAll(async () => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
+  await import("../../scripts/photo-provider-command-host.js")
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   await import("../../scripts/icloud-photos-commands.js")
 })
 

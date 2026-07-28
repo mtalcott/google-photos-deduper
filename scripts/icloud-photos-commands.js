@@ -7,51 +7,12 @@
   }
   window.__GPD_ICLOUD_COMMAND_HANDLER_LOADED__ = true
 
-const GPD_APP_ID = "GPD"
-
-function postResult(command, requestId, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkResult",
-      command,
-      requestId,
-      success: true,
-      data
-    },
-    "*"
-  )
+const commandHost = window.__GPD_COMMAND_HOST__
+if (!commandHost) {
+  console.error("GPD: Shared command host is not loaded")
+  return
 }
-
-function postError(command, requestId, error, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkResult",
-      command,
-      requestId,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      ...(data !== undefined ? { data } : {})
-    },
-    "*"
-  )
-}
-
-function postProgress(requestId, itemsProcessed, message, command, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkProgress",
-      requestId,
-      itemsProcessed,
-      message,
-      ...(command !== undefined ? { command } : {}),
-      ...(data !== undefined ? { data } : {})
-    },
-    "*"
-  )
-}
+const { postResult, postError, postProgress } = commandHost
 
 function hashString(value) {
   let hash = 2166136261
@@ -1059,31 +1020,15 @@ function healthCheck(requestId) {
   })
 }
 
-window.addEventListener("message", async (event) => {
-  if (event.source !== window) return
-  const msg = event.data
-  if (msg?.app !== GPD_APP_ID || msg?.action !== "gptkCommand") return
-
-  const { command, requestId, args } = msg
-  switch (command) {
-    case "getAllMediaItems":
-      await getAllMediaItems(requestId, args)
-      break
-    case "listAlbums":
-      postResult("listAlbums", requestId, [])
-      break
-    case "trashItems":
-      await trashItems(requestId, args)
-      break
-    case "restoreItems":
-      await restoreItems(requestId, args)
-      break
-    case "healthCheck":
-      healthCheck(requestId)
-      break
-    default:
-      postError(command, requestId, `Unsupported iCloud command: ${command}`)
-  }
+commandHost.register({
+  handlers: {
+    getAllMediaItems,
+    listAlbums: (requestId) => postResult("listAlbums", requestId, []),
+    trashItems,
+    restoreItems,
+    healthCheck
+  },
+  unsupportedMessage: (command) => `Unsupported iCloud command: ${command}`
 })
 
 console.log("GPD: iCloud command handler loaded")

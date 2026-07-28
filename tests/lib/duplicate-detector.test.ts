@@ -13,13 +13,13 @@ import {
   groupByTimestamp,
   matMul,
   mergeDuplicateItemGroups,
-  selectDefaultKeep,
   shouldCompareSmartTimestamps,
   smartDetectDuplicates,
   smartScanEmbeddingCandidates,
   topK,
   withinGroupDuplicates
-} from "../../lib/duplicate-detector"
+} from "../../lib/duplicate-detection-engine"
+import { selectDefaultKeep } from "../../lib/keep-strategy"
 import type { GpdMediaItem } from "../../lib/types"
 
 afterEach(() => {

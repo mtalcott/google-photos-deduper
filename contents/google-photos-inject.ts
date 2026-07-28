@@ -6,7 +6,7 @@ import type { PlasmoCSConfig } from "plasmo"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://photos.google.com/*"],
-  run_at: "document_idle",
+  run_at: "document_idle"
 }
 
 function injectScript(fileName: string): Promise<void> {
@@ -34,6 +34,7 @@ async function injectGooglePhotosScripts(): Promise<void> {
   // handler expects GPTK globals to be available when health checks run.
   await injectScript("scripts/unsafewindow-shim.js")
   await injectScript("scripts/google-photos-toolkit.user.js")
+  await injectScript("scripts/photo-provider-command-host.js")
   await injectScript("scripts/google-photos-commands.js")
   console.log("GPD: Injected MAIN world scripts into Google Photos page")
 }

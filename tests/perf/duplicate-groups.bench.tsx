@@ -1,17 +1,21 @@
+import { createTheme, ThemeProvider } from "@mui/material/styles"
+import { render } from "@testing-library/react"
 import React from "react"
 import { bench, describe, vi } from "vitest"
-import { render } from "@testing-library/react"
-import { ThemeProvider, createTheme } from "@mui/material/styles"
+
 import { DuplicateGroups } from "../../components/DuplicateGroups"
-import { makeLargeResults } from "./fixtures"
 import type { DuplicateGroup } from "../../lib/types"
+import { makeLargeResults } from "./fixtures"
 
 vi.mock("../../components/useBlobUrl", () => ({
-  useBlobUrl: (url: string | undefined) => ({ blobUrl: url ? `blob:${url}` : undefined, loading: false }),
+  useBlobUrl: (url: string | undefined) => ({
+    blobUrl: url ? `blob:${url}` : undefined,
+    loading: false
+  })
 }))
 
 vi.mock("../../components/PhotoViewerModal", () => ({
-  PhotoViewerModal: () => null,
+  PhotoViewerModal: () => null
 }))
 
 const theme = createTheme()
@@ -51,7 +55,9 @@ describe("DuplicateGroups perf", () => {
         groups,
         mediaItems,
         selectedGroupIds: allSelected,
+        reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
+        onSkipGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
         onTrashAll: () => {}
@@ -68,7 +74,9 @@ describe("DuplicateGroups perf", () => {
         groups,
         mediaItems,
         selectedGroupIds: allSelected,
+        reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
+        onSkipGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
         onTrashAll: () => {}
@@ -79,7 +87,9 @@ describe("DuplicateGroups perf", () => {
             groups={groups}
             mediaItems={mediaItems}
             selectedGroupIds={deselectedOne}
+            reviewedGroupIds={allSelected}
             onToggleGroup={() => {}}
+            onSkipGroup={() => {}}
             keptByGroupId={keptByGroupId}
             onToggleKept={() => {}}
             onTrashAll={() => {}}
@@ -98,7 +108,9 @@ describe("DuplicateGroups perf", () => {
         groups,
         mediaItems,
         selectedGroupIds: allSelected,
+        reviewedGroupIds: allSelected,
         onToggleGroup: () => {},
+        onSkipGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
         onTrashAll: () => {}
@@ -109,7 +121,9 @@ describe("DuplicateGroups perf", () => {
             groups={groups}
             mediaItems={mediaItems}
             selectedGroupIds={allSelected}
+            reviewedGroupIds={allSelected}
             onToggleGroup={() => {}}
+            onSkipGroup={() => {}}
             keptByGroupId={keptBigGroupToggled}
             onToggleKept={() => {}}
             onTrashAll={() => {}}

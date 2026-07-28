@@ -103,7 +103,12 @@ test("restores saved scan results from storage on load", async () => {
 
   const page = await openAppTab(context, extensionId)
 
-  await expect(page.getByText("2 Duplicate Sets Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "2 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(page.getByText("4 photos and videos checked")).toBeVisible()
@@ -234,7 +239,12 @@ test("clears saved results and selections when a different Google account is det
   await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
     timeout: 8_000
   })
-  await expect(page.getByText("1 Duplicate Set Ready")).not.toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).not.toBeVisible()
 
   const sw = context.serviceWorkers()[0]
   await expect
@@ -285,7 +295,12 @@ test("clears legacy saved results when the current Google account is known", asy
   await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
     timeout: 8_000
   })
-  await expect(page.getByText("1 Duplicate Set Ready")).not.toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).not.toBeVisible()
 
   const sw = context.serviceWorkers()[0]
   await expect
@@ -339,7 +354,7 @@ test("migrates untouched old smart defaults to full scan", async () => {
   )
 
   const page = await openAppTab(context, extensionId)
-  await page.getByRole("button", { name: /More options/i }).click()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
 
   await expect(page.getByRole("button", { name: /^Smart$/i })).toHaveAttribute(
     "aria-pressed",
@@ -373,7 +388,7 @@ test("preserves intentional strict similarity settings", async () => {
   )
 
   const page = await openAppTab(context, extensionId)
-  await page.getByRole("button", { name: /More options/i }).click()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
 
   await expect(page.getByRole("button", { name: /^Smart$/i })).toHaveAttribute(
     "aria-pressed",
@@ -558,7 +573,7 @@ test("loads albums and allows choosing an album scan scope", async () => {
   const gpPage = await openGptkStubPage(context)
   const page = await openAppTab(context, extensionId)
 
-  await page.getByRole("button", { name: /More options/i }).click()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
   await expect(page.getByText(/2 albums available/i)).toBeVisible({
     timeout: 5000
   })
@@ -684,7 +699,12 @@ test("persists group selections through page reload", async () => {
   await injectSelections(context, ["g1", "g3"], {})
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("3 Duplicate Sets Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
 
@@ -694,7 +714,12 @@ test("persists group selections through page reload", async () => {
   await expect(checkboxes.nth(2)).toBeChecked() // g3 selected
 
   await page.reload()
-  await expect(page.getByText("3 Duplicate Sets Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "3 Duplicate Sets to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(checkboxes.nth(0)).toBeChecked()
@@ -740,7 +765,12 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
   })
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5_000
   })
 
@@ -767,7 +797,12 @@ test("re-scan clears saved results, selections, and resumable checkpoint", async
   await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
     timeout: 8_000
   })
-  await expect(page.getByText("1 Duplicate Set Ready")).not.toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).not.toBeVisible()
 
   await page.close()
   await gpPage.close()
@@ -792,7 +827,12 @@ test("persists kept overrides through page reload", async () => {
   await injectSelections(context, ["g1"], { g1: ["key2"] })
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
 
@@ -802,7 +842,12 @@ test("persists kept overrides through page reload", async () => {
   await expect(cards.nth(1)).toContainText("Keep") // key2 — kept
 
   await page.reload()
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(cards.nth(0)).not.toContainText("Keep")
@@ -828,16 +873,25 @@ test("persists trash-all copy choices through page reload", async () => {
   )
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
 
-  await page.getByRole("button", { name: /Trash all copies/i }).click()
+  await page.getByRole("button", { name: /Mark all copies for Trash/i }).click()
   await expect(
-    page.getByRole("button", { name: /Move 2 to Trash/i })
+    page.getByRole("button", { name: /Review & move 2 to Trash/i })
   ).toBeVisible()
-  await expect(page.locator(".MuiCard-root").nth(0)).toContainText("Will trash")
-  await expect(page.locator(".MuiCard-root").nth(1)).toContainText("Will trash")
+  await expect(page.locator(".MuiCard-root").nth(0)).toContainText(
+    "Moves to Trash"
+  )
+  await expect(page.locator(".MuiCard-root").nth(1)).toContainText(
+    "Moves to Trash"
+  )
 
   const sw = context.serviceWorkers()[0]
   await expect
@@ -855,14 +909,23 @@ test("persists trash-all copy choices through page reload", async () => {
     .toEqual([])
 
   await page.reload()
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Move 2 to Trash/i })
+    page.getByRole("button", { name: /Review & move 2 to Trash/i })
   ).toBeVisible()
-  await expect(page.locator(".MuiCard-root").nth(0)).toContainText("Will trash")
-  await expect(page.locator(".MuiCard-root").nth(1)).toContainText("Will trash")
+  await expect(page.locator(".MuiCard-root").nth(0)).toContainText(
+    "Moves to Trash"
+  )
+  await expect(page.locator(".MuiCard-root").nth(1)).toContainText(
+    "Moves to Trash"
+  )
 
   await page.close()
   await clearStorage(context)
@@ -886,14 +949,19 @@ test("ignores stale kept override keys from saved selections", async () => {
   await injectSelections(context, ["g1"], { g1: ["missing-key"] })
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Move 1 to Trash/i })
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
   ).toBeVisible()
   await expect(
-    page.getByRole("button", { name: /Move 2 to Trash/i })
+    page.getByRole("button", { name: /Review & move 2 to Trash/i })
   ).not.toBeVisible()
 
   const sw = context.serviceWorkers()[0]
@@ -951,11 +1019,16 @@ test("ignores malformed saved selections without crashing on load", async () => 
   )
 
   const page = await openAppTab(context, extensionId)
-  await expect(page.getByText("1 Duplicate Set Ready")).toBeVisible({
+  await expect(
+    page.getByRole("heading", {
+      name: "1 Duplicate Set to Review",
+      exact: true
+    })
+  ).toBeVisible({
     timeout: 5000
   })
   await expect(
-    page.getByRole("button", { name: /Move 1 to Trash/i })
+    page.getByRole("button", { name: /Review & move 1 to Trash/i })
   ).not.toBeVisible()
 
   await page.close()

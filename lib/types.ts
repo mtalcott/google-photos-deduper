@@ -243,6 +243,7 @@ export interface StoredState {
   }
   selections?: {
     selectedGroupIds: string[]
+    reviewedGroupIds: string[]
     keptOverrides: Record<string, string[]>
   }
   settings: ScanSettings

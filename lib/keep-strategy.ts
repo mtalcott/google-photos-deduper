@@ -137,6 +137,12 @@ export function chooseKeepItem(
   return sorted[0]
 }
 
+export function selectDefaultKeep(items: GpdMediaItem[]): string {
+  const selected = chooseKeepItem(items, "best_quality")
+  if (!selected) throw new Error("Cannot select a keep item from an empty group")
+  return selected.mediaKey
+}
+
 export function chooseKeepKeyForGroup(
   group: DuplicateGroup,
   mediaItems: Record<string, GpdMediaItem>,

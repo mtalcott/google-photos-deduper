@@ -16,7 +16,7 @@
     "test:e2e": "playwright test --config playwright.e2e.config.ts",
     "license:serve": "node server/node-server.mjs",
     "stripe:setup-products": "node tools/setup-stripe-products.mjs",
-    "sync:scripts": "cp scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
+    "sync:scripts": "cp scripts/photo-provider-command-host.js scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
     "predev": "npm run build:gptk && npm run copy:wasm && npm run build:worker && npm run sync:scripts",
     "dev": "plasmo dev",
     "prebuild": "npm run build:gptk && npm run copy:wasm && npm run build:worker",
@@ -144,6 +144,7 @@
         "resources": [
           "scripts/unsafewindow-shim.js",
           "scripts/google-photos-toolkit.user.js",
+          "scripts/photo-provider-command-host.js",
           "scripts/google-photos-commands.js",
           "scripts/icloud-photos-commands.js",
           "scripts/amazon-photos-commands.js",

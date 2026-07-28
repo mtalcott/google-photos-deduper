@@ -12,7 +12,12 @@
   }
   window.__GPD_GOOGLE_COMMAND_HANDLER_LOADED__ = true
 
-const GPD_APP_ID = "GPD"
+const commandHost = window.__GPD_COMMAND_HOST__
+if (!commandHost) {
+  console.error("GPD: Shared command host is not loaded")
+  return
+}
+const { postResult, postError, postProgress } = commandHost
 
 // Number of items per API request for restore operations.
 // Matches GPTK's default operationSize. Large single requests cause HTTP 504.
@@ -27,42 +32,6 @@ const TRASH_CHUNK_TIMEOUT_MS = 30_000
 const MEDIA_PAGE_TIMEOUT_MS = 20_000
 const MEDIA_PAGE_RETRY_COUNT = 2
 const MEDIA_PAGE_RETRY_BACKOFF_MS = 1000
-
-function postResult(command, requestId, data) {
-  window.postMessage({
-    app: GPD_APP_ID,
-    action: "gptkResult",
-    command,
-    requestId,
-    success: true,
-    data
-  })
-}
-
-function postError(command, requestId, error, data) {
-  window.postMessage({
-    app: GPD_APP_ID,
-    action: "gptkResult",
-    command,
-    requestId,
-    success: false,
-    error: String(error),
-    ...(data !== undefined ? { data } : {})
-  })
-}
-
-// command is optional; when provided, the app can route progress to the right handler.
-function postProgress(requestId, itemsProcessed, message, command, data) {
-  window.postMessage({
-    app: GPD_APP_ID,
-    action: "gptkProgress",
-    requestId,
-    itemsProcessed,
-    message,
-    ...(command !== undefined ? { command } : {}),
-    ...(data !== undefined ? { data } : {})
-  })
-}
 
 function chunkArray(arr, size) {
   const chunks = []
@@ -738,33 +707,15 @@ function healthCheck(requestId) {
 // Message listener
 // ============================================================
 
-window.addEventListener("message", async (event) => {
-  if (event.source !== window) return
-  const msg = event.data
-  if (msg?.app !== GPD_APP_ID || msg?.action !== "gptkCommand") return
-
-  const { command, requestId, args } = msg
-  console.log("GPD: Received command", command, requestId)
-
-  switch (command) {
-    case "getAllMediaItems":
-      await getAllMediaItems(requestId, args)
-      break
-    case "listAlbums":
-      await listAlbums(requestId)
-      break
-    case "trashItems":
-      await trashItems(requestId, args)
-      break
-    case "restoreItems":
-      await restoreItems(requestId, args)
-      break
-    case "healthCheck":
-      healthCheck(requestId)
-      break
-    default:
-      postError(command, requestId, `Unknown command: ${command}`)
-  }
+commandHost.register({
+  handlers: {
+    getAllMediaItems,
+    listAlbums,
+    trashItems,
+    restoreItems,
+    healthCheck
+  },
+  unsupportedMessage: (command) => `Unknown command: ${command}`
 })
 
 console.log("GPD: Command handler loaded")

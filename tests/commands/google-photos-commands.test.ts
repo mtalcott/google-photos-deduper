@@ -47,6 +47,9 @@ beforeAll(async () => {
   // We import it here purely to register its window "message" listener.
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
+  await import("../../scripts/photo-provider-command-host.js")
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   await import("../../scripts/google-photos-commands.js")
 })
 

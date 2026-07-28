@@ -4,20 +4,21 @@
  * Covers:
  * - Stats display (items scanned, group count)
  * - Button visibility based on groupCount
- * - "Move to Trash" button disabled when duplicateCount === 0
+ * - cleanup action disabled when duplicateCount === 0
  * - All callback props fire on the correct user action
  */
 import { ThemeProvider } from "@mui/material/styles"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { ActionBar } from "../../components/ActionBar"
+import { ActionBar, CleanupBar } from "../../components/ActionBar"
 import theme from "../../lib/theme"
 
 interface Props {
   totalItems?: number
   groupCount?: number
   totalGroupCount?: number
+  reviewedGroupCount?: number
   exactGroupCount?: number
   similarGroupCount?: number
   duplicateCount?: number
@@ -38,6 +39,7 @@ function renderActionBar(props: Props = {}) {
     totalItems: 500,
     groupCount: 3,
     totalGroupCount: 3,
+    reviewedGroupCount: 3,
     exactGroupCount: 2,
     similarGroupCount: 1,
     duplicateCount: 6,
@@ -55,7 +57,23 @@ function renderActionBar(props: Props = {}) {
   return {
     ...render(
       <ThemeProvider theme={theme}>
-        <ActionBar {...merged} />
+        <ActionBar
+          totalItems={merged.totalItems}
+          groupCount={merged.groupCount}
+          totalGroupCount={merged.totalGroupCount}
+          reviewedGroupCount={merged.reviewedGroupCount}
+          exactGroupCount={merged.exactGroupCount}
+          similarGroupCount={merged.similarGroupCount}
+          reviewFilter={merged.reviewFilter}
+          onReviewFilterChange={merged.onReviewFilterChange}
+          onSelectAll={merged.onSelectAll}
+          onDeselectAll={merged.onDeselectAll}
+          onRescan={merged.onRescan}
+          onExportJson={merged.onExportJson}
+          onExportCsv={merged.onExportCsv}
+          onApplyKeepStrategy={merged.onApplyKeepStrategy}
+          compact={merged.compact}
+        />
       </ThemeProvider>
     ),
     callbacks: merged
@@ -105,9 +123,6 @@ describe("ActionBar", () => {
       expect(
         screen.queryByRole("button", { name: /Include all/i })
       ).not.toBeInTheDocument()
-      expect(
-        screen.queryByRole("button", { name: /Trash/i })
-      ).not.toBeInTheDocument()
     })
 
     it("renders action buttons when groupCount > 0", () => {
@@ -153,28 +168,70 @@ describe("ActionBar", () => {
     })
   })
 
-  describe("Move to Trash button", () => {
+  describe("CleanupBar", () => {
     it("is enabled when duplicateCount > 0", () => {
-      renderActionBar({ duplicateCount: 4 })
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            duplicateCount={4}
+            reviewedGroupCount={3}
+            totalGroupCount={3}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
       const btn = screen.getByRole("button", {
-        name: /Move 4 to Trash/i
+        name: /Review & move 4 to Trash/i
       })
       expect(btn).toBeEnabled()
     })
 
     it("is disabled when duplicateCount is 0", () => {
-      renderActionBar({ duplicateCount: 0 })
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            duplicateCount={0}
+            reviewedGroupCount={3}
+            totalGroupCount={3}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
       const btn = screen.getByRole("button", {
-        name: /Move 0 to Trash/i
+        name: /No duplicates selected/i
       })
       expect(btn).toBeDisabled()
     })
 
-    it("shows singular 'Duplicate' when duplicateCount is 1", () => {
-      renderActionBar({ duplicateCount: 1 })
+    it("shows singular item summary when duplicateCount is 1", () => {
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            duplicateCount={1}
+            reviewedGroupCount={3}
+            totalGroupCount={3}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
+      expect(screen.getByText("1 item ready")).toBeInTheDocument()
+    })
+
+    it("keeps cleanup locked until every visible set is reviewed", () => {
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            duplicateCount={4}
+            reviewedGroupCount={1}
+            totalGroupCount={3}
+            onTrash={vi.fn()}
+          />
+        </ThemeProvider>
+      )
+      expect(screen.getByText("2 sets left to review")).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: /Move 1 to Trash/i })
-      ).toBeInTheDocument()
+        screen.getByRole("button", { name: /Review 2 more to continue/i })
+      ).toBeDisabled()
     })
   })
 
@@ -201,12 +258,6 @@ describe("ActionBar", () => {
       const { callbacks } = renderActionBar()
       fireEvent.click(screen.getByRole("button", { name: /Identical \(2\)/i }))
       expect(callbacks.onReviewFilterChange).toHaveBeenCalledWith("exact")
-    })
-
-    it("calls onTrash when Move to Trash is clicked", () => {
-      const { callbacks } = renderActionBar({ duplicateCount: 3 })
-      fireEvent.click(screen.getByRole("button", { name: /Move 3 to Trash/i }))
-      expect(callbacks.onTrash).toHaveBeenCalledOnce()
     })
 
     it("calls export callbacks when report buttons are clicked", () => {
@@ -242,11 +293,22 @@ describe("ActionBar", () => {
     it("keeps compact toolbar actions accessible by name", () => {
       const { callbacks } = renderActionBar({ compact: true })
 
-      fireEvent.click(screen.getByRole("button", { name: /Scan again/i }))
-      fireEvent.click(screen.getByRole("button", { name: /^Export report$/i }))
-      fireEvent.click(screen.getByRole("button", { name: /^Spreadsheet$/i }))
-      fireEvent.click(screen.getByRole("button", { name: /^Include all$/i }))
-      fireEvent.click(screen.getByRole("button", { name: /^Skip all$/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(screen.getByRole("menuitem", { name: /Scan again/i }))
+      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: /Export audit report/i })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /More/i }))
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: /Export spreadsheet/i })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: /Include all sets/i })
+      )
+      fireEvent.click(screen.getByRole("button", { name: /Selection/i }))
+      fireEvent.click(screen.getByRole("menuitem", { name: /Skip all sets/i }))
 
       expect(callbacks.onRescan).toHaveBeenCalledOnce()
       expect(callbacks.onExportJson).toHaveBeenCalledOnce()
@@ -255,13 +317,23 @@ describe("ActionBar", () => {
       expect(callbacks.onDeselectAll).toHaveBeenCalledOnce()
     })
 
-    it("does not call onTrash when button is disabled", () => {
-      const { callbacks } = renderActionBar({ duplicateCount: 0 })
+    it("does not call onTrash when cleanup is disabled", () => {
+      const onTrash = vi.fn()
+      render(
+        <ThemeProvider theme={theme}>
+          <CleanupBar
+            duplicateCount={0}
+            reviewedGroupCount={3}
+            totalGroupCount={3}
+            onTrash={onTrash}
+          />
+        </ThemeProvider>
+      )
       const btn = screen.getByRole("button", {
-        name: /Move 0 to Trash/i
+        name: /No duplicates selected/i
       })
       fireEvent.click(btn)
-      expect(callbacks.onTrash).not.toHaveBeenCalled()
+      expect(onTrash).not.toHaveBeenCalled()
     })
   })
 })

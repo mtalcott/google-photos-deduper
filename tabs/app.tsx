@@ -44,33 +44,29 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type MutableRefObject,
   type ReactNode,
   type SetStateAction
 } from "react"
 
-import { ActionBar } from "../components/ActionBar"
+import { ActionBar, CleanupBar } from "../components/ActionBar"
 import type { ReviewFilter } from "../components/ActionBar"
 import { DuplicateGroups } from "../components/DuplicateGroups"
 import { RatingPromptDialog } from "../components/RatingPromptDialog"
 import { ScanConfig } from "../components/ScanConfig"
 import { ScanProgress } from "../components/ScanProgress"
-import {
-  UpgradeDialog,
-  type UpgradeReason
-} from "../components/UpgradeDialog"
+import { UpgradeDialog, type UpgradeReason } from "../components/UpgradeDialog"
 import { appReducer } from "../lib/app-reducer"
 import type { AppAction, AppState } from "../lib/app-reducer"
 import { debug } from "../lib/debug"
-import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
-import { buildDeleteReport, type DeleteReport } from "../lib/delete-report"
+import type { DeleteReport } from "../lib/delete-report"
 import { classifyDuplicateGroup } from "../lib/duplicate-classifier"
-import {
-  fullDetectDuplicates,
-  selectDefaultKeep,
-  smartDetectDuplicates
-} from "../lib/duplicate-detector"
+import { DuplicateDetectionEngine } from "../lib/duplicate-detector"
 import type { DetectionProgress } from "../lib/duplicate-detector"
+import {
+  DuplicateReviewSession,
+  type DuplicateReviewSelections,
+  type DuplicateTrashPlan
+} from "../lib/duplicate-review-session"
 import { EmbeddingCache } from "../lib/embedding-cache"
 import {
   canExportFullReport,
@@ -89,7 +85,7 @@ import {
   type Entitlement,
   type PlanId
 } from "../lib/entitlement"
-import { chooseKeepKeyForGroup, type KeepStrategy } from "../lib/keep-strategy"
+import type { KeepStrategy } from "../lib/keep-strategy"
 import {
   getEffectiveLicenseApiBaseUrl,
   LICENSE_API_BASE_STORAGE_KEY,
@@ -98,35 +94,47 @@ import {
   saveVerifiedEntitlementToken
 } from "../lib/license-client"
 import {
+  ANALYTICS_CONSENT_STORAGE_KEY,
   countBucket,
   sendPrivacySafeAnalyticsEvent,
   type PrivacySafeAnalyticsEvent
 } from "../lib/privacy-analytics"
+import {
+  PaidAccessLifecycle,
+  PaidAccessNotConfiguredError
+} from "../lib/paid-access-lifecycle"
+import {
+  providerBatchLimit as configuredProviderBatchLimit,
+  providerFromUrl,
+  providerLabel
+} from "../lib/provider-operations"
 import {
   chromeWebStoreReviewUrl,
   completeRatingPrompt,
   deferRatingPrompt,
   recordSuccessfulScan
 } from "../lib/rating-prompt"
-import { buildReviewReport, reviewReportToCsv } from "../lib/review-report"
+import { reviewReportToCsv } from "../lib/review-report"
 import {
   canResumeScanCheckpoint,
-  createScanCheckpoint,
   MAX_CHECKPOINT_MEDIA_ITEMS,
   SCAN_CHECKPOINT_KEY,
   shouldOfferResume,
   summarizeScanCheckpoint,
-  updateScanCheckpoint,
   type ScanCheckpoint
 } from "../lib/scan-checkpoint"
+import { ScanLifecycle } from "../lib/scan-lifecycle"
 import { ScanLogger } from "../lib/scan-log"
 import { areScanResultsValid } from "../lib/scan-results"
+import { StoredReviewScope } from "../lib/stored-review-scope"
 import { buildSupportDiagnosticsReport } from "../lib/support-diagnostics"
 import theme, { photoSweepColors } from "../lib/theme"
 import {
-  buildTrashResultReport,
-  type TrashResultReport
-} from "../lib/trash-result-report"
+  TrashLifecycle,
+  type TrashProviderResultData,
+  type TrashUndoData
+} from "../lib/trash-lifecycle"
+import type { TrashResultReport } from "../lib/trash-result-report"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
 import type {
   AppMessage,
@@ -141,6 +149,7 @@ import type {
   ScanSettings,
   StoredState
 } from "../lib/types"
+import { usePrefersReducedMotion } from "../lib/use-prefers-reduced-motion"
 
 // ============================================================
 // Helpers
@@ -157,6 +166,7 @@ const TRASH_RETRY_COUNT = 2
 const TRASH_RETRY_BACKOFF_MS = 1000
 const DELETE_REPORTS_KEY = "deleteReports"
 const TRASH_RESULT_REPORTS_KEY = "trashResultReports"
+const duplicateDetectionEngine = new DuplicateDetectionEngine()
 const APP_CLIENT_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 function WorkflowRail({
@@ -428,66 +438,12 @@ function fullScanSettingsPatch(
   }
 }
 
-function providerLabel(provider: ScanSettings["sourceProvider"]): string {
-  if (provider === "icloud") return "iCloud Photos"
-  if (provider === "amazon") return "Amazon Photos"
-  return "Google Photos"
-}
-
-const AMAZON_PHOTOS_HOSTS = new Set([
-  "www.amazon.com",
-  "www.amazon.ca",
-  "www.amazon.co.uk",
-  "www.amazon.de",
-  "www.amazon.fr",
-  "www.amazon.it",
-  "www.amazon.es",
-  "www.amazon.co.jp",
-  "www.amazon.com.au",
-  "www.amazon.in",
-  "www.amazon.com.br",
-  "www.amazon.com.mx",
-  "www.amazon.nl",
-  "www.amazon.sg",
-  "www.amazon.ae",
-  "www.amazon.sa",
-  "www.amazon.se",
-  "www.amazon.pl",
-  "www.amazon.com.tr",
-  "www.amazon.be",
-  "www.amazon.eg"
-])
-
-function providerFromTabUrl(url: string | undefined): PhotoProvider | null {
-  if (!url) return null
-  try {
-    const parsed = new URL(url)
-    if (["www.icloud.com", "www.icloud.com.cn"].includes(parsed.hostname)) {
-      return "icloud"
-    }
-    if (AMAZON_PHOTOS_HOSTS.has(parsed.hostname)) return "amazon"
-    if (parsed.hostname === "photos.google.com") return "google"
-  } catch {
-    return null
-  }
-  return null
-}
-
-function providerBatchLimit(
+function providerBatchLimitForEntitlement(
   settings: ScanSettings,
   entitlement?: Entitlement | null
 ): number | undefined {
   const effectiveSettings = scanSettingsForEntitlement(settings, entitlement)
-  const provider = effectiveSettings.sourceProvider ?? "google"
-  const limit =
-    provider === "amazon"
-      ? effectiveSettings.amazonBatchLimit
-      : provider === "icloud"
-        ? effectiveSettings.icloudBatchLimit
-        : undefined
-  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
-    ? Math.floor(limit)
-    : undefined
+  return configuredProviderBatchLimit(effectiveSettings)
 }
 
 function SidePanelConnectionSetup({
@@ -1042,26 +998,6 @@ function downloadTextFile(params: {
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
-function normalizeStoredSettings(settings: ScanSettings): ScanSettings {
-  const isOldUntouchedDefault =
-    settings.scanMode === "smart" &&
-    settings.similarityThreshold === 0.99 &&
-    (settings.smartWindowSec ?? 1) === 1 &&
-    !activeDateRange(settings.dateRange) &&
-    !activeAlbumScope(settings.albumScope)
-
-  if (isOldUntouchedDefault) {
-    return DEFAULT_SETTINGS
-  }
-
-  return {
-    ...settings,
-    sourceProvider: settings.sourceProvider ?? "google",
-    exactOnly: settings.exactOnly ?? false,
-    protectFavorites: settings.protectFavorites ?? true
-  }
-}
-
 async function persistScanCheckpoint(
   checkpoint: ScanCheckpoint
 ): Promise<void> {
@@ -1072,15 +1008,6 @@ async function persistScanCheckpoint(
 
 async function clearScanCheckpoint(): Promise<void> {
   await chrome.storage.local.remove(SCAN_CHECKPOINT_KEY).catch(() => {})
-}
-
-function clearResumeCheckpointState(params: {
-  checkpointRef: MutableRefObject<ScanCheckpoint | null>
-  setResumeCheckpoint: Dispatch<SetStateAction<ScanCheckpoint | null>>
-}): void {
-  params.checkpointRef.current = null
-  params.setResumeCheckpoint(null)
-  void clearScanCheckpoint()
 }
 
 function isFavoriteProtected(
@@ -1109,7 +1036,8 @@ function filterGroupsForSafety(
   if (!settings.exactOnly) return groups
   return groups.filter((group) => {
     const kind =
-      group.duplicateKind ?? classifyDuplicateGroup(group, mediaItems).duplicateKind
+      group.duplicateKind ??
+      classifyDuplicateGroup(group, mediaItems).duplicateKind
     return kind === "exact"
   })
 }
@@ -1127,58 +1055,7 @@ function formatStorageBytes(bytes: number): string {
   return `${value.toFixed(digits)} ${units[unit]}`
 }
 
-type PendingSelections = {
-  selectedGroupIds: Set<string>
-  keptOverrides: Record<string, Set<string>>
-}
-
-function deserializeStoredSelections(value: unknown): PendingSelections | null {
-  if (!value || typeof value !== "object") return null
-  const raw = value as {
-    selectedGroupIds?: unknown
-    keptOverrides?: unknown
-  }
-  const selectedGroupIds = Array.isArray(raw.selectedGroupIds)
-    ? raw.selectedGroupIds.filter((id): id is string => typeof id === "string")
-    : []
-  const keptOverrides: Record<string, Set<string>> = {}
-  if (raw.keptOverrides && typeof raw.keptOverrides === "object") {
-    for (const [groupId, mediaKeys] of Object.entries(
-      raw.keptOverrides as Record<string, unknown>
-    )) {
-      if (!Array.isArray(mediaKeys)) continue
-      const validMediaKeys = mediaKeys.filter(
-        (key): key is string => typeof key === "string"
-      )
-      keptOverrides[groupId] = new Set(validMediaKeys)
-    }
-  }
-  return {
-    selectedGroupIds: new Set(selectedGroupIds),
-    keptOverrides
-  }
-}
-
-type IcloudAssetRef = {
-  recordName: string
-  changeTag: string
-  zoneName: string
-  ownerRecordName: string
-}
-
-type UndoData = {
-  provider: PhotoProvider
-  dedupKeys: string[]
-  count: number
-  snapshot: {
-    mediaItems: Record<string, GpdMediaItem>
-    groups: DuplicateGroup[]
-    totalItems: number
-  }
-  // iCloud only: post-trash asset refs (fresh changeTags) so the Undo recover
-  // can issue records/modify without a re-scan.
-  icloudAssetRefs?: IcloudAssetRef[]
-}
+type PendingSelections = DuplicateReviewSelections
 
 // ============================================================
 // App component
@@ -1198,21 +1075,47 @@ export default function App() {
     DEFAULT_SETTINGS
   )
 
-  // Selection state: which groups are selected for trash
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
-    new Set()
-  )
-
-  // Kept overrides: groupId -> Set of mediaKeys the user marked as "Keep"
-  const [keptOverrides, setKeptOverrides] = useState<
-    Record<string, Set<string>>
-  >({})
+  const [reviewSelections, setReviewSelections] =
+    useState<DuplicateReviewSelections>({
+      selectedGroupIds: new Set(),
+      reviewedGroupIds: new Set(),
+      keptOverrides: {}
+    })
+  const selectedGroupIds = reviewSelections.selectedGroupIds
+  const reviewedGroupIds = reviewSelections.reviewedGroupIds
+  const keptOverrides = reviewSelections.keptOverrides
+  const setSelectedGroupIds = useCallback<
+    Dispatch<SetStateAction<Set<string>>>
+  >((value) => {
+    setReviewSelections((previous) => ({
+      ...previous,
+      selectedGroupIds:
+        typeof value === "function" ? value(previous.selectedGroupIds) : value
+    }))
+  }, [])
+  const setKeptOverrides = useCallback<
+    Dispatch<SetStateAction<Record<string, Set<string>>>>
+  >((value) => {
+    setReviewSelections((previous) => ({
+      ...previous,
+      keptOverrides:
+        typeof value === "function" ? value(previous.keptOverrides) : value
+    }))
+  }, [])
+  const setReviewedGroupIds = useCallback<
+    Dispatch<SetStateAction<Set<string>>>
+  >((value) => {
+    setReviewSelections((previous) => ({
+      ...previous,
+      reviewedGroupIds:
+        typeof value === "function" ? value(previous.reviewedGroupIds) : value
+    }))
+  }, [])
 
   // Confirm dialog state
-  const [trashConfirm, setTrashConfirm] = useState<{
-    dedupKeys: string[]
-    mediaKeysToTrash: string[]
-  } | null>(null)
+  const [trashConfirm, setTrashConfirm] = useState<DuplicateTrashPlan | null>(
+    null
+  )
   const [trashConfirmCount, setTrashConfirmCount] = useState("")
   const [trashWarning, setTrashWarning] = useState<string | null>(null)
   const [trashMovesThisSession, setTrashMovesThisSession] = useState(0)
@@ -1242,25 +1145,61 @@ export default function App() {
   const [licenseApiBaseUrl, setLicenseApiBaseUrl] = useState<
     string | undefined
   >()
+  const [analyticsConsent, setAnalyticsConsent] = useState<boolean | null>(null)
   const appOpenedTrackedRef = useRef(false)
+  const paidAccessLifecycleRef = useRef<PaidAccessLifecycle | null>(null)
+  if (!paidAccessLifecycleRef.current) {
+    paidAccessLifecycleRef.current = new PaidAccessLifecycle({
+      async load() {
+        const [stored, licenseConfig] = await Promise.all([
+          loadStoredEntitlement(),
+          chrome.storage.local.get(LICENSE_API_BASE_STORAGE_KEY)
+        ])
+        return {
+          stored,
+          apiBaseUrl: getEffectiveLicenseApiBaseUrl(
+            licenseConfig[LICENSE_API_BASE_STORAGE_KEY] as string | undefined
+          )
+        }
+      },
+      saveVerifiedToken: saveVerifiedEntitlementToken,
+      createClient: (apiBaseUrl) => new LicenseClient({ apiBaseUrl })
+    })
+  }
+  const paidAccessLifecycle = paidAccessLifecycleRef.current
+  const storedReviewScopeRef = useRef<StoredReviewScope | null>(null)
+  if (!storedReviewScopeRef.current) {
+    storedReviewScopeRef.current = new StoredReviewScope({
+      async get(keys) {
+        return chrome.storage.local.get(keys) as Promise<Partial<StoredState>>
+      },
+      async set(values) {
+        await chrome.storage.local.set(values)
+      },
+      async remove(keys) {
+        await chrome.storage.local.remove(keys)
+      }
+    })
+  }
+  const storedReviewScope = storedReviewScopeRef.current
 
   // Undo trash state: stored after a successful trash operation
-  const [undoData, setUndoData] = useState<UndoData | null>(null)
+  const [undoData, setUndoData] = useState<TrashUndoData | null>(null)
   const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      loadStoredEntitlement(),
-      chrome.storage.local.get(LICENSE_API_BASE_STORAGE_KEY)
+      paidAccessLifecycle.initialize(),
+      chrome.storage.local.get(ANALYTICS_CONSENT_STORAGE_KEY)
     ])
-      .then(([stored, licenseConfig]) => {
+      .then(([access, privacyConfig]) => {
         if (cancelled) return
-        setEntitlement(stored.entitlement)
-        setLicenseApiBaseUrl(
-          getEffectiveLicenseApiBaseUrl(
-            licenseConfig[LICENSE_API_BASE_STORAGE_KEY] as string | undefined
-          )
+        setEntitlement(access.entitlement)
+        setLicenseApiBaseUrl(access.apiBaseUrl)
+        const storedConsent = privacyConfig[ANALYTICS_CONSENT_STORAGE_KEY]
+        setAnalyticsConsent(
+          typeof storedConsent === "boolean" ? storedConsent : null
         )
         setEntitlementLoaded(true)
       })
@@ -1274,7 +1213,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [paidAccessLifecycle])
 
   const openUpgradePrompt = useCallback(
     (reason: UpgradeReason, detail?: string) => {
@@ -1285,25 +1224,62 @@ export default function App() {
 
   const trackEvent = useCallback(
     (event: PrivacySafeAnalyticsEvent) => {
+      if (analyticsConsent !== true) return
       const safeEvent = {
         ...event,
-        provider: event.provider ?? settingsRef.current.sourceProvider ?? "google",
+        provider:
+          event.provider ?? settingsRef.current.sourceProvider ?? "google",
         scanMode: event.scanMode ?? settingsRef.current.scanMode,
         planId: event.planId ?? getEffectivePlanId(entitlement)
       }
-      void sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, safeEvent).catch(() => {
-        // Analytics is optional; never interrupt scan, report, or Trash flows.
-      })
+      void sendPrivacySafeAnalyticsEvent(licenseApiBaseUrl, safeEvent).catch(
+        () => {
+          // Analytics is optional; never interrupt scan, report, or Trash flows.
+        }
+      )
     },
-    [entitlement, licenseApiBaseUrl]
+    [analyticsConsent, entitlement, licenseApiBaseUrl]
   )
 
+  const saveAnalyticsConsent = useCallback((allowed: boolean) => {
+    setAnalyticsConsent(allowed)
+    void chrome.storage.local.set({
+      [ANALYTICS_CONSENT_STORAGE_KEY]: allowed
+    })
+  }, [])
+
   useEffect(() => {
-    if (!entitlementLoaded) return
+    if (!entitlementLoaded || analyticsConsent !== true) return
     if (appOpenedTrackedRef.current) return
     appOpenedTrackedRef.current = true
     trackEvent({ name: "app_opened" })
-  }, [entitlementLoaded, trackEvent])
+  }, [analyticsConsent, entitlementLoaded, trackEvent])
+
+  useEffect(() => {
+    if (!entitlementLoaded || !licenseApiBaseUrl) return
+    let cancelled = false
+    void paidAccessLifecycle
+      .refreshStoredTokenOnce()
+      .then((refreshed) => {
+        if (cancelled || !refreshed) return
+        setEntitlement(refreshed.stored.entitlement)
+        trackEvent({
+          name: "entitlement_refreshed",
+          planId: getEffectivePlanId(refreshed.stored.entitlement)
+        })
+      })
+      .catch(() => {
+        trackEvent({ name: "error", errorCategory: "license_refresh" })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    entitlementLoaded,
+    licenseApiBaseUrl,
+    paidAccessLifecycle,
+    trackEvent
+  ])
 
   const openTrackedUpgradePrompt = useCallback(
     (reason: UpgradeReason, detail?: string) => {
@@ -1314,16 +1290,9 @@ export default function App() {
   )
 
   const handleRefreshEntitlement = useCallback(async () => {
-    const client = new LicenseClient({ apiBaseUrl: licenseApiBaseUrl })
-    if (!client.isConfigured()) {
-      setTrashWarning(
-        "License refresh is not configured yet. Paid access will unlock once the Stripe license API is connected."
-      )
-      return
-    }
     try {
-      const token = await client.fetchEntitlementToken()
-      const stored = await saveVerifiedEntitlementToken(token)
+      const refreshed = await paidAccessLifecycle.refresh()
+      const { stored } = refreshed
       setEntitlement(stored.entitlement)
       setEntitlementLoaded(true)
       trackEvent({
@@ -1331,6 +1300,15 @@ export default function App() {
         planId: getEffectivePlanId(stored.entitlement)
       })
       const refreshedPlanId = getEffectivePlanId(stored.entitlement)
+      if (refreshed.recovery) {
+        trackEvent({
+          name:
+            refreshed.recovery === "not_found"
+              ? "restore_not_found"
+              : "restore_completed",
+          planId: refreshedPlanId
+        })
+      }
       setTrashWarning(
         refreshedPlanId === "free"
           ? "No active paid license was found for this browser session."
@@ -1338,96 +1316,116 @@ export default function App() {
       )
       setUpgradePrompt(null)
     } catch (error) {
+      if (error instanceof PaidAccessNotConfiguredError) {
+        setTrashWarning(
+          "License refresh is not configured yet. Paid access will unlock once the Stripe license API is connected."
+        )
+        return
+      }
       const message = error instanceof Error ? error.message : String(error)
       setTrashWarning(`Could not refresh license: ${message}`)
     }
-  }, [licenseApiBaseUrl, trackEvent])
+  }, [paidAccessLifecycle, trackEvent])
 
   const refreshTimeLimitedEntitlementForAction = useCallback(async () => {
-    if (getEffectivePlanId(entitlement) !== "cleanup_pass") return entitlement
-    const client = new LicenseClient({ apiBaseUrl: licenseApiBaseUrl })
-    if (!client.isConfigured()) {
-      setTrashWarning(
-        "Cleanup Pass needs an online license refresh before paid actions. Connect to the internet and refresh your license."
-      )
-      return null
-    }
     try {
-      const token = await client.fetchEntitlementToken()
-      const stored = await saveVerifiedEntitlementToken(token)
-      setEntitlement(stored.entitlement)
+      const authorized = await paidAccessLifecycle.authorizeAction()
+      setEntitlement(authorized)
       setEntitlementLoaded(true)
-      return stored.entitlement
+      return authorized
     } catch (error) {
+      if (error instanceof PaidAccessNotConfiguredError) {
+        setTrashWarning(
+          "Cleanup Pass needs an online license refresh before paid actions. Connect to the internet and refresh your license."
+        )
+        return null
+      }
       const message = error instanceof Error ? error.message : String(error)
       setTrashWarning(`Could not refresh Cleanup Pass: ${message}`)
       return null
     }
-  }, [entitlement, licenseApiBaseUrl])
+  }, [paidAccessLifecycle])
 
   const handleChooseUpgradePlan = useCallback(
     async (planId: Exclude<PlanId, "free">) => {
-      const client = new LicenseClient({ apiBaseUrl: licenseApiBaseUrl })
-      if (!client.isConfigured()) {
-        setTrashWarning(
-          `${PLAN_LABELS[planId]} checkout is not configured yet. The extension is enforcing free limits until the Stripe license API is connected.`
-        )
-        setUpgradePrompt(null)
-        return
-      }
       try {
-        const checkout = await client.createCheckout(planId)
+        const checkout = await paidAccessLifecycle.createCheckout(planId)
         trackEvent({ name: "checkout_started", planId })
         await chrome.tabs.create({ url: checkout.url })
         setTrashWarning(
           "Checkout opened in a new tab. After payment, return here and refresh your license."
         )
       } catch (error) {
+        if (error instanceof PaidAccessNotConfiguredError) {
+          setTrashWarning(
+            `${PLAN_LABELS[planId]} checkout is not configured yet. The extension is enforcing free limits until the Stripe license API is connected.`
+          )
+          setUpgradePrompt(null)
+          return
+        }
         const message = error instanceof Error ? error.message : String(error)
         setTrashWarning(`Could not start checkout: ${message}`)
       }
     },
-    [licenseApiBaseUrl, trackEvent]
+    [paidAccessLifecycle, trackEvent]
   )
 
   const handleRecoverLicense = useCallback(
     async (email: string) => {
-      const client = new LicenseClient({ apiBaseUrl: licenseApiBaseUrl })
-      if (!client.isConfigured()) {
-        throw new Error(
-          "License recovery is not configured until the Stripe license API is connected."
-        )
+      try {
+        await paidAccessLifecycle.recover(email)
+      } catch (error) {
+        if (error instanceof PaidAccessNotConfiguredError) {
+          throw new Error(
+            "License recovery is not configured until the Stripe license API is connected."
+          )
+        }
+        throw error
       }
-      await client.recoverLicense(email)
-      trackEvent({ name: "entitlement_refreshed" })
+      trackEvent({ name: "restore_requested" })
     },
-    [licenseApiBaseUrl, trackEvent]
+    [paidAccessLifecycle, trackEvent]
   )
 
-  // Refs to capture pre-trash data for undo
-  const preTrashSnapshotRef = useRef<{
-    mediaItems: Record<string, GpdMediaItem>
-    groups: DuplicateGroup[]
-    totalItems: number
-  } | null>(null)
-  const pendingDedupKeysRef = useRef<string[] | null>(null)
-  const pendingMediaKeysToTrashRef = useRef<string[] | null>(null)
-  const pendingRestoreUndoRef = useRef<UndoData | null>(null)
-  const pendingRestoreRequestIdRef = useRef<string | null>(null)
-
-  // AbortController for the current scan (cancelled on user request or new scan)
-  const scanAbortRef = useRef<AbortController | null>(null)
+  const scanLifecycleRef = useRef(
+    new ScanLifecycle({
+      persist: persistScanCheckpoint,
+      clear: clearScanCheckpoint
+    })
+  )
+  const scanLifecycle = scanLifecycleRef.current
+  const trashLifecycleRef = useRef<TrashLifecycle | null>(null)
+  if (!trashLifecycleRef.current) {
+    trashLifecycleRef.current = new TrashLifecycle({
+      async savePreTrashReport(report) {
+        await persistDeleteReport(report)
+        downloadDeleteReport(report)
+      },
+      async saveTrashResultReport(report) {
+        try {
+          downloadTrashResultReport(report)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          setReportError(
+            `Could not download the trash result report: ${message}`
+          )
+        }
+        try {
+          await persistTrashResultReport(report)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          setReportError(`Could not save the trash result report: ${message}`)
+        }
+      }
+    })
+  }
+  const trashLifecycle = trashLifecycleRef.current
 
   // Persisted scan performance logger — survives page reloads via chrome.storage.local
   const scanLoggerRef = useRef(new ScanLogger())
 
   // Cached media items from previous scan, used to merge with incremental fetch
   const cachedMediaItemsRef = useRef<Record<string, GpdMediaItem> | null>(null)
-
-  // Tracks the requestId of the active scan so stale results from previous
-  // scans killed by reload can be dropped (they arrive late from the GP tab)
-  const currentScanRequestIdRef = useRef<string | null>(null)
-  const scanCheckpointRef = useRef<ScanCheckpoint | null>(null)
 
   // Counts failed healthCheck attempts during initial connect so we can retry
   // silently before showing a disconnected error.
@@ -1440,9 +1438,9 @@ export default function App() {
 
   // Holds selections loaded from storage; applied once when groups first load.
   const pendingSelectionsRef = useRef<PendingSelections | null>(null)
-  // Fresh scans may auto-select all found groups for quick review. Mutations
-  // like trash/undo must not auto-select newly remaining groups, because that
-  // can turn a safe dummy-only action into a dangerous real-photo selection.
+  // Fresh scans start with neutral review decisions. Mutations like trash/undo
+  // also keep newly remaining groups neutral so no real-photo cleanup choice is
+  // made without an explicit review action.
   const autoSelectNextResultsRef = useRef(false)
 
   const refreshEmbeddingCacheCount = useCallback(async () => {
@@ -1478,28 +1476,75 @@ export default function App() {
     })
   }, [])
 
-  const saveTrashResultReport = useCallback((report: TrashResultReport) => {
-    try {
-      downloadTrashResultReport(report)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setReportError(`Could not download the trash result report: ${message}`)
-    }
+  const handleTrashProviderResult = useCallback(
+    (result: GptkResultMessage) => {
+      void trashLifecycle
+        .reconcile({
+          success: result.success,
+          data: result.data as TrashProviderResultData | undefined,
+          error: result.error
+        })
+        .then((outcome) => {
+          if (outcome.kind === "dry_run") {
+            dispatch({ type: "TRASH_COMPLETE", trashedKeys: [] })
+            trackEvent({
+              name: "trash_completed",
+              photoCountBucket: countBucket(0)
+            })
+            setTrashWarning(outcome.message)
+            return
+          }
+          if (outcome.kind === "failed") {
+            trackEvent({ name: "error", errorCategory: "trash" })
+            dispatch({ type: "TRASH_ERROR", error: outcome.error })
+            return
+          }
 
-    void persistTrashResultReport(report).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error)
-      setReportError(`Could not save the trash result report: ${message}`)
-    })
-  }, [])
+          dispatch({
+            type: "TRASH_COMPLETE",
+            trashedKeys: outcome.movedMediaKeys
+          })
+          setTrashMovesThisSession((count) => count + outcome.movedCount)
+          trackEvent({
+            name: "trash_completed",
+            photoCountBucket: countBucket(outcome.movedCount),
+            ...(outcome.kind === "partial"
+              ? { errorCategory: "trash_partial" }
+              : {})
+          })
+          setUndoData(outcome.undo)
+          if (outcome.message) setTrashWarning(outcome.message)
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error)
+          setReportError(`Could not reconcile the trash result: ${message}`)
+          dispatch({ type: "TRASH_ERROR", error: message })
+        })
+    },
+    [trackEvent, trashLifecycle]
+  )
+
+  const handleRestoreProviderResult = useCallback(
+    (result: GptkResultMessage) => {
+      const failedUndo = trashLifecycle.reconcileRestore({
+        requestId: result.requestId,
+        success: result.success
+      })
+      if (failedUndo === undefined || failedUndo === null) return
+      console.error("GPD: Restore failed:", result.error)
+      setUndoData(failedUndo)
+      setTrashWarning(
+        `Restore failed: ${result.error || "The Photo Provider could not restore the moved items."}`
+      )
+    },
+    [trashLifecycle]
+  )
 
   const patchScanCheckpoint = useCallback(
-    (patch: Parameters<typeof updateScanCheckpoint>[1]) => {
-      if (!scanCheckpointRef.current) return
-      const next = updateScanCheckpoint(scanCheckpointRef.current, patch)
-      scanCheckpointRef.current = next
-      void persistScanCheckpoint(next)
+    (patch: Parameters<ScanLifecycle["patch"]>[0]) => {
+      scanLifecycle.patch(patch)
     },
-    []
+    [scanLifecycle]
   )
 
   // Sync selectedGroupIds when groups change (e.g. after scan or trash)
@@ -1536,27 +1581,20 @@ export default function App() {
           activeTabId = activeTab.id
           sidePanelHostTabIdRef.current = activeTab.id
         }
-        const hostProvider = providerFromTabUrl(activeTab?.url)
+        const hostProvider = providerFromUrl(activeTab?.url)
         if (hostProvider) {
           sidePanelHostProviderRef.current = hostProvider
           setSidePanelSourceConfirmed(true)
           if (
             (settingsRef.current.sourceProvider ?? "google") !== hostProvider
           ) {
-            scanAbortRef.current?.abort()
-            scanAbortRef.current = null
-            currentScanRequestIdRef.current = null
-            scanCheckpointRef.current = null
+            scanLifecycle.reset()
             cachedMediaItemsRef.current = null
             pendingSelectionsRef.current = null
             setResumeCheckpoint(null)
             setSelectedGroupIds(new Set())
+            setReviewedGroupIds(new Set())
             setKeptOverrides({})
-            void chrome.storage.local.remove([
-              "scanResults",
-              "selections",
-              SCAN_CHECKPOINT_KEY
-            ])
             dispatch({ type: "RESET" })
             healthCheckAttemptsRef.current = 0
             const nextSettings = {
@@ -1572,7 +1610,11 @@ export default function App() {
               sourceProvider: hostProvider,
               albumScope: nextSettings.albumScope
             })
-            void chrome.storage.local.set({ settings: nextSettings })
+            void storedReviewScope.invalidateReview()
+            void storedReviewScope.write({
+              settings: nextSettings,
+              checkpoint: null
+            })
             sendToServiceWorker({
               app: APP_ID,
               action: "healthCheck",
@@ -1597,65 +1639,43 @@ export default function App() {
       disposed = true
       port.disconnect()
     }
-  }, [isSidePanel])
+  }, [isSidePanel, storedReviewScope])
 
   useEffect(() => {
     if (pendingSelectionsRef.current) {
       const saved = pendingSelectionsRef.current
       pendingSelectionsRef.current = null
-      const validGroups = new Map(groups.map((group) => [group.id, group]))
-      // Restore saved selection, filtered to groups that still exist
-      const next = new Set(
-        [...saved.selectedGroupIds].filter((id) => validGroups.has(id))
-      )
-      setSelectedGroupIds(next)
-      // Restore kept overrides, filtered to keys that still exist in the group.
-      // If every saved key is stale, fall back to the current default keep choice.
-      const filteredKept: Record<string, Set<string>> = {}
-      for (const [id, keys] of Object.entries(saved.keptOverrides)) {
-        const group = validGroups.get(id)
-        if (!group) continue
-        const validKeys = new Set(group.mediaKeys)
-        const filteredKeys = [...keys].filter((key) => validKeys.has(key))
-        if (keys.size === 0 || filteredKeys.length > 0) {
-          filteredKept[id] = new Set(filteredKeys)
-        }
-      }
-      setKeptOverrides(filteredKept)
+      const restoredSession = new DuplicateReviewSession({
+        groups,
+        mediaItems: displayMediaItems,
+        selections: saved
+      })
+      setReviewSelections(restoredSession.selections)
       const canWriteSanitizedSelections =
         state.status === "results" && !state.accountEmail
       if (canWriteSanitizedSelections) {
-        chrome.storage.local.set({
-          selections: {
-            selectedGroupIds: [...next],
-            keptOverrides: Object.fromEntries(
-              Object.entries(filteredKept).map(([id, keys]) => [id, [...keys]])
-            )
-          }
+        void storedReviewScope.write({
+          selections: restoredSession.serialize()
         })
       }
     } else if (autoSelectNextResultsRef.current) {
       autoSelectNextResultsRef.current = false
-      setSelectedGroupIds(new Set(groups.map((g) => g.id)))
-      setKeptOverrides({})
-    } else {
-      const validGroups = new Map(groups.map((group) => [group.id, group]))
-      setSelectedGroupIds((prev) =>
-        new Set([...prev].filter((id) => validGroups.has(id)))
-      )
-      setKeptOverrides((prev) => {
-        const filtered: Record<string, Set<string>> = {}
-        for (const [id, keys] of Object.entries(prev)) {
-          const group = validGroups.get(id)
-          if (!group) continue
-          const validKeys = new Set(group.mediaKeys)
-          const kept = [...keys].filter((key) => validKeys.has(key))
-          if (keys.size === 0 || kept.length > 0) filtered[id] = new Set(kept)
-        }
-        return filtered
+      setReviewSelections({
+        selectedGroupIds: new Set(),
+        reviewedGroupIds: new Set(),
+        keptOverrides: {}
       })
+    } else {
+      setReviewSelections(
+        (selections) =>
+          new DuplicateReviewSession({
+            groups,
+            mediaItems: displayMediaItems,
+            selections
+          }).selections
+      )
     }
-  }, [groups])
+  }, [groups, storedReviewScope])
 
   useEffect(() => {
     if (!accountValidationComplete || state.status !== "results") return
@@ -1677,8 +1697,9 @@ export default function App() {
     }
     pendingSelectionsRef.current = null
     setSelectedGroupIds(new Set())
+    setReviewedGroupIds(new Set())
     setKeptOverrides({})
-    chrome.storage.local.remove(["scanResults", "selections"])
+    void storedReviewScope.invalidateReview()
     dispatch({
       type: "HEALTH_CHECK_RESULT",
       payload: {
@@ -1689,16 +1710,26 @@ export default function App() {
         accountEmail: currentAccountEmail
       }
     })
-  }, [accountValidationComplete, state])
+  }, [accountValidationComplete, state, storedReviewScope])
 
-  const handleToggleGroup = useCallback((groupId: string) => {
-    setSelectedGroupIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) next.delete(groupId)
-      else next.add(groupId)
-      return next
-    })
-  }, [])
+  const handleToggleGroup = useCallback(
+    (groupId: string) => {
+      setReviewSelections((current) => {
+        const currentSession = new DuplicateReviewSession({
+          groups,
+          mediaItems: displayMediaItems,
+          selections: current
+        })
+        return currentSession.update({
+          type: currentSession.selectedGroupIds.has(groupId)
+            ? "deselect_groups"
+            : "select_groups",
+          groupIds: [groupId]
+        })
+      })
+    },
+    [displayMediaItems, groups]
+  )
 
   // Listen for messages from service worker
   useEffect(() => {
@@ -1748,7 +1779,7 @@ export default function App() {
             currentHasGptkRef.current = msg.hasGptk
           }
           const currentState = stateRef.current
-          const checkpoint = scanCheckpointRef.current
+          const checkpoint = scanLifecycle.checkpoint
           if (
             msg.success &&
             checkpoint &&
@@ -1763,10 +1794,8 @@ export default function App() {
               }
             )
           ) {
-            clearResumeCheckpointState({
-              checkpointRef: scanCheckpointRef,
-              setResumeCheckpoint
-            })
+            scanLifecycle.reset()
+            setResumeCheckpoint(null)
           }
           if (
             msg.success &&
@@ -1784,8 +1813,9 @@ export default function App() {
           ) {
             pendingSelectionsRef.current = null
             setSelectedGroupIds(new Set())
+            setReviewedGroupIds(new Set())
             setKeptOverrides({})
-            chrome.storage.local.remove(["scanResults", "selections"])
+            void storedReviewScope.invalidateReview()
           }
           setAccountValidationComplete(true)
           dispatch({
@@ -1831,9 +1861,9 @@ export default function App() {
           } else if (result.command === "getAllMediaItems") {
             // Drop stale results from scans that were killed/cancelled — their
             // GPTK request may have still been in-flight and arrives late
-            if (result.requestId !== currentScanRequestIdRef.current) {
+            if (!scanLifecycle.isCurrent(result.requestId)) {
               console.debug(
-                `[GPD] Dropping stale getAllMediaItems result for requestId ${result.requestId} (active: ${currentScanRequestIdRef.current})`
+                `[GPD] Dropping stale getAllMediaItems result for requestId ${result.requestId} (active: ${scanLifecycle.requestId})`
               )
               break
             }
@@ -1874,7 +1904,7 @@ export default function App() {
                   error,
                   message: error
                 })
-                setResumeCheckpoint(scanCheckpointRef.current)
+                setResumeCheckpoint(scanLifecycle.checkpoint)
                 dispatch({
                   type: "SCAN_ERROR",
                   error
@@ -1905,7 +1935,7 @@ export default function App() {
               })
               runDuplicateDetection(
                 items,
-                scanAbortRef.current?.signal ?? new AbortController().signal,
+                scanLifecycle.signal ?? new AbortController().signal,
                 result.requestId
               )
             } else {
@@ -1915,168 +1945,16 @@ export default function App() {
                 message: result.error || "Scan failed"
               })
               trackEvent({ name: "error", errorCategory: "scan" })
-              setResumeCheckpoint(scanCheckpointRef.current)
+              setResumeCheckpoint(scanLifecycle.checkpoint)
               dispatch({
                 type: "SCAN_ERROR",
                 error: result.error || "Scan failed"
               })
             }
           } else if (result.command === "trashItems") {
-            const data = result.data as
-              | {
-                  trashedKeys?: string[]
-                  trashedDedupKeys?: string[]
-                  trashedCount?: number
-                  requestedCount?: number
-                  icloudAssetRefs?: IcloudAssetRef[]
-                  dryRun?: boolean
-                  message?: string
-                  partial?: boolean
-                  retryAttempts?: number
-                }
-              | undefined
-            if (result.success) {
-              const attemptedMediaKeys =
-                pendingMediaKeysToTrashRef.current ?? data?.trashedKeys ?? []
-              const attemptedDedupKeys =
-                pendingDedupKeysRef.current ?? data?.trashedDedupKeys ?? []
-              const trashedKeys = data?.trashedKeys ?? attemptedMediaKeys
-              const trashedDedupKeys =
-                data?.trashedDedupKeys ?? attemptedDedupKeys
-              saveTrashResultReport(
-                buildTrashResultReport({
-                  attemptedMediaKeys,
-                  attemptedDedupKeys,
-                  movedMediaKeys: trashedKeys,
-                  movedDedupKeys: trashedDedupKeys,
-                  retryAttempts: data?.retryAttempts
-                })
-              )
-              if (data?.dryRun) {
-                dispatch({ type: "TRASH_COMPLETE", trashedKeys: [] })
-                trackEvent({
-                  name: "trash_completed",
-                  photoCountBucket: countBucket(0)
-                })
-                setTrashWarning(
-                  data.message ||
-                    `iCloud delete dry-run completed for ${(
-                      data.requestedCount ?? attemptedMediaKeys.length
-                    ).toLocaleString()} item${
-                      (data.requestedCount ?? attemptedMediaKeys.length) === 1
-                        ? ""
-                        : "s"
-                    }. Nothing was deleted.`
-                )
-                preTrashSnapshotRef.current = null
-                pendingDedupKeysRef.current = null
-                pendingMediaKeysToTrashRef.current = null
-                break
-              }
-              dispatch({ type: "TRASH_COMPLETE", trashedKeys })
-              setTrashMovesThisSession(
-                (count) => count + (trashedKeys.length || trashedDedupKeys.length)
-              )
-              trackEvent({
-                name: "trash_completed",
-                photoCountBucket: countBucket(
-                  trashedKeys.length || trashedDedupKeys.length
-                )
-              })
-              // Set undo data from the snapshot captured before trash
-              if (preTrashSnapshotRef.current && pendingDedupKeysRef.current) {
-                setUndoData({
-                  dedupKeys: trashedDedupKeys,
-                  provider:
-                    preTrashSnapshotRef.current.mediaItems[trashedKeys[0]]?.provider ??
-                    settingsRef.current.sourceProvider ??
-                    "google",
-                  count:
-                    trashedKeys.length || pendingDedupKeysRef.current.length,
-                  snapshot: preTrashSnapshotRef.current,
-                  icloudAssetRefs: data?.icloudAssetRefs
-                })
-              }
-              preTrashSnapshotRef.current = null
-              pendingDedupKeysRef.current = null
-              pendingMediaKeysToTrashRef.current = null
-            } else {
-              const attemptedMediaKeys =
-                pendingMediaKeysToTrashRef.current ?? data?.trashedKeys ?? []
-              const attemptedDedupKeys =
-                pendingDedupKeysRef.current ?? data?.trashedDedupKeys ?? []
-              const trashedKeys = data?.trashedKeys ?? []
-              const trashedDedupKeys = data?.trashedDedupKeys ?? []
-              saveTrashResultReport(
-                buildTrashResultReport({
-                  attemptedMediaKeys,
-                  attemptedDedupKeys,
-                  movedMediaKeys: trashedKeys,
-                  movedDedupKeys: trashedDedupKeys,
-                  retryAttempts: data?.retryAttempts,
-                  error: result.error || "Trash failed"
-                })
-              )
-              if (data?.partial && trashedKeys.length > 0) {
-                dispatch({ type: "TRASH_COMPLETE", trashedKeys })
-                setTrashMovesThisSession(
-                  (count) =>
-                    count + (trashedKeys.length || trashedDedupKeys.length)
-                )
-                trackEvent({
-                  name: "trash_completed",
-                  photoCountBucket: countBucket(
-                    trashedKeys.length || trashedDedupKeys.length
-                  ),
-                  errorCategory: "trash_partial"
-                })
-                if (preTrashSnapshotRef.current && trashedDedupKeys.length) {
-                  setUndoData({
-                    dedupKeys: trashedDedupKeys,
-                    provider:
-                      preTrashSnapshotRef.current.mediaItems[trashedKeys[0]]?.provider ??
-                      settingsRef.current.sourceProvider ??
-                      "google",
-                    count: trashedDedupKeys.length,
-                    snapshot: preTrashSnapshotRef.current,
-                    icloudAssetRefs: data?.icloudAssetRefs
-                  })
-                }
-                setTrashWarning(
-                  `Moved ${trashedKeys.length.toLocaleString()} item${
-                    trashedKeys.length !== 1 ? "s" : ""
-                  } before trash failed: ${result.error || "Trash failed"}`
-                )
-                preTrashSnapshotRef.current = null
-                pendingDedupKeysRef.current = null
-                pendingMediaKeysToTrashRef.current = null
-                break
-              }
-              preTrashSnapshotRef.current = null
-              pendingDedupKeysRef.current = null
-              pendingMediaKeysToTrashRef.current = null
-              trackEvent({ name: "error", errorCategory: "trash" })
-              dispatch({
-                type: "TRASH_ERROR",
-                error: result.error || "Trash failed"
-              })
-            }
+            handleTrashProviderResult(result)
           } else if (result.command === "restoreItems") {
-            if (result.requestId !== pendingRestoreRequestIdRef.current) {
-              break
-            }
-            const pendingUndo = pendingRestoreUndoRef.current
-            pendingRestoreUndoRef.current = null
-            pendingRestoreRequestIdRef.current = null
-            if (!result.success) {
-              console.error("GPD: Restore failed:", result.error)
-              if (pendingUndo) {
-                setUndoData(pendingUndo)
-                setTrashWarning(
-                  `Restore failed: ${result.error || "Google Photos could not restore the moved items."}`
-                )
-              }
-            }
+            handleRestoreProviderResult(result)
           }
           break
         }
@@ -2122,9 +2000,11 @@ export default function App() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [
     entitlement,
+    handleRestoreProviderResult,
+    handleTrashProviderResult,
     openUpgradePrompt,
     patchScanCheckpoint,
-    saveTrashResultReport
+    storedReviewScope
   ])
 
   // Keep refs so async callbacks always see latest values
@@ -2158,14 +2038,13 @@ export default function App() {
       const logger = scanLoggerRef.current
       await logger.start(items.length)
       const patchCheckpointForRequest = (
-        patch: Parameters<typeof updateScanCheckpoint>[1]
+        patch: Parameters<ScanLifecycle["patch"]>[0]
       ) => {
-        if (scanCheckpointRef.current?.id !== requestId) return
-        patchScanCheckpoint(patch)
+        scanLifecycle.patch(patch, requestId)
       }
       try {
         const onProgressCallback = (progress: DetectionProgress) => {
-          if (currentScanRequestIdRef.current !== requestId) return
+          if (!scanLifecycle.isCurrent(requestId)) return
           patchCheckpointForRequest({
             phase: progress.phase,
             itemsProcessed: progress.current,
@@ -2186,7 +2065,7 @@ export default function App() {
           })
         }
         const onPartialGroupsCallback = (partialGroups: DuplicateGroup[]) => {
-          if (currentScanRequestIdRef.current !== requestId) return
+          if (!scanLifecycle.isCurrent(requestId)) return
           const partialKeys = new Set(
             partialGroups.flatMap((group) => group.mediaKeys)
           )
@@ -2204,35 +2083,20 @@ export default function App() {
           })
         }
 
-        const groups =
-          settingsRef.current.scanMode === "smart"
-            ? await smartDetectDuplicates(
-                items,
-                settingsRef.current.similarityThreshold,
-                (settingsRef.current.smartWindowSec ?? 1) * 1000,
-                onProgressCallback,
-                signal,
-                logger,
-                onPartialGroupsCallback
-              )
-            : await (async () => {
-                const result = await fullDetectDuplicates(
-                  items,
-                  settingsRef.current.similarityThreshold,
-                  onProgressCallback,
-                  signal,
-                  logger,
-                  onPartialGroupsCallback
-                )
-                return result.groups
-              })()
+        const groups = await duplicateDetectionEngine.detect({
+          mode: settingsRef.current.scanMode,
+          mediaItems: items,
+          threshold: settingsRef.current.similarityThreshold,
+          smartWindowMs: (settingsRef.current.smartWindowSec ?? 1) * 1000,
+          onProgress: onProgressCallback,
+          signal,
+          logger,
+          onPartialGroups: onPartialGroupsCallback
+        })
 
         await logger.finalize("complete", { groupsFound: groups.length })
-        if (currentScanRequestIdRef.current !== requestId) return
-        await clearScanCheckpoint()
-        scanCheckpointRef.current = null
+        if (!(await scanLifecycle.complete(requestId))) return
         setResumeCheckpoint(null)
-        currentScanRequestIdRef.current = null
 
         const groupMediaKeys = new Set(groups.flatMap((g) => g.mediaKeys))
         const mediaItemMap: Record<string, GpdMediaItem> = {}
@@ -2272,31 +2136,16 @@ export default function App() {
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           await logger.finalize("paused")
-          if (
-            scanCheckpointRef.current?.id === requestId &&
-            scanCheckpointRef.current.status === "active"
-          ) {
-            patchCheckpointForRequest({
-              status: "interrupted",
-              message:
-                "Scan paused. Resume to reuse completed cached embeddings."
-            })
-            setResumeCheckpoint(scanCheckpointRef.current)
-          }
-          if (currentScanRequestIdRef.current === requestId) {
-            currentScanRequestIdRef.current = null
+          const paused = scanLifecycle.pause(requestId)
+          if (paused) {
+            setResumeCheckpoint(paused)
             dispatch({ type: "SCAN_CANCELLED" })
           }
         } else {
           await logger.finalize("error", { error: String(error) })
-          if (currentScanRequestIdRef.current !== requestId) return
-          currentScanRequestIdRef.current = null
-          patchCheckpointForRequest({
-            status: "error",
-            error: String(error),
-            message: `Duplicate detection failed: ${error}`
-          })
-          setResumeCheckpoint(scanCheckpointRef.current)
+          const failed = scanLifecycle.fail(requestId, error)
+          if (!failed) return
+          setResumeCheckpoint(failed)
           trackEvent({ name: "error", errorCategory: "scan" })
           dispatch({
             type: "SCAN_ERROR",
@@ -2305,7 +2154,13 @@ export default function App() {
         }
       }
     },
-    [patchScanCheckpoint, refreshEmbeddingCacheCount, requestAlbums, trackEvent]
+    [
+      patchScanCheckpoint,
+      refreshEmbeddingCacheCount,
+      requestAlbums,
+      scanLifecycle,
+      trackEvent
+    ]
   )
 
   // Health check on mount + recover any scan log entry orphaned by a page reload
@@ -2321,124 +2176,50 @@ export default function App() {
 
   // Load saved settings and results on mount
   useEffect(() => {
-    chrome.storage.local.get(
-      ["settings", "scanResults", "selections", SCAN_CHECKPOINT_KEY],
-      (result: Partial<StoredState>) => {
-        const restoredSettings = result.settings
-          ? normalizeStoredSettings(result.settings)
-          : settingsRef.current
-        const hostProvider = isSidePanel
+    let cancelled = false
+    void storedReviewScope
+      .restore({
+        fallbackSettings: settingsRef.current,
+        hostProvider: isSidePanel
           ? sidePanelHostProviderRef.current
-          : null
-        const storedSettings = hostProvider
-          ? {
-              ...restoredSettings,
-              sourceProvider: hostProvider,
-              albumScope:
-                hostProvider === "google"
-                  ? restoredSettings.albumScope
-                  : undefined
-            }
-          : restoredSettings
-        if (result.settings || hostProvider) {
-          settingsRef.current = storedSettings
-          setSettings(storedSettings)
-        }
-        const checkpoint = result.scanCheckpoint
-        if (checkpoint?.status === "active") {
-          const interrupted = updateScanCheckpoint(checkpoint, {
-            status: "interrupted",
-            message:
-              "Previous scan was interrupted. Resume to reuse completed cached embeddings."
-          })
-          scanCheckpointRef.current = interrupted
-          if (
-            canResumeScanCheckpoint(interrupted, {
-              sourceProvider: storedSettings.sourceProvider
-            })
-          ) {
-            setResumeCheckpoint(interrupted)
-          }
-          void persistScanCheckpoint(interrupted)
-        } else if (
-          shouldOfferResume(checkpoint) &&
-          canResumeScanCheckpoint(checkpoint, {
-            sourceProvider: storedSettings.sourceProvider
+          : null,
+        accountEmail: currentAccountEmailRef.current
+      })
+      .then((restored) => {
+        if (cancelled) return
+        settingsRef.current = restored.settings
+        setSettings(restored.settings)
+        const restoredCheckpoint = scanLifecycle.restore(restored.checkpoint)
+        if (
+          shouldOfferResume(restoredCheckpoint) &&
+          canResumeScanCheckpoint(restoredCheckpoint, {
+            sourceProvider: restored.settings.sourceProvider
           })
         ) {
-          scanCheckpointRef.current = checkpoint
-          setResumeCheckpoint(checkpoint)
+          setResumeCheckpoint(restoredCheckpoint)
         }
-        const currentAccountEmail = currentAccountEmailRef.current
-        const savedResultsAreForCurrentAccount =
-          !result.scanResults ||
-          currentAccountEmail === undefined ||
-          areScanResultsValid(result.scanResults, {
-            accountEmail: currentAccountEmail,
-            sourceProvider: storedSettings.sourceProvider ?? "google"
-          })
-        if (!savedResultsAreForCurrentAccount) {
-          pendingSelectionsRef.current = null
-          chrome.storage.local.remove(["scanResults", "selections"])
-          setStorageChecked(true)
-          return
-        }
-        if (result.selections) {
-          // Store deserialized selections before dispatching LOAD_SAVED_RESULTS so
-          // the groups-change effect can apply them when groups first appear.
-          const saved = deserializeStoredSelections(result.selections)
-          if (result.scanResults?.groups) {
-            const validGroups = new Map(
-              result.scanResults.groups.map((group) => [group.id, group])
-            )
-            const selectedGroupIds = new Set(
-              [...saved.selectedGroupIds].filter((id) => validGroups.has(id))
-            )
-            const keptOverrides: Record<string, Set<string>> = {}
-            for (const [id, keys] of Object.entries(saved.keptOverrides)) {
-              const group = validGroups.get(id)
-              if (!group) continue
-              const validKeys = new Set(group.mediaKeys)
-              const filteredKeys = [...keys].filter((key) => validKeys.has(key))
-              if (keys.size === 0 || filteredKeys.length > 0) {
-                keptOverrides[id] = new Set(filteredKeys)
-              }
-            }
-            pendingSelectionsRef.current = {
-              selectedGroupIds,
-              keptOverrides
-            }
-            chrome.storage.local.set({
-              selections: {
-                selectedGroupIds: [...selectedGroupIds],
-                keptOverrides: Object.fromEntries(
-                  Object.entries(keptOverrides).map(([id, keys]) => [
-                    id,
-                    [...keys]
-                  ])
-                )
-              }
-            })
-          } else {
-            pendingSelectionsRef.current = saved
-          }
-        }
+        pendingSelectionsRef.current = restored.selections
         if (
-          result.scanResults?.totalItems &&
-          Array.isArray(result.scanResults.groups)
+          restored.scanResults?.totalItems &&
+          Array.isArray(restored.scanResults.groups)
         ) {
           dispatch({
             type: "LOAD_SAVED_RESULTS",
-            mediaItems: result.scanResults.mediaItems,
-            groups: result.scanResults.groups,
-            totalItems: result.scanResults.totalItems,
-            accountEmail: result.scanResults.accountEmail
+            mediaItems: restored.scanResults.mediaItems,
+            groups: restored.scanResults.groups,
+            totalItems: restored.scanResults.totalItems,
+            accountEmail: restored.scanResults.accountEmail
           })
         }
         setStorageChecked(true)
-      }
-    )
-  }, [])
+      })
+      .catch(() => {
+        if (!cancelled) setStorageChecked(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isSidePanel, scanLifecycle, storedReviewScope])
 
   // Persist scan results when they change (after scan or trash)
   const mediaItems =
@@ -2484,58 +2265,62 @@ export default function App() {
     [filteredGroups, entitlement]
   )
   const provisionalGroups = state.status === "scanning" ? groups : visibleGroups
+  const reviewSession = useMemo(
+    () =>
+      new DuplicateReviewSession({
+        groups,
+        mediaItems: displayMediaItems,
+        selections: reviewSelections
+      }),
+    [displayMediaItems, groups, reviewSelections]
+  )
+  const reviewedVisibleGroupCount = visibleGroups.filter((group) =>
+    reviewSession.reviewedGroupIds.has(group.id)
+  ).length
+  const allVisibleGroupsReviewed =
+    visibleGroups.length > 0 &&
+    reviewedVisibleGroupCount === visibleGroups.length
 
   const handleSelectAll = useCallback(() => {
-    setSelectedGroupIds((prev) => {
-      const next = new Set(prev)
-      for (const group of visibleGroups) next.add(group.id)
-      return next
-    })
-  }, [visibleGroups])
+    setReviewSelections(
+      reviewSession.update({
+        type: "select_groups",
+        groupIds: visibleGroups.map((group) => group.id)
+      })
+    )
+  }, [reviewSession, visibleGroups])
 
   const handleDeselectAll = useCallback(() => {
-    setSelectedGroupIds((prev) => {
-      const next = new Set(prev)
-      for (const group of visibleGroups) next.delete(group.id)
-      return next
-    })
-  }, [visibleGroups])
+    setReviewSelections(
+      reviewSession.update({
+        type: "deselect_groups",
+        groupIds: visibleGroups.map((group) => group.id)
+      })
+    )
+  }, [reviewSession, visibleGroups])
 
-  // Stable default kept sets (one per group, only changes when groups or media items change).
-  // Uses smart keep selection: original quality > oldest taken date > higher resolution.
-  const defaultKeptSets = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    for (const g of groups) {
-      const groupItems = g.mediaKeys
-        .map((k) => displayMediaItems[k])
-        .filter(Boolean)
-      const defaultKey =
-        groupItems.length > 0
-          ? selectDefaultKeep(groupItems)
-          : g.originalMediaKey
-      m.set(g.id, new Set([defaultKey]))
-    }
-    return m
-  }, [groups, displayMediaItems])
+  const handleSkipGroup = useCallback(
+    (groupId: string) => {
+      setReviewSelections(
+        reviewSession.update({
+          type: "deselect_groups",
+          groupIds: [groupId]
+        })
+      )
+    },
+    [reviewSession]
+  )
 
   const getKept = useCallback(
-    (group: DuplicateGroup): Set<string> =>
-      keptOverrides[group.id] ??
-      defaultKeptSets.get(group.id) ??
-      new Set([group.originalMediaKey]),
-    [keptOverrides, defaultKeptSets]
+    (group: DuplicateGroup): Set<string> => reviewSession.keptFor(group),
+    [reviewSession]
   )
 
   const buildCurrentReviewReport = useCallback(() => {
     const currentState = stateRef.current
     if (currentState.status !== "results") return null
-    return buildReviewReport({
-      groups: visibleGroups,
-      mediaItems: currentState.mediaItems,
-      selectedGroupIds,
-      getKept
-    })
-  }, [getKept, selectedGroupIds, visibleGroups])
+    return reviewSession.reviewReport(visibleGroups)
+  }, [reviewSession, visibleGroups])
 
   const handleExportJson = useCallback(async () => {
     const report = buildCurrentReviewReport()
@@ -2595,61 +2380,45 @@ export default function App() {
     visibleGroups.length
   ])
 
-  // Per-group kept sets: overridden groups use the live override Set (changes only for
-  // the toggled group); unoverridden groups reuse the stable default Set from above so
-  // React.memo on DuplicateGroupRow skips re-renders for unaffected rows.
-  const keptByGroupId = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    for (const g of groups) {
-      m.set(g.id, keptOverrides[g.id] ?? defaultKeptSets.get(g.id)!)
-    }
-    return m
-  }, [groups, keptOverrides, defaultKeptSets])
+  const keptByGroupId = reviewSession.keptByGroupId
 
   const handleToggleKept = useCallback(
     (group: DuplicateGroup, mediaKey: string) => {
-      setKeptOverrides((prev) => {
-        const current =
-          prev[group.id] ??
-          defaultKeptSets.get(group.id) ??
-          new Set([group.originalMediaKey])
-        // Prevent removing the last kept item
-        if (current.has(mediaKey) && current.size === 1) return prev
-        const next = new Set(current)
-        if (next.has(mediaKey)) {
-          next.delete(mediaKey)
-        } else {
-          next.add(mediaKey)
-        }
-        return { ...prev, [group.id]: next }
-      })
+      setReviewSelections(
+        reviewSession.update({
+          type: "toggle_kept",
+          groupId: group.id,
+          mediaKey
+        })
+      )
     },
-    [defaultKeptSets]
+    [reviewSession]
   )
 
-  const handleTrashAllCopies = useCallback((group: DuplicateGroup) => {
-    setSelectedGroupIds((prev) => {
-      if (prev.has(group.id)) return prev
-      const next = new Set(prev)
-      next.add(group.id)
-      return next
-    })
-    setKeptOverrides((prev) => ({ ...prev, [group.id]: new Set() }))
-  }, [])
+  const handleTrashAllCopies = useCallback(
+    (group: DuplicateGroup) => {
+      setReviewSelections(
+        reviewSession.update({
+          type: "trash_all_copies",
+          groupId: group.id
+        })
+      )
+    },
+    [reviewSession]
+  )
 
   const handleApplyKeepStrategy = useCallback(
     (strategy: KeepStrategy) => {
       if (!mediaItems) return
-      setKeptOverrides((prev) => {
-        const next: Record<string, Set<string>> = { ...prev }
-        for (const group of visibleGroups) {
-          const keepKey = chooseKeepKeyForGroup(group, mediaItems, strategy)
-          if (keepKey) next[group.id] = new Set([keepKey])
-        }
-        return next
-      })
+      setReviewSelections(
+        reviewSession.update({
+          type: "apply_keep_strategy",
+          groupIds: visibleGroups.map((group) => group.id),
+          strategy
+        })
+      )
     },
-    [mediaItems, visibleGroups]
+    [mediaItems, reviewSession, visibleGroups]
   )
   const totalItems =
     state.status === "results" || state.status === "trashing"
@@ -2665,7 +2434,7 @@ export default function App() {
     if (groups.length > 0) {
       const storedMediaItemCount = Object.keys(mediaItems).length
       const mediaItemsAreComplete =
-        !providerBatchLimit(settings, entitlement) &&
+        !providerBatchLimitForEntitlement(settings, entitlement) &&
         storedMediaItemCount === totalItems
       const newestCreationTimestamp = mediaItemsAreComplete
         ? Object.values(mediaItems).reduce(
@@ -2673,7 +2442,7 @@ export default function App() {
             0
           )
         : undefined
-      chrome.storage.local.set({
+      void storedReviewScope.write({
         scanResults: {
           mediaItems,
           groups,
@@ -2692,7 +2461,7 @@ export default function App() {
       })
     } else {
       // All duplicates removed — clear saved results so next open starts fresh
-      chrome.storage.local.remove("scanResults")
+      void storedReviewScope.write({ scanResults: null })
     }
   }, [
     groups,
@@ -2701,7 +2470,8 @@ export default function App() {
     accountEmailForStorage,
     accountValidationComplete,
     settings.dateRange,
-    settings.albumScope
+    settings.albumScope,
+    storedReviewScope
   ])
 
   // Persist selections when they change (only while results are showing)
@@ -2712,42 +2482,23 @@ export default function App() {
     if (!canPersistSelections) return
     if (state.status !== "results") return
     if (groups.length === 0) {
-      chrome.storage.local.remove("selections")
+      void storedReviewScope.write({ selections: null })
       return
     }
-    const validGroups = new Map(groups.map((group) => [group.id, group]))
-    const validSelectedGroupIds = [...selectedGroupIds].filter((id) =>
-      validGroups.has(id)
-    )
-    const validKeptOverrides: Record<string, string[]> = {}
-    for (const [id, keys] of Object.entries(keptOverrides)) {
-      const group = validGroups.get(id)
-      if (!group) continue
-      const validKeys = new Set(group.mediaKeys)
-      const filteredKeys = [...keys].filter((key) => validKeys.has(key))
-      if (keys.size === 0 || filteredKeys.length > 0) {
-        validKeptOverrides[id] = filteredKeys
-      }
-    }
-    chrome.storage.local.set({
-      selections: {
-        selectedGroupIds: validSelectedGroupIds,
-        keptOverrides: validKeptOverrides
-      }
-    })
+    void storedReviewScope.write({ selections: reviewSession.serialize() })
   }, [
-    selectedGroupIds,
-    keptOverrides,
+    reviewSession,
     state.status,
     groups,
     accountEmailForStorage,
-    accountValidationComplete
+    accountValidationComplete,
+    storedReviewScope
   ])
 
   // Save settings on change
   useEffect(() => {
-    chrome.storage.local.set({ settings })
-  }, [settings])
+    void storedReviewScope.write({ settings })
+  }, [settings, storedReviewScope])
 
   useEffect(() => {
     setAlbums([])
@@ -2772,7 +2523,11 @@ export default function App() {
         actionEntitlement
       )
       const estimatedCount = getEstimatedScanCount(scanSettings)
-      const scanGate = getScanGate(scanSettings, estimatedCount, actionEntitlement)
+      const scanGate = getScanGate(
+        scanSettings,
+        estimatedCount,
+        actionEntitlement
+      )
       if (!scanGate.allowed) {
         openTrackedUpgradePrompt(
           "scan",
@@ -2795,18 +2550,14 @@ export default function App() {
           estimatedCount !== undefined ? countBucket(estimatedCount) : undefined
       })
       settingsRef.current = scanSettings
+      storedReviewScope.startReview()
       setTrashMovesThisSession(0)
       if (settingsOverride) {
         setSettings(fullScanSettingsPatch(scanSettings))
-        await chrome.storage.local.set({ settings: scanSettings })
+        await storedReviewScope.write({ settings: scanSettings })
       }
 
-      // Cancel any in-progress scan
-      scanAbortRef.current?.abort()
-      scanAbortRef.current = new AbortController()
-
       const requestId = generateRequestId()
-      currentScanRequestIdRef.current = requestId
       const currentState = stateRef.current
       const hasGptk =
         currentState.status === "connected" ? currentState.hasGptk : true
@@ -2814,14 +2565,12 @@ export default function App() {
         currentState.status === "connected" || currentState.status === "results"
           ? currentState.accountEmail
           : undefined
-      const checkpoint = createScanCheckpoint({
-        id: requestId,
+      scanLifecycle.begin({
+        requestId,
         settings: scanSettings,
         accountEmail
       })
-      scanCheckpointRef.current = checkpoint
       setResumeCheckpoint(null)
-      void persistScanCheckpoint(checkpoint)
 
       dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
 
@@ -2835,7 +2584,7 @@ export default function App() {
       let sinceTimestamp: number | undefined
       const sourceProvider = scanSettings.sourceProvider ?? "google"
       const dateRange = activeDateRange(scanSettings.dateRange)
-      const batchLimit = providerBatchLimit(scanSettings)
+      const batchLimit = providerBatchLimitForEntitlement(scanSettings)
       const albumScope =
         sourceProvider === "google"
           ? activeAlbumScope(scanSettings.albumScope)
@@ -2892,6 +2641,7 @@ export default function App() {
       settings,
       refreshTimeLimitedEntitlementForAction,
       openTrackedUpgradePrompt,
+      storedReviewScope,
       trackEvent
     ]
   )
@@ -3012,10 +2762,8 @@ export default function App() {
         sourceProvider: settingsRef.current.sourceProvider
       })
     ) {
-      clearResumeCheckpointState({
-        checkpointRef: scanCheckpointRef,
-        setResumeCheckpoint
-      })
+      scanLifecycle.reset()
+      setResumeCheckpoint(null)
       return
     }
     if (!canResumeCheckpoint(resumeCheckpoint, entitlement)) {
@@ -3031,40 +2779,27 @@ export default function App() {
       const scanSettings = resumeCheckpoint.settings
       settingsRef.current = scanSettings
       setSettings(fullScanSettingsPatch(scanSettings))
-      void chrome.storage.local.set({ settings: scanSettings })
-
-      scanAbortRef.current?.abort()
-      scanAbortRef.current = new AbortController()
+      void storedReviewScope.write({ settings: scanSettings })
 
       const requestId = generateRequestId()
-      currentScanRequestIdRef.current = requestId
       const hasGptk =
         currentState.status === "connected" ? currentState.hasGptk : true
 
-      const resumedCheckpoint = updateScanCheckpoint(
-        {
-          ...resumeCheckpoint,
-          id: requestId,
-          status: "active"
-        },
-        {
+      const resumed = scanLifecycle.resume({
+        requestId,
+        checkpoint: resumeCheckpoint,
+        patch: {
           phase: "downloading_thumbnails",
           itemsProcessed: 0,
           totalEstimate: checkpointItems.length,
           message: `Resuming duplicate detection for ${checkpointItems.length.toLocaleString()} fetched items...`
         }
-      )
-      scanCheckpointRef.current = resumedCheckpoint
+      })
       setResumeCheckpoint(null)
-      void persistScanCheckpoint(resumedCheckpoint)
 
       dispatch({ type: "SCAN_STARTED", requestId, hasGptk, accountEmail })
       dispatch({ type: "SCAN_MEDIA_FETCHED", mediaItems: checkpointItems })
-      runDuplicateDetection(
-        checkpointItems,
-        scanAbortRef.current.signal,
-        requestId
-      )
+      runDuplicateDetection(checkpointItems, resumed.signal, requestId)
       return
     }
     handleStartScan(resumeCheckpoint.settings)
@@ -3073,17 +2808,23 @@ export default function App() {
     handleStartScan,
     openTrackedUpgradePrompt,
     resumeCheckpoint,
-    runDuplicateDetection
+    runDuplicateDetection,
+    storedReviewScope
   ])
 
   const handleDismissResume = useCallback(() => {
     setResumeCheckpoint(null)
-    scanCheckpointRef.current = null
-    void clearScanCheckpoint()
-  }, [])
+    scanLifecycle.reset()
+  }, [scanLifecycle])
 
   const handleTrash = useCallback(async () => {
     if (state.status !== "results") return
+    if (!allVisibleGroupsReviewed) {
+      setTrashWarning(
+        `Review all ${visibleGroups.length.toLocaleString()} visible duplicate sets before moving anything to Trash.`
+      )
+      return
+    }
     const actionEntitlement = await refreshTimeLimitedEntitlementForAction()
     if (!actionEntitlement) return
     const unsupportedProvider = Object.values(state.mediaItems).find(
@@ -3100,23 +2841,13 @@ export default function App() {
       return
     }
 
-    const dedupKeys: string[] = []
-    const mediaKeysToTrash: string[] = []
-    for (const group of visibleGroups) {
-      if (!selectedGroupIds.has(group.id)) continue
-      const keptSet = getKept(group)
-      for (const key of group.mediaKeys) {
-        if (keptSet.has(key)) continue
-        const item = state.mediaItems[key]
-        if (item?.dedupKey) {
-          dedupKeys.push(item.dedupKey)
-          mediaKeysToTrash.push(key)
-        }
-      }
-    }
+    const plan = reviewSession.trashPlan(visibleGroups)
+    const { dedupKeys } = plan
 
     if (dedupKeys.length === 0) return
-    if (!canTrashCount(dedupKeys.length, actionEntitlement, trashMovesThisSession)) {
+    if (
+      !canTrashCount(dedupKeys.length, actionEntitlement, trashMovesThisSession)
+    ) {
       const limit = getPlanLimits(actionEntitlement).maxTrashMovesPerSession
       const remaining =
         limit === "unlimited"
@@ -3135,11 +2866,12 @@ export default function App() {
       photoCountBucket: countBucket(dedupKeys.length)
     })
     setTrashConfirmCount("")
-    setTrashConfirm({ dedupKeys, mediaKeysToTrash })
+    setTrashConfirm(plan)
   }, [
+    allVisibleGroupsReviewed,
     state,
-    selectedGroupIds,
-    getKept,
+    visibleGroups.length,
+    reviewSession,
     visibleGroups,
     refreshTimeLimitedEntitlementForAction,
     trashMovesThisSession,
@@ -3154,26 +2886,26 @@ export default function App() {
 
   const handleTrashConfirmed = useCallback(async () => {
     if (!trashConfirm || state.status !== "results") return
-    const { dedupKeys, mediaKeysToTrash } = trashConfirm
     setReportError(null)
-    const trashProvider =
-      mediaKeysToTrash
-        .map((key) => state.mediaItems[key]?.provider)
-        .find((provider): provider is NonNullable<typeof provider> =>
-          Boolean(provider)
-        ) ?? "google"
 
-    const deleteReport = buildDeleteReport({
-      groups: visibleGroups,
-      mediaItems: state.mediaItems,
-      selectedGroupIds,
-      getKept,
-      mediaKeysToTrash,
-      trashBatchSize: TRASH_BATCH_SIZE
-    })
+    let command
     try {
-      await persistDeleteReport(deleteReport)
-      downloadDeleteReport(deleteReport)
+      command = await trashLifecycle.begin({
+        plan: trashConfirm,
+        reviewSession,
+        groups: visibleGroups,
+        snapshot: {
+          mediaItems: state.mediaItems,
+          groups: state.groups,
+          totalItems: state.totalItems
+        },
+        batchPolicy: {
+          batchSize: TRASH_BATCH_SIZE,
+          batchPauseMs: TRASH_BATCH_PAUSE_MS,
+          retryCount: TRASH_RETRY_COUNT,
+          retryBackoffMs: TRASH_RETRY_BACKOFF_MS
+        }
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setReportError(`Could not save the pre-trash report: ${message}`)
@@ -3185,86 +2917,46 @@ export default function App() {
 
     const requestId = generateRequestId()
 
-    // Capture snapshot for undo
-    preTrashSnapshotRef.current = {
-      mediaItems: state.mediaItems,
-      groups: state.groups,
-      totalItems: state.totalItems
-    }
-    pendingDedupKeysRef.current = dedupKeys
-    pendingMediaKeysToTrashRef.current = mediaKeysToTrash
-
     dispatch({
       type: "TRASH_STARTED",
-      totalToTrash: dedupKeys.length,
+      totalToTrash: command.totalToTrash,
       mediaItems: state.mediaItems,
       groups: state.groups,
       totalItems: state.totalItems
     })
-
-    // iCloud trash needs each item's CPLAsset ref (recordName + changeTag +
-    // zone) captured at scan time. Google/Amazon ignore this field.
-    const icloudAssetRefs =
-      trashProvider === "icloud"
-        ? mediaKeysToTrash.map((key) => state.mediaItems[key]?.icloudAsset)
-        : undefined
 
     sendToServiceWorker({
       app: APP_ID,
       action: "gptkCommand",
       command: "trashItems",
       requestId,
-      provider: trashProvider,
-      args: {
-        dedupKeys,
-        mediaKeysToTrash,
-        batchSize: TRASH_BATCH_SIZE,
-        batchPauseMs: TRASH_BATCH_PAUSE_MS,
-        retryCount: TRASH_RETRY_COUNT,
-        retryBackoffMs: TRASH_RETRY_BACKOFF_MS,
-        ...(icloudAssetRefs ? { icloudAssetRefs } : {})
-      }
+      provider: command.provider,
+      args: command.args
     })
   }, [
     trashConfirm,
     state,
-    selectedGroupIds,
-    getKept,
+    reviewSession,
     visibleGroups,
-    handleCloseTrashConfirm
+    handleCloseTrashConfirm,
+    trashLifecycle
   ])
 
   const handlePauseScan = useCallback(() => {
-    const checkpoint = scanCheckpointRef.current
-    if (checkpoint?.status === "active") {
-      const paused = updateScanCheckpoint(checkpoint, {
-        status: "interrupted",
-        message: "Scan paused. Resume to reuse completed cached embeddings."
-      })
-      scanCheckpointRef.current = paused
-      setResumeCheckpoint(paused)
-      void persistScanCheckpoint(paused)
-    }
-    scanAbortRef.current?.abort()
-    currentScanRequestIdRef.current = null
+    const paused = scanLifecycle.pause()
+    if (paused) setResumeCheckpoint(paused)
     dispatch({ type: "SCAN_CANCELLED" })
-  }, [])
+  }, [scanLifecycle])
 
   const handleReset = useCallback(() => {
-    scanAbortRef.current?.abort()
-    scanAbortRef.current = null
-    currentScanRequestIdRef.current = null
-    scanCheckpointRef.current = null
+    scanLifecycle.reset()
+    trashLifecycle.reset()
     cachedMediaItemsRef.current = null
     pendingSelectionsRef.current = null
     autoSelectNextResultsRef.current = false
-    preTrashSnapshotRef.current = null
-    pendingDedupKeysRef.current = null
-    pendingMediaKeysToTrashRef.current = null
-    pendingRestoreUndoRef.current = null
-    pendingRestoreRequestIdRef.current = null
     setResumeCheckpoint(null)
     setSelectedGroupIds(new Set())
+    setReviewedGroupIds(new Set())
     setKeptOverrides({})
     setTrashConfirm(null)
     setTrashConfirmCount("")
@@ -3272,11 +2964,8 @@ export default function App() {
     setTrashMovesThisSession(0)
     setReportError(null)
     setUndoData(null)
-    void chrome.storage.local.remove([
-      "scanResults",
-      "selections",
-      SCAN_CHECKPOINT_KEY
-    ])
+    void storedReviewScope.invalidateReview()
+    void storedReviewScope.write({ checkpoint: null })
     dispatch({ type: "RESET" })
     healthCheckAttemptsRef.current = 0
     sendToServiceWorker({
@@ -3284,7 +2973,7 @@ export default function App() {
       action: "healthCheck",
       provider: settingsRef.current.sourceProvider ?? "google"
     })
-  }, [])
+  }, [scanLifecycle, storedReviewScope, trashLifecycle])
 
   const openProviderFromSidePanel = useCallback(
     async (provider: PhotoProvider): Promise<LaunchProviderResult> => {
@@ -3337,25 +3026,20 @@ export default function App() {
   const handleOpenProvider = useCallback(
     (provider: PhotoProvider) => {
       setSidePanelSourceConfirmed(true)
-      scanAbortRef.current?.abort()
-      scanAbortRef.current = null
-      currentScanRequestIdRef.current = null
-      scanCheckpointRef.current = null
+      scanLifecycle.reset()
       cachedMediaItemsRef.current = null
       pendingSelectionsRef.current = null
       setResumeCheckpoint(null)
       setSelectedGroupIds(new Set())
+      setReviewedGroupIds(new Set())
       setKeptOverrides({})
       setSettings({
         sourceProvider: provider,
         albumScope:
           provider === "google" ? settingsRef.current.albumScope : undefined
       })
-      void chrome.storage.local.remove([
-        "scanResults",
-        "selections",
-        SCAN_CHECKPOINT_KEY
-      ])
+      void storedReviewScope.invalidateReview()
+      void storedReviewScope.write({ checkpoint: null })
       dispatch({ type: "RESET" })
       healthCheckAttemptsRef.current = 0
       void openProviderFromSidePanel(provider).then((result) => {
@@ -3385,17 +3069,17 @@ export default function App() {
         )
       })
     },
-    [openProviderFromSidePanel]
+    [openProviderFromSidePanel, scanLifecycle, storedReviewScope]
   )
 
   const handleUndo = useCallback(() => {
     if (!undoData) return
     const requestId = generateRequestId()
-    pendingRestoreUndoRef.current = undoData
-    pendingRestoreRequestIdRef.current = requestId
+    const restore = trashLifecycle.beginRestore(undoData, requestId)
     autoSelectNextResultsRef.current = false
     pendingSelectionsRef.current = {
       selectedGroupIds: new Set(),
+      reviewedGroupIds: new Set(),
       keptOverrides: {}
     }
     // Optimistically restore the UI to the pre-trash state
@@ -3411,17 +3095,12 @@ export default function App() {
       action: "gptkCommand",
       command: "restoreItems",
       requestId,
-      provider: undoData.provider,
-      args: {
-        dedupKeys: undoData.dedupKeys,
-        ...(undoData.icloudAssetRefs
-          ? { icloudAssetRefs: undoData.icloudAssetRefs }
-          : {})
-      }
+      provider: restore.provider,
+      args: restore.args
     })
     setUndoData(null)
     setTrashWarning(null)
-  }, [undoData])
+  }, [trashLifecycle, undoData])
 
   const handleUndoClose = useCallback(() => {
     setUndoData(null)
@@ -3440,13 +3119,7 @@ export default function App() {
 
   // Compute duplicate count for ActionBar
   const duplicateCount =
-    state.status === "results"
-      ? visibleGroups.reduce((sum, group) => {
-          if (!selectedGroupIds.has(group.id)) return sum
-          const keptSet = keptByGroupId.get(group.id)!
-          return sum + group.mediaKeys.filter((k) => !keptSet.has(k)).length
-        }, 0)
-      : 0
+    state.status === "results" ? reviewSession.duplicateCount(visibleGroups) : 0
   const workflowStage =
     state.status === "scanning"
       ? "scan"
@@ -3508,7 +3181,10 @@ export default function App() {
     state.status === "trashing"
   const scanStepComplete =
     state.status === "results" || state.status === "trashing"
-  const sidePanelBatchLimit = providerBatchLimit(settings, entitlement)
+  const sidePanelBatchLimit = providerBatchLimitForEntitlement(
+    settings,
+    entitlement
+  )
   const sidePanelScopeSummary = settings.albumScope?.title
     ? settings.albumScope.title
     : settings.albumScope?.mediaKey
@@ -3643,6 +3319,37 @@ export default function App() {
             ? "transparent"
             : `linear-gradient(180deg, rgba(246,250,248,0), ${photoSweepColors.canvasBottom})`
         }}>
+        {analyticsConsent === null && licenseApiBaseUrl && (
+          <Alert
+            severity="info"
+            sx={{ mb: 1.25 }}
+            action={
+              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => saveAnalyticsConsent(false)}>
+                  No thanks
+                </Button>
+                <Button
+                  color="inherit"
+                  size="small"
+                  variant="outlined"
+                  onClick={() => saveAnalyticsConsent(true)}>
+                  Allow
+                </Button>
+              </Box>
+            }>
+            <Typography variant="body2" fontWeight={700}>
+              Optional private usage metrics
+            </Typography>
+            <Typography variant="caption">
+              Help improve PhotoSweep by sharing event names, provider, plan,
+              scan mode, count ranges, and error category. Photo content,
+              filenames, albums, URLs, and reports are never included.
+            </Typography>
+          </Alert>
+        )}
         {isSidePanel ? (
           <Box
             sx={{
@@ -3771,7 +3478,9 @@ export default function App() {
                   albumsError={albumsError}
                   onRefreshAlbums={() => requestAlbums(state.accountEmail)}
                   entitlement={entitlement}
-                  onUpgrade={(detail) => openTrackedUpgradePrompt("scan", detail)}
+                  onUpgrade={(detail) =>
+                    openTrackedUpgradePrompt("scan", detail)
+                  }
                   compact
                 />
               )}
@@ -3847,14 +3556,13 @@ export default function App() {
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
                     totalGroupCount={groups.length}
+                    reviewedGroupCount={reviewedVisibleGroupCount}
                     exactGroupCount={exactGroupCount}
                     similarGroupCount={similarGroupCount}
-                    duplicateCount={duplicateCount}
                     reviewFilter={reviewFilter}
                     onReviewFilterChange={setReviewFilter}
                     onSelectAll={handleSelectAll}
                     onDeselectAll={handleDeselectAll}
-                    onTrash={handleTrash}
                     onRescan={handleReset}
                     onExportJson={handleExportJson}
                     onExportCsv={handleExportCsv}
@@ -3872,10 +3580,19 @@ export default function App() {
                     groups={visibleGroups}
                     mediaItems={displayMediaItems}
                     selectedGroupIds={selectedGroupIds}
+                    reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}
+                    onSkipGroup={handleSkipGroup}
                     keptByGroupId={keptByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
+                    compact
+                  />
+                  <CleanupBar
+                    duplicateCount={duplicateCount}
+                    reviewedGroupCount={reviewedVisibleGroupCount}
+                    totalGroupCount={visibleGroups.length}
+                    onTrash={handleTrash}
                     compact
                   />
                 </>
@@ -3962,7 +3679,9 @@ export default function App() {
                   albumsError={albumsError}
                   onRefreshAlbums={() => requestAlbums(state.accountEmail)}
                   entitlement={entitlement}
-                  onUpgrade={(detail) => openTrackedUpgradePrompt("scan", detail)}
+                  onUpgrade={(detail) =>
+                    openTrackedUpgradePrompt("scan", detail)
+                  }
                   compact={isSidePanel}
                 />
               )}
@@ -3987,7 +3706,9 @@ export default function App() {
                         groups={provisionalGroups}
                         mediaItems={displayMediaItems}
                         selectedGroupIds={new Set()}
+                        reviewedGroupIds={new Set()}
                         onToggleGroup={() => {}}
+                        onSkipGroup={() => {}}
                         keptByGroupId={keptByGroupId}
                         onToggleKept={() => {}}
                         onTrashAll={() => {}}
@@ -4029,14 +3750,13 @@ export default function App() {
                     totalItems={state.totalItems}
                     groupCount={visibleGroups.length}
                     totalGroupCount={groups.length}
+                    reviewedGroupCount={reviewedVisibleGroupCount}
                     exactGroupCount={exactGroupCount}
                     similarGroupCount={similarGroupCount}
-                    duplicateCount={duplicateCount}
                     reviewFilter={reviewFilter}
                     onReviewFilterChange={setReviewFilter}
                     onSelectAll={handleSelectAll}
                     onDeselectAll={handleDeselectAll}
-                    onTrash={handleTrash}
                     onRescan={handleReset}
                     onExportJson={handleExportJson}
                     onExportCsv={handleExportCsv}
@@ -4054,10 +3774,19 @@ export default function App() {
                     groups={visibleGroups}
                     mediaItems={displayMediaItems}
                     selectedGroupIds={selectedGroupIds}
+                    reviewedGroupIds={reviewedGroupIds}
                     onToggleGroup={handleToggleGroup}
+                    onSkipGroup={handleSkipGroup}
                     keptByGroupId={keptByGroupId}
                     onToggleKept={handleToggleKept}
                     onTrashAll={handleTrashAllCopies}
+                    compact={isSidePanel}
+                  />
+                  <CleanupBar
+                    duplicateCount={duplicateCount}
+                    reviewedGroupCount={reviewedVisibleGroupCount}
+                    totalGroupCount={visibleGroups.length}
+                    onTrash={handleTrash}
                     compact={isSidePanel}
                   />
                 </>

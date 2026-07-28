@@ -41,6 +41,7 @@ const REVIEW_CARD_GAP = 12
 const REVIEW_ROW_HEADER_HEIGHT = 62
 const REVIEW_ROW_VERTICAL_PADDING = 24
 const REVIEW_CARD_ESTIMATED_HEIGHT = 286
+const REVIEW_ROW_ACTION_HEIGHT = 54
 const REVIEW_ROW_MARGIN_BOTTOM = 16
 
 /**
@@ -166,6 +167,7 @@ function estimateGroupRowHeight(group: DuplicateGroup, width: number): number {
     REVIEW_ROW_VERTICAL_PADDING +
     thumbnailRows * REVIEW_CARD_ESTIMATED_HEIGHT +
     Math.max(0, thumbnailRows - 1) * REVIEW_CARD_GAP +
+    REVIEW_ROW_ACTION_HEIGHT +
     REVIEW_ROW_MARGIN_BOTTOM
   )
 }
@@ -299,8 +301,10 @@ interface DuplicateGroupRowProps {
   group: DuplicateGroup
   mediaItems: Record<string, GpdMediaItem>
   isSelected: boolean
+  isReviewed: boolean
   keptSet: Set<string>
   onToggleGroup: (groupId: string) => void
+  onSkipGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
@@ -312,8 +316,10 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   group,
   mediaItems,
   isSelected,
+  isReviewed,
   keptSet,
   onToggleGroup,
+  onSkipGroup,
   onToggleKept,
   onTrashAll,
   onOpenViewer,
@@ -355,11 +361,38 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
       ]}>
       {/* Group header */}
       <Box
+        role={readOnly ? undefined : "checkbox"}
+        tabIndex={readOnly ? undefined : 0}
+        aria-checked={readOnly ? undefined : isSelected}
+        aria-label={
+          readOnly
+            ? undefined
+            : `Include duplicate set of ${group.mediaKeys.length} ${groupItemKind(
+                group,
+                mediaItems
+              )}`
+        }
         onClick={() => {
           if (!readOnly) onToggleGroup(group.id)
         }}
+        onKeyDown={(event) => {
+          if (!readOnly && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault()
+            onToggleGroup(group.id)
+          }
+        }}
         sx={[
           sxGroupHeader,
+          !readOnly
+            ? {
+                cursor: "pointer",
+                "&:focus-visible": {
+                  outline: "3px solid",
+                  outlineColor: "primary.main",
+                  outlineOffset: -3
+                }
+              }
+            : undefined,
           compact
             ? {
                 px: 1.1,
@@ -372,13 +405,11 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           <Checkbox
             size="small"
             checked={isSelected}
+            tabIndex={-1}
             onChange={() => onToggleGroup(group.id)}
             onClick={(e) => e.stopPropagation()}
             inputProps={{
-              "aria-label": `Select duplicate set of ${group.mediaKeys.length} ${groupItemKind(
-                group,
-                mediaItems
-              )}`
+              "aria-hidden": true
             }}
             sx={sxCheckbox}
           />
@@ -391,7 +422,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             variant="caption"
             color="text.secondary"
             sx={compact ? { display: "block", lineHeight: 1.35 } : undefined}>
-            Click a copy to keep it. Everything marked trash will move later.
+            Choose one or more copies to keep. Unkept copies in an included set
+            move to Trash.
           </Typography>
         </Box>
         <Stack
@@ -415,17 +447,21 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
             sx={sxChipSimilarity}
           />
           {!readOnly && (
-            <Button
+            <Chip
+              label={
+                !isReviewed
+                  ? "Needs review"
+                  : isSelected
+                    ? "Included"
+                    : "Skipped"
+              }
               size="small"
-              color="error"
-              variant={keptSet.size === 0 ? "contained" : "outlined"}
-              startIcon={<DeleteOutlineRoundedIcon />}
-              onClick={(event) => {
-                event.stopPropagation()
-                onTrashAll(group)
-              }}>
-              Trash all copies
-            </Button>
+              color={
+                !isReviewed ? "warning" : isSelected ? "primary" : "default"
+              }
+              variant={isReviewed ? "filled" : "outlined"}
+              sx={sxChipSimilarity}
+            />
           )}
         </Stack>
       </Box>
@@ -448,6 +484,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const item = mediaItems[key]
           if (!item) return null
           const isKept = keptSet.has(key)
+          const isExplicitlyKept = isReviewed && isSelected && isKept
+          const isSuggestedKeep = !isReviewed && isKept
 
           return (
             <Box
@@ -472,18 +510,18 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                           boxShadow: "0 8px 18px rgba(23, 32, 28, 0.08)"
                         }
                       : sxCardBase["&:hover"],
-                    bgcolor: isKept
+                    bgcolor: isExplicitlyKept
                       ? "rgba(228, 243, 241, 0.8)"
                       : isSelected
                         ? "rgba(253, 235, 232, 0.55)"
                         : "background.paper",
-                    borderColor: isKept
+                    borderColor: isExplicitlyKept
                       ? "primary.main"
                       : isSelected
                         ? "error.main"
                         : "divider",
-                    borderWidth: isKept || isSelected ? 2 : 1,
-                    boxShadow: isKept
+                    borderWidth: isExplicitlyKept || isSelected ? 2 : 1,
+                    boxShadow: isExplicitlyKept
                       ? compact
                         ? `0 6px 16px ${photoSweepColors.primaryShadow}`
                         : `0 12px 28px ${photoSweepColors.primaryShadow}`
@@ -495,6 +533,12 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                   }
                 ]}>
                 <CardActionArea
+                  aria-label={
+                    readOnly
+                      ? `View ${item.fileName || item.mediaKey} full size`
+                      : `Keep ${item.fileName || item.mediaKey}`
+                  }
+                  aria-pressed={readOnly ? undefined : isExplicitlyKept}
                   sx={
                     compact
                       ? {
@@ -587,19 +631,26 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                       display="block">
                       {storageStatusLabel(item)}
                     </Typography>
-                    {isKept ? (
+                    {isExplicitlyKept ? (
                       <Chip
                         icon={<CheckCircleRoundedIcon />}
-                        label="Keep this"
+                        label="Keep this copy"
                         size="small"
                         color="primary"
+                        variant="outlined"
+                        sx={sxStatusChip}
+                      />
+                    ) : isSuggestedKeep ? (
+                      <Chip
+                        label="Suggested keep"
+                        size="small"
                         variant="outlined"
                         sx={sxStatusChip}
                       />
                     ) : isSelected ? (
                       <Chip
                         icon={<DeleteOutlineRoundedIcon />}
-                        label="Will trash"
+                        label="Moves to Trash"
                         size="small"
                         color="error"
                         variant="outlined"
@@ -626,6 +677,32 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           )
         })}
       </Box>
+      {!readOnly && (
+        <Box
+          sx={{
+            px: compact ? 1 : 1.5,
+            pb: compact ? 1 : 1.5,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 0.75,
+            bgcolor: "rgba(244,248,246,0.72)"
+          }}>
+          <Button
+            size="small"
+            variant={!isReviewed || isSelected ? "outlined" : "contained"}
+            onClick={() => onSkipGroup(group.id)}>
+            Skip this set
+          </Button>
+          <Button
+            size="small"
+            color="error"
+            variant={keptSet.size === 0 ? "contained" : "outlined"}
+            startIcon={<DeleteOutlineRoundedIcon />}
+            onClick={() => onTrashAll(group)}>
+            Mark all copies for Trash
+          </Button>
+        </Box>
+      )}
     </Paper>
   )
 })
@@ -634,7 +711,9 @@ interface DuplicateGroupsProps {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
   selectedGroupIds: Set<string>
+  reviewedGroupIds: Set<string>
   onToggleGroup: (groupId: string) => void
+  onSkipGroup: (groupId: string) => void
   keptByGroupId: Map<string, Set<string>>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
@@ -647,8 +726,10 @@ interface VirtualGroupListData {
   groups: DuplicateGroup[]
   mediaItems: Record<string, GpdMediaItem>
   selectedGroupIds: Set<string>
+  reviewedGroupIds: Set<string>
   keptByGroupId: Map<string, Set<string>>
   onToggleGroup: (groupId: string) => void
+  onSkipGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onTrashAll: (group: DuplicateGroup) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
@@ -669,8 +750,10 @@ function VirtualGroupRow({
         group={group}
         mediaItems={data.mediaItems}
         isSelected={data.selectedGroupIds.has(group.id)}
+        isReviewed={data.reviewedGroupIds.has(group.id)}
         keptSet={data.keptByGroupId.get(group.id) ?? new Set()}
         onToggleGroup={data.onToggleGroup}
+        onSkipGroup={data.onSkipGroup}
         onToggleKept={data.onToggleKept}
         onTrashAll={data.onTrashAll}
         onOpenViewer={data.onOpenViewer}
@@ -684,7 +767,9 @@ export function DuplicateGroups({
   groups,
   mediaItems,
   selectedGroupIds,
+  reviewedGroupIds,
   onToggleGroup,
+  onSkipGroup,
   keptByGroupId,
   onToggleKept,
   onTrashAll,
@@ -784,8 +869,10 @@ export function DuplicateGroups({
       groups: listGroups,
       mediaItems,
       selectedGroupIds,
+      reviewedGroupIds,
       keptByGroupId,
       onToggleGroup,
+      onSkipGroup,
       onToggleKept,
       onTrashAll,
       onOpenViewer,
@@ -795,8 +882,10 @@ export function DuplicateGroups({
       listGroups,
       mediaItems,
       selectedGroupIds,
+      reviewedGroupIds,
       keptByGroupId,
       onToggleGroup,
+      onSkipGroup,
       onToggleKept,
       onTrashAll,
       onOpenViewer,
@@ -837,7 +926,7 @@ export function DuplicateGroups({
           {!compact && (
             <Typography variant="h6" fontWeight={700}>
               {heading ??
-                `${groups.length} Duplicate Set${groups.length !== 1 ? "s" : ""} Ready`}
+                `${groups.length} Duplicate Set${groups.length !== 1 ? "s" : ""} to Review`}
             </Typography>
           )}
           <Typography
@@ -848,8 +937,8 @@ export function DuplicateGroups({
                 ? { display: "block", lineHeight: 1.35, mt: 0.25 }
                 : undefined
             }>
-            Pick what stays, or use Trash all copies for a set you do not want
-            to keep.
+            Choose the copy or copies to keep. Every other copy in an included
+            set moves to Trash.
           </Typography>
         </Box>
       </Box>
@@ -862,8 +951,10 @@ export function DuplicateGroups({
               group={group}
               mediaItems={mediaItems}
               isSelected={selectedGroupIds.has(group.id)}
+              isReviewed={reviewedGroupIds.has(group.id)}
               keptSet={keptByGroupId.get(group.id) ?? new Set()}
               onToggleGroup={onToggleGroup}
+              onSkipGroup={onSkipGroup}
               onToggleKept={onToggleKept}
               onTrashAll={onTrashAll}
               onOpenViewer={onOpenViewer}

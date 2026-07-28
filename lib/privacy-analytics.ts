@@ -1,12 +1,17 @@
 import type { Entitlement } from "./entitlement"
 import type { PhotoProvider, ScanMode } from "./types"
 
+export const ANALYTICS_CONSENT_STORAGE_KEY = "photoSweepAnalyticsConsent"
+
 export type AnalyticsEventName =
   | "app_opened"
   | "scan_started"
   | "scan_completed"
   | "upgrade_prompt_shown"
   | "checkout_started"
+  | "restore_requested"
+  | "restore_completed"
+  | "restore_not_found"
   | "entitlement_refreshed"
   | "export_clicked"
   | "trash_attempted"

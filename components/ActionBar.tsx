@@ -3,20 +3,19 @@ import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank"
 import CheckBoxOutlinedIcon from "@mui/icons-material/CheckBoxOutlined"
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded"
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded"
+import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded"
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded"
 import TableChartRoundedIcon from "@mui/icons-material/TableChartRounded"
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import Divider from "@mui/material/Divider"
-import IconButton from "@mui/material/IconButton"
 import Menu from "@mui/material/Menu"
 import MenuItem from "@mui/material/MenuItem"
 import Paper from "@mui/material/Paper"
 import Stack from "@mui/material/Stack"
 import ToggleButton from "@mui/material/ToggleButton"
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
-import Tooltip from "@mui/material/Tooltip"
 import Typography from "@mui/material/Typography"
 import { useState } from "react"
 
@@ -29,14 +28,13 @@ interface ActionBarProps {
   totalItems: number
   groupCount: number
   totalGroupCount: number
+  reviewedGroupCount: number
   exactGroupCount: number
   similarGroupCount: number
-  duplicateCount: number
   reviewFilter: ReviewFilter
   onReviewFilterChange: (filter: ReviewFilter) => void
   onSelectAll: () => void
   onDeselectAll: () => void
-  onTrash: () => void
   onRescan: () => void
   onExportJson: () => void
   onExportCsv: () => void
@@ -48,14 +46,13 @@ export function ActionBar({
   totalItems,
   groupCount,
   totalGroupCount,
+  reviewedGroupCount,
   exactGroupCount,
   similarGroupCount,
-  duplicateCount,
   reviewFilter,
   onReviewFilterChange,
   onSelectAll,
   onDeselectAll,
-  onTrash,
   onRescan,
   onExportJson,
   onExportCsv,
@@ -64,6 +61,8 @@ export function ActionBar({
 }: ActionBarProps) {
   const [keepMenuAnchor, setKeepMenuAnchor] = useState<HTMLElement | null>(null)
   const keepMenuOpen = Boolean(keepMenuAnchor)
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<HTMLElement | null>(null)
+  const moreMenuOpen = Boolean(moreMenuAnchor)
 
   return (
     <Paper
@@ -125,6 +124,13 @@ export function ActionBar({
             variant="caption"
             color="text.secondary"
             sx={{ display: "block", mt: 0.2, lineHeight: 1.25 }}>
+            {reviewedGroupCount.toLocaleString()} of{" "}
+            {groupCount.toLocaleString()} visible sets reviewed
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", lineHeight: 1.25 }}>
             {totalItems.toLocaleString()} photos and videos checked
             {groupCount !== totalGroupCount ? " · " : ""}
             {groupCount !== totalGroupCount && (
@@ -178,83 +184,32 @@ export function ActionBar({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-              gap: 0.5,
-              "& .MuiIconButton-root": {
-                width: "100%",
-                height: 36,
-                border: "1px solid",
-                borderColor: photoSweepColors.border,
-                borderRadius: 1.5,
-                color: "primary.main",
-                bgcolor: photoSweepColors.surface
-              },
-              "& .MuiIconButton-root.Mui-disabled": {
-                bgcolor: photoSweepColors.surfaceSoft
-              }
+              gridTemplateColumns: "1fr 1fr",
+              gap: 0.75
             }}>
-            <Tooltip title="Scan again">
-              <IconButton
-                aria-label="Scan again"
-                size="small"
-                onClick={onRescan}>
-                <RefreshRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export report">
-              <IconButton
-                aria-label="Export report"
-                size="small"
-                onClick={onExportJson}>
-                <ArticleOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Spreadsheet">
-              <IconButton
-                aria-label="Spreadsheet"
-                size="small"
-                onClick={onExportCsv}>
-                <TableChartRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Auto Keep">
-              <span>
-                <IconButton
-                  aria-label="Auto Keep"
-                  size="small"
-                  onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
-                  disabled={groupCount === 0}
-                  aria-controls={
-                    keepMenuOpen ? "keep-strategy-menu" : undefined
-                  }
-                  aria-haspopup="menu"
-                  aria-expanded={keepMenuOpen ? "true" : undefined}>
-                  <TuneRoundedIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Include all">
-              <span>
-                <IconButton
-                  aria-label="Include all"
-                  size="small"
-                  disabled={groupCount === 0}
-                  onClick={onSelectAll}>
-                  <CheckBoxOutlinedIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Skip all">
-              <span>
-                <IconButton
-                  aria-label="Skip all"
-                  size="small"
-                  disabled={groupCount === 0}
-                  onClick={onDeselectAll}>
-                  <CheckBoxOutlineBlankIcon fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<TuneRoundedIcon />}
+              disabled={groupCount === 0}
+              onClick={(event) => setKeepMenuAnchor(event.currentTarget)}
+              aria-controls={keepMenuOpen ? "keep-strategy-menu" : undefined}
+              aria-haspopup="menu"
+              aria-expanded={keepMenuOpen ? "true" : undefined}
+              sx={{ minHeight: 40, fontWeight: 800 }}>
+              Selection
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MoreHorizRoundedIcon />}
+              onClick={(event) => setMoreMenuAnchor(event.currentTarget)}
+              aria-controls={moreMenuOpen ? "review-more-menu" : undefined}
+              aria-haspopup="menu"
+              aria-expanded={moreMenuOpen ? "true" : undefined}
+              sx={{ minHeight: 40, fontWeight: 800 }}>
+              More
+            </Button>
           </Box>
 
           <Menu
@@ -274,31 +229,51 @@ export function ActionBar({
                 </MenuItem>
               )
             )}
+            <Divider />
+            <MenuItem
+              disabled={groupCount === 0}
+              onClick={() => {
+                onSelectAll()
+                setKeepMenuAnchor(null)
+              }}>
+              Include all sets
+            </MenuItem>
+            <MenuItem
+              disabled={groupCount === 0}
+              onClick={() => {
+                onDeselectAll()
+                setKeepMenuAnchor(null)
+              }}>
+              Skip all sets
+            </MenuItem>
           </Menu>
-
-          <Button
-            variant="contained"
-            color="error"
-            size="small"
-            startIcon={<DeleteOutlineRoundedIcon />}
-            disabled={duplicateCount === 0}
-            onClick={onTrash}
-            sx={{
-              width: "100%",
-              minHeight: 40,
-              borderRadius: 1.5,
-              fontWeight: 800,
-              bgcolor: photoSweepColors.error,
-              background: `linear-gradient(135deg, ${photoSweepColors.error} 0%, #FF6158 100%)`,
-              boxShadow: "0 8px 18px rgba(226, 81, 72, 0.18)",
-              "&:hover": {
-                bgcolor: photoSweepColors.errorDark,
-                background: `linear-gradient(135deg, ${photoSweepColors.errorDark} 0%, ${photoSweepColors.error} 100%)`,
-                boxShadow: "0 10px 22px rgba(226, 81, 72, 0.22)"
-              }
-            }}>
-            Move {duplicateCount} to Trash
-          </Button>
+          <Menu
+            id="review-more-menu"
+            anchorEl={moreMenuAnchor}
+            open={moreMenuOpen}
+            onClose={() => setMoreMenuAnchor(null)}>
+            <MenuItem
+              onClick={() => {
+                onRescan()
+                setMoreMenuAnchor(null)
+              }}>
+              Scan again
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                onExportJson()
+                setMoreMenuAnchor(null)
+              }}>
+              Export audit report
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                onExportCsv()
+                setMoreMenuAnchor(null)
+              }}>
+              Export spreadsheet
+            </MenuItem>
+          </Menu>
         </Box>
       )}
 
@@ -415,21 +390,92 @@ export function ActionBar({
             onClick={onDeselectAll}>
             Skip all
           </Button>
-          {!compact && (
-            <Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />
-          )}
-          <Button
-            variant="contained"
-            color="error"
-            size="small"
-            startIcon={<DeleteOutlineRoundedIcon />}
-            disabled={duplicateCount === 0}
-            onClick={onTrash}
-            sx={compact ? { width: "100%" } : undefined}>
-            Move {duplicateCount} to Trash
-          </Button>
         </Stack>
       )}
+    </Paper>
+  )
+}
+
+interface CleanupBarProps {
+  duplicateCount: number
+  reviewedGroupCount: number
+  totalGroupCount: number
+  onTrash: () => void
+  compact?: boolean
+}
+
+export function CleanupBar({
+  duplicateCount,
+  reviewedGroupCount,
+  totalGroupCount,
+  onTrash,
+  compact = false
+}: CleanupBarProps) {
+  const reviewComplete =
+    totalGroupCount > 0 && reviewedGroupCount === totalGroupCount
+  const hasSelection = reviewComplete && duplicateCount > 0
+  const remainingCount = Math.max(0, totalGroupCount - reviewedGroupCount)
+
+  return (
+    <Paper
+      component="section"
+      aria-label="Cleanup summary"
+      elevation={0}
+      sx={{
+        position: "sticky",
+        bottom: compact ? 8 : 16,
+        zIndex: 10,
+        mt: compact ? 1 : 1.5,
+        p: compact ? 1 : 1.5,
+        border: "1px solid",
+        borderColor: hasSelection
+          ? photoSweepColors.primaryBorder
+          : photoSweepColors.border,
+        borderRadius: compact ? 2.25 : 3,
+        bgcolor: photoSweepColors.surfaceTint,
+        backdropFilter: "saturate(180%) blur(24px)",
+        boxShadow: `0 18px 52px ${photoSweepColors.shadow}`,
+        display: "grid",
+        gridTemplateColumns: compact
+          ? "1fr"
+          : { xs: "1fr", sm: "minmax(0, 1fr) auto" },
+        alignItems: "center",
+        gap: 1
+      }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="subtitle2" fontWeight={850}>
+          {hasSelection
+            ? `${duplicateCount.toLocaleString()} item${duplicateCount === 1 ? "" : "s"} ready`
+            : reviewComplete
+              ? "No duplicates selected"
+              : `${remainingCount.toLocaleString()} set${remainingCount === 1 ? "" : "s"} left to review`}
+        </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", lineHeight: 1.35 }}>
+          Audit report saved before cleanup · Undo is available after supported
+          trash actions.
+        </Typography>
+      </Box>
+      <Button
+        variant="contained"
+        color="error"
+        startIcon={<DeleteOutlineRoundedIcon />}
+        disabled={!hasSelection}
+        onClick={onTrash}
+        sx={{
+          minHeight: 42,
+          minWidth: compact ? 0 : 210,
+          width: compact ? "100%" : "auto",
+          fontWeight: 850
+        }}>
+        {hasSelection
+          ? `Review & move ${duplicateCount.toLocaleString()} to Trash`
+          : reviewComplete
+            ? "No duplicates selected"
+            : `Review ${remainingCount.toLocaleString()} more to continue`}
+      </Button>
     </Paper>
   )
 }

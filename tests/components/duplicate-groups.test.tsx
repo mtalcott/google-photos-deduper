@@ -2,9 +2,9 @@
  * Component tests for DuplicateGroups.
  *
  * Covers:
- * - Multi-keep chip rendering (Keep this / Will trash / none)
+ * - Multi-keep chip rendering (Keep this copy / Moves to Trash / none)
  * - Card click triggers onToggleKept
- * - Trash all copies action
+ * - Mark all copies for Trash action
  * - Zoom button opens the photo viewer modal
  * - Zoom button does not trigger onToggleKept (stopPropagation)
  */
@@ -84,7 +84,9 @@ const defaultProps = {
   groups: [group],
   mediaItems,
   selectedGroupIds: new Set(["g1"]),
+  reviewedGroupIds: new Set(["g1"]),
   onToggleGroup: vi.fn(),
+  onSkipGroup: vi.fn(),
   keptByGroupId: new Map([["g1", new Set(["img1"])]]),
   onToggleKept: vi.fn(),
   onTrashAll: vi.fn()
@@ -97,14 +99,30 @@ const defaultProps = {
 describe("DuplicateGroups — chip rendering", () => {
   it("shows Keep chip only for kept item", () => {
     wrap(<DuplicateGroups {...defaultProps} />)
-    const keepChips = screen.getAllByText("Keep this")
+    const keepChips = screen.getAllByText("Keep this copy")
     expect(keepChips).toHaveLength(1)
+  })
+
+  it("shows an untouched default as a suggestion, not a decision", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        selectedGroupIds={new Set()}
+        reviewedGroupIds={new Set()}
+      />
+    )
+
+    expect(screen.getByText("Suggested keep")).toBeInTheDocument()
+    expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Keep img1.jpg" })
+    ).toHaveAttribute("aria-pressed", "false")
   })
 
   it("shows Trash chips for non-kept items when group is selected", () => {
     wrap(<DuplicateGroups {...defaultProps} />)
     // img2 and img3 are not kept and group is selected
-    const trashChips = screen.getAllByText("Will trash")
+    const trashChips = screen.getAllByText("Moves to Trash")
     expect(trashChips).toHaveLength(2)
   })
 
@@ -115,7 +133,7 @@ describe("DuplicateGroups — chip rendering", () => {
         selectedGroupIds={new Set()} // deselected
       />
     )
-    expect(screen.queryByText("Will trash")).not.toBeInTheDocument()
+    expect(screen.queryByText("Moves to Trash")).not.toBeInTheDocument()
   })
 
   it("shows multiple Keep chips when multiple items are kept", () => {
@@ -125,9 +143,9 @@ describe("DuplicateGroups — chip rendering", () => {
         keptByGroupId={new Map([["g1", new Set(["img1", "img2"])]])}
       />
     )
-    const keepChips = screen.getAllByText("Keep this")
+    const keepChips = screen.getAllByText("Keep this copy")
     expect(keepChips).toHaveLength(2)
-    const trashChips = screen.getAllByText("Will trash")
+    const trashChips = screen.getAllByText("Moves to Trash")
     expect(trashChips).toHaveLength(1) // only img3
   })
 
@@ -138,8 +156,8 @@ describe("DuplicateGroups — chip rendering", () => {
         keptByGroupId={new Map([["g1", new Set()]])}
       />
     )
-    expect(screen.queryByText("Keep this")).not.toBeInTheDocument()
-    expect(screen.getAllByText("Will trash")).toHaveLength(3)
+    expect(screen.queryByText("Keep this copy")).not.toBeInTheDocument()
+    expect(screen.getAllByText("Moves to Trash")).toHaveLength(3)
   })
 
   it("shows exact duplicate classification when metadata matches", () => {
@@ -252,8 +270,50 @@ describe("DuplicateGroups — card click", () => {
   })
 })
 
+describe("DuplicateGroups — keyboard review", () => {
+  it("uses one named set control and supports Enter and Space", () => {
+    const onToggleGroup = vi.fn()
+    wrap(<DuplicateGroups {...defaultProps} onToggleGroup={onToggleGroup} />)
+
+    const setControl = screen.getByRole("checkbox", {
+      name: /Include duplicate set of 3 photos/i
+    })
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1)
+
+    fireEvent.keyDown(setControl, { key: "Enter" })
+    fireEvent.keyDown(setControl, { key: " " })
+    expect(onToggleGroup).toHaveBeenCalledTimes(2)
+  })
+
+  it("names keep choices and exposes their pressed state", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+
+    expect(
+      screen.getByRole("button", { name: "Keep img1.jpg" })
+    ).toHaveAttribute("aria-pressed", "true")
+    expect(
+      screen.getByRole("button", { name: "Keep img2.jpg" })
+    ).toHaveAttribute("aria-pressed", "false")
+  })
+
+  it("records an explicit skip action", () => {
+    const onSkipGroup = vi.fn()
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        reviewedGroupIds={new Set()}
+        selectedGroupIds={new Set()}
+        onSkipGroup={onSkipGroup}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Skip this set/i }))
+    expect(onSkipGroup).toHaveBeenCalledWith("g1")
+  })
+})
+
 // ============================================================
-// Trash all copies
+// Mark all copies for Trash
 // ============================================================
 
 describe("DuplicateGroups — trash all copies", () => {
@@ -268,7 +328,9 @@ describe("DuplicateGroups — trash all copies", () => {
       />
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /trash all copies/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /mark all copies for trash/i })
+    )
 
     expect(onTrashAll).toHaveBeenCalledOnce()
     expect(onTrashAll).toHaveBeenCalledWith(group)
@@ -380,7 +442,7 @@ describe("DuplicateGroups — virtualized rendering", () => {
     expect(
       screen.getByTestId("duplicate-groups-virtual-list")
     ).toBeInTheDocument()
-    expect(screen.getByText("80 Duplicate Sets Ready")).toBeInTheDocument()
+    expect(screen.getByText("80 Duplicate Sets to Review")).toBeInTheDocument()
     expect(screen.getByTitle("item-0-a.jpg")).toBeInTheDocument()
     expect(screen.queryByTitle("item-79-a.jpg")).not.toBeInTheDocument()
   })

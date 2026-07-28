@@ -8,7 +8,12 @@
   window.__GPD_AMAZON_COMMAND_HANDLER_LOADED__ = true
 // Uses Amazon Photos' private web API from the signed-in page context.
 
-const GPD_APP_ID = "GPD"
+const commandHost = window.__GPD_COMMAND_HOST__
+if (!commandHost) {
+  console.error("GPD: Shared command host is not loaded")
+  return
+}
+const { postResult, postError, postProgress } = commandHost
 const AMAZON_PAGE_LIMIT = 200
 const AMAZON_TRASH_BATCH_SIZE = 50
 const AMAZON_API_TIMEOUT_MS = 45000
@@ -18,50 +23,6 @@ const AMAZON_SEARCH_PAGE_PAUSE_MS = 1000
 const AMAZON_RATE_LIMIT_BACKOFF_MS = [
   15000, 30000, 60000, 90000, 120000, 180000
 ]
-
-function postResult(command, requestId, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkResult",
-      command,
-      requestId,
-      success: true,
-      data
-    },
-    "*"
-  )
-}
-
-function postError(command, requestId, error, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkResult",
-      command,
-      requestId,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-      ...(data !== undefined ? { data } : {})
-    },
-    "*"
-  )
-}
-
-function postProgress(requestId, itemsProcessed, message, command, data) {
-  window.postMessage(
-    {
-      app: GPD_APP_ID,
-      action: "gptkProgress",
-      requestId,
-      itemsProcessed,
-      message,
-      ...(command !== undefined ? { command } : {}),
-      ...(data !== undefined ? { data } : {})
-    },
-    "*"
-  )
-}
 
 function chunkArray(items, size) {
   const chunks = []
@@ -754,35 +715,16 @@ function healthCheck(requestId) {
   })
 }
 
-window.addEventListener("message", async (event) => {
-  if (event.source !== window) return
-  const msg = event.data
-  if (msg?.app !== GPD_APP_ID || msg?.action !== "gptkCommand") return
-
-  const { command, requestId, args } = msg
-  switch (command) {
-    case "getAllMediaItems":
-      await getAllMediaItems(requestId, args)
-      break
-    case "listAlbums":
-      postResult("listAlbums", requestId, [])
-      break
-    case "trashItems":
-      await trashItems(requestId, args)
-      break
-    case "restoreItems":
-      await restoreItems(requestId, args)
-      break
-    case "healthCheck":
-      healthCheck(requestId)
-      break
-    default:
-      postError(
-        command,
-        requestId,
-        `Unsupported Amazon Photos command: ${command}`
-      )
-  }
+commandHost.register({
+  handlers: {
+    getAllMediaItems,
+    listAlbums: (requestId) => postResult("listAlbums", requestId, []),
+    trashItems,
+    restoreItems,
+    healthCheck
+  },
+  unsupportedMessage: (command) =>
+    `Unsupported Amazon Photos command: ${command}`
 })
 
 console.log("GPD: Amazon Photos command handler loaded")
