@@ -15,7 +15,8 @@ import {
   launchExtension,
   makeGroups,
   openAppTab,
-  openGptkStubPage
+  openGptkStubPage,
+  readLocalStorage
 } from "../fixtures/extension"
 
 let context: BrowserContext
@@ -246,16 +247,8 @@ test("clears saved results and selections when a different Google account is det
     })
   ).not.toBeVisible()
 
-  const sw = context.serviceWorkers()[0]
   await expect
-    .poll(() =>
-      sw.evaluate(
-        () =>
-          new Promise<Record<string, unknown>>((resolve) => {
-            chrome.storage.local.get(["scanResults", "selections"], resolve)
-          })
-      )
-    )
+    .poll(() => readLocalStorage(context, ["scanResults", "selections"]))
     .toEqual({})
 
   await page.close()
@@ -295,6 +288,7 @@ test("clears legacy saved results when the current Google account is known", asy
   await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
     timeout: 8_000
   })
+  await expect(page.getByText("Signed in as known@example.com")).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "1 Duplicate Set to Review",
@@ -302,16 +296,8 @@ test("clears legacy saved results when the current Google account is known", asy
     })
   ).not.toBeVisible()
 
-  const sw = context.serviceWorkers()[0]
   await expect
-    .poll(() =>
-      sw.evaluate(
-        () =>
-          new Promise<Record<string, unknown>>((resolve) => {
-            chrome.storage.local.get(["scanResults", "selections"], resolve)
-          })
-      )
-    )
+    .poll(() => readLocalStorage(context, ["scanResults", "selections"]))
     .toEqual({})
 
   await page.close()

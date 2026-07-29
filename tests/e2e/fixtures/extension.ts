@@ -298,6 +298,21 @@ export async function injectEntitlement(
   )
 }
 
+export async function readLocalStorage(
+  context: BrowserContext,
+  keys?: string | string[]
+): Promise<Record<string, unknown>> {
+  return withExtensionStorage(context, (page) =>
+    page.evaluate(
+      (keys) =>
+        new Promise<Record<string, unknown>>((resolve) => {
+          chrome.storage.local.get(keys, resolve)
+        }),
+      keys
+    )
+  )
+}
+
 export async function clearStorage(context: BrowserContext): Promise<void> {
   await withExtensionStorage(context, (page) =>
     page.evaluate(

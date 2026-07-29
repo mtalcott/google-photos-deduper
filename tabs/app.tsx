@@ -2185,7 +2185,28 @@ export default function App() {
           : null,
         accountEmail: currentAccountEmailRef.current
       })
-      .then((restored) => {
+      .then(async (restored) => {
+        if (cancelled) return
+        // The health check and storage read run concurrently. Re-check against
+        // the account learned while storage was loading before showing or
+        // retaining a legacy account-less review.
+        const currentAccountEmail = currentAccountEmailRef.current
+        if (
+          restored.scanResults &&
+          currentAccountEmail &&
+          !areScanResultsValid(restored.scanResults, {
+            accountEmail: currentAccountEmail,
+            sourceProvider: restored.settings.sourceProvider ?? "google"
+          })
+        ) {
+          await storedReviewScope.invalidateReview()
+          restored = {
+            ...restored,
+            scanResults: null,
+            selections: null,
+            staleReviewRemoved: true
+          }
+        }
         if (cancelled) return
         settingsRef.current = restored.settings
         setSettings(restored.settings)

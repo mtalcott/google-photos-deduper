@@ -45,8 +45,8 @@ jobs:
         run: npm test
 
       # Build extension (required before integration tests)
-      - name: Build extension
-        run: npm run build
+      - name: Build extension for dev-entitlement integration tests
+        run: PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1 npm run build
 
       # Integration tests require a headed browser; use Xvfb on Linux.
       # Cache the browser binaries so we only hit the CDN when the Playwright
