@@ -20,12 +20,16 @@ const PLAN_CONFIG = {
 const COOKIE_NAME = "photosweep_license_session"
 const STRIPE_API_BASE = "https://api.stripe.com/v1"
 const STRIPE_API_VERSION = "2026-02-25.clover"
+const LONG_LIVED_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const ANALYTICS_EVENT_NAMES = new Set([
   "app_opened",
   "scan_started",
   "scan_completed",
   "upgrade_prompt_shown",
   "checkout_started",
+  "restore_requested",
+  "restore_completed",
+  "restore_not_found",
   "entitlement_refreshed",
   "export_clicked",
   "trash_attempted",
@@ -107,7 +111,10 @@ function parseCookie(header) {
   for (const part of (header ?? "").split(";")) {
     const index = part.indexOf("=")
     if (index <= 0) continue
-    result.set(part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1)))
+    result.set(
+      part.slice(0, index).trim(),
+      decodeURIComponent(part.slice(index + 1))
+    )
   }
   return result
 }
@@ -170,18 +177,95 @@ function now() {
   return Date.now()
 }
 
+const PLAN_PRIORITY = {
+  mini_cleanup: 1,
+  cleanup_pass: 2,
+  lifetime: 3
+}
+
+function withoutPurchaseLedger(license) {
+  if (!license) return undefined
+  const { purchases: _purchases, ...purchase } = license
+  return purchase
+}
+
+function purchasesForLicense(license) {
+  if (!license) return []
+  return Array.isArray(license.purchases)
+    ? license.purchases
+    : [withoutPurchaseLedger(license)]
+}
+
+function isActivePurchase(purchase, at = now()) {
+  return (
+    purchase?.status === "active" &&
+    (!purchase.expiresAt || purchase.expiresAt > at)
+  )
+}
+
+function effectivePurchase(purchases, at = now()) {
+  return purchases
+    .filter((purchase) => isActivePurchase(purchase, at))
+    .sort(
+      (left, right) =>
+        (PLAN_PRIORITY[right.planId] ?? 0) -
+          (PLAN_PRIORITY[left.planId] ?? 0) ||
+        (right.purchasedAt ?? 0) - (left.purchasedAt ?? 0)
+    )[0]
+}
+
+function licenseFromPurchases(sessionId, purchases) {
+  const selected =
+    effectivePurchase(purchases) ??
+    [...purchases].sort(
+      (left, right) => (right.purchasedAt ?? 0) - (left.purchasedAt ?? 0)
+    )[0]
+  if (!selected) return undefined
+  return {
+    ...selected,
+    sessionId,
+    purchases
+  }
+}
+
+function purchaseMatchesStripeObject(purchase, object) {
+  return (
+    (typeof object?.payment_intent === "string" &&
+      purchase.stripePaymentIntentId === object.payment_intent) ||
+    (typeof object?.checkout_session === "string" &&
+      purchase.stripeCheckoutSessionId === object.checkout_session) ||
+    (typeof object?.id === "string" &&
+      (purchase.stripeCheckoutSessionId === object.id ||
+        purchase.stripePaymentIntentId === object.id))
+  )
+}
+
 function activeLicenseToEntitlement(license) {
+  const issuedAt = now()
   if (!license || license.status !== "active") {
-    return { planId: "free", active: true }
+    return {
+      planId: "free",
+      active: true,
+      issuedAt,
+      expiresAt: issuedAt + LONG_LIVED_TOKEN_TTL_MS
+    }
   }
-  if (license.expiresAt && license.expiresAt <= now()) {
-    return { planId: "free", active: true }
+  if (license.expiresAt && license.expiresAt <= issuedAt) {
+    return {
+      planId: "free",
+      active: true,
+      issuedAt,
+      expiresAt: issuedAt + LONG_LIVED_TOKEN_TTL_MS
+    }
   }
+  const tokenExpiresAt = issuedAt + LONG_LIVED_TOKEN_TTL_MS
   return {
     planId: license.planId,
     active: true,
-    issuedAt: now(),
+    issuedAt,
     expiresAt: license.expiresAt
+      ? Math.min(license.expiresAt, tokenExpiresAt)
+      : tokenExpiresAt
   }
 }
 
@@ -197,7 +281,10 @@ function decodeStripeTimestamp(value) {
 function timingSafeEqualString(a, b) {
   const aBuffer = Buffer.from(a)
   const bBuffer = Buffer.from(b)
-  return aBuffer.length === bBuffer.length && crypto.timingSafeEqual(aBuffer, bBuffer)
+  return (
+    aBuffer.length === bBuffer.length &&
+    crypto.timingSafeEqual(aBuffer, bBuffer)
+  )
 }
 
 function recoverySecret(env) {
@@ -222,7 +309,9 @@ function verifyRecoveryToken(token, env) {
   const expected = signRecoveryPayload(payloadPart, env)
   if (!timingSafeEqualString(signature, expected)) return undefined
   try {
-    const payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8"))
+    const payload = JSON.parse(
+      Buffer.from(payloadPart, "base64url").toString("utf8")
+    )
     if (!payload || typeof payload !== "object") return undefined
     if (typeof payload.sessionId !== "string") return undefined
     if (typeof payload.email !== "string") return undefined
@@ -235,7 +324,12 @@ function verifyRecoveryToken(token, env) {
   }
 }
 
-function verifyStripeSignature(rawBody, signatureHeader, secret, toleranceSeconds = 300) {
+function verifyStripeSignature(
+  rawBody,
+  signatureHeader,
+  secret,
+  toleranceSeconds = 300
+) {
   const parts = new Map()
   for (const item of (signatureHeader ?? "").split(",")) {
     const [key, value] = item.split("=", 2)
@@ -265,18 +359,18 @@ function privateKeyFromEnv(env) {
 
 export function signEntitlementToken(payload, env) {
   const payloadPart = encodeBase64Url(JSON.stringify(payload))
-  const signature = crypto.sign(
-    "sha256",
-    Buffer.from(payloadPart),
-    {
-      key: privateKeyFromEnv(env),
-      dsaEncoding: "ieee-p1363"
-    }
-  )
+  const signature = crypto.sign("sha256", Buffer.from(payloadPart), {
+    key: privateKeyFromEnv(env),
+    dsaEncoding: "ieee-p1363"
+  })
   return `${payloadPart}.${signature.toString("base64url")}`
 }
 
-export async function createStripeCheckoutSession(input, env, fetchImpl = fetch) {
+export async function createStripeCheckoutSession(
+  input,
+  env,
+  fetchImpl = fetch
+) {
   const plan = PLAN_CONFIG[input.planId]
   if (!plan) throw new Error("Unknown plan.")
   const priceId = requireEnv(env, plan.stripePriceEnv)
@@ -333,36 +427,45 @@ export function createMemoryLicenseStore(seed = {}) {
     },
     async upsertLicense(license) {
       state.licensesBySessionId.set(license.sessionId, license)
-      if (license.email) {
-        state.sessionByEmail.set(license.email.toLowerCase(), license.sessionId)
-      }
-      if (license.stripeCustomerId) {
-        state.sessionByStripeCustomerId.set(
-          license.stripeCustomerId,
-          license.sessionId
-        )
-      }
-      if (license.stripeCheckoutSessionId) {
-        state.sessionByStripeCheckoutSessionId.set(
-          license.stripeCheckoutSessionId,
-          license.sessionId
-        )
-      }
-      if (license.stripePaymentIntentId) {
-        state.sessionByStripePaymentIntentId.set(
-          license.stripePaymentIntentId,
-          license.sessionId
-        )
+      for (const purchase of purchasesForLicense(license)) {
+        if (purchase.email) {
+          state.sessionByEmail.set(
+            purchase.email.toLowerCase(),
+            license.sessionId
+          )
+        }
+        if (purchase.stripeCustomerId) {
+          state.sessionByStripeCustomerId.set(
+            purchase.stripeCustomerId,
+            license.sessionId
+          )
+        }
+        if (purchase.stripeCheckoutSessionId) {
+          state.sessionByStripeCheckoutSessionId.set(
+            purchase.stripeCheckoutSessionId,
+            license.sessionId
+          )
+        }
+        if (purchase.stripePaymentIntentId) {
+          state.sessionByStripePaymentIntentId.set(
+            purchase.stripePaymentIntentId,
+            license.sessionId
+          )
+        }
       }
     },
     async deactivateLicense(sessionId, reason) {
       const existing = state.licensesBySessionId.get(sessionId)
       if (!existing) return
-      state.licensesBySessionId.set(sessionId, {
-        ...existing,
+      const purchases = purchasesForLicense(existing).map((purchase) => ({
+        ...purchase,
         status: "inactive",
         inactiveReason: reason
-      })
+      }))
+      state.licensesBySessionId.set(
+        sessionId,
+        licenseFromPurchases(sessionId, purchases)
+      )
     },
     async getSessionIdByEmail(email) {
       return state.sessionByEmail.get(email.toLowerCase())
@@ -454,20 +557,24 @@ export function createJsonFileLicenseStore(filePath) {
     async upsertLicense(license) {
       await mutate((state) => {
         state.licensesBySessionId[license.sessionId] = license
-        if (license.email) {
-          state.sessionByEmail[license.email.toLowerCase()] = license.sessionId
-        }
-        if (license.stripeCustomerId) {
-          state.sessionByStripeCustomerId[license.stripeCustomerId] =
-            license.sessionId
-        }
-        if (license.stripeCheckoutSessionId) {
-          state.sessionByStripeCheckoutSessionId[license.stripeCheckoutSessionId] =
-            license.sessionId
-        }
-        if (license.stripePaymentIntentId) {
-          state.sessionByStripePaymentIntentId[license.stripePaymentIntentId] =
-            license.sessionId
+        for (const purchase of purchasesForLicense(license)) {
+          if (purchase.email) {
+            state.sessionByEmail[purchase.email.toLowerCase()] = license.sessionId
+          }
+          if (purchase.stripeCustomerId) {
+            state.sessionByStripeCustomerId[purchase.stripeCustomerId] =
+              license.sessionId
+          }
+          if (purchase.stripeCheckoutSessionId) {
+            state.sessionByStripeCheckoutSessionId[
+              purchase.stripeCheckoutSessionId
+            ] = license.sessionId
+          }
+          if (purchase.stripePaymentIntentId) {
+            state.sessionByStripePaymentIntentId[
+              purchase.stripePaymentIntentId
+            ] = license.sessionId
+          }
         }
       })
     },
@@ -475,11 +582,15 @@ export function createJsonFileLicenseStore(filePath) {
       await mutate((state) => {
         const existing = state.licensesBySessionId[sessionId]
         if (!existing) return
-        state.licensesBySessionId[sessionId] = {
-          ...existing,
+        const purchases = purchasesForLicense(existing).map((purchase) => ({
+          ...purchase,
           status: "inactive",
           inactiveReason: reason
-        }
+        }))
+        state.licensesBySessionId[sessionId] = licenseFromPurchases(
+          sessionId,
+          purchases
+        )
       })
     },
     async getSessionIdByEmail(email) {
@@ -543,10 +654,20 @@ function sessionFromStripeObject(object) {
 async function activateCheckoutSession(session, store) {
   const planId = session?.metadata?.planId
   const sessionId = sessionFromStripeObject(session)
-  if (!PLAN_CONFIG[planId] || !sessionId) return
+  if (!PLAN_CONFIG[planId] || !sessionId || session.payment_status !== "paid") {
+    return undefined
+  }
+  const existing = await store.getLicenseBySessionId(sessionId)
+  const purchases = purchasesForLicense(existing)
+  if (
+    purchases.some(
+      (purchase) => purchase.stripeCheckoutSessionId === session.id
+    )
+  ) {
+    return undefined
+  }
   const purchasedAt = now()
-  await store.upsertLicense({
-    sessionId,
+  const purchase = {
     planId,
     status: "active",
     email:
@@ -562,7 +683,10 @@ async function activateCheckoutSession(session, store) {
         : undefined,
     purchasedAt,
     expiresAt: planExpiry(planId, purchasedAt)
-  })
+  }
+  const license = licenseFromPurchases(sessionId, [...purchases, purchase])
+  await store.upsertLicense(license)
+  return purchase
 }
 
 async function deactivateStripeObject(object, store, reason) {
@@ -577,18 +701,43 @@ async function deactivateStripeObject(object, store, reason) {
       object.checkout_session
     )
   }
-  if (!sessionId && typeof object?.customer === "string") {
-    sessionId = await store.getSessionIdByStripeCustomerId(object.customer)
+  if (!sessionId) return undefined
+  const license = await store.getLicenseBySessionId(sessionId)
+  if (!license) return undefined
+  let deactivated
+  const purchases = purchasesForLicense(license).map((purchase) => {
+    if (!purchaseMatchesStripeObject(purchase, object)) return purchase
+    deactivated = purchase
+    return {
+      ...purchase,
+      status: "inactive",
+      inactiveReason: reason
+    }
+  })
+  if (!deactivated) return undefined
+  await store.upsertLicense(licenseFromPurchases(sessionId, purchases))
+  return deactivated
+}
+
+function isFullChargeRefund(charge) {
+  if (
+    typeof charge?.amount === "number" &&
+    typeof charge?.amount_refunded === "number"
+  ) {
+    return charge.amount_refunded >= charge.amount
   }
-  if (sessionId) await store.deactivateLicense(sessionId, reason)
+  return true
+}
+
+async function recordMonetizationEvent(store, event) {
+  if (typeof store.recordAnalyticsEvent === "function") {
+    await store.recordAnalyticsEvent(event)
+  }
 }
 
 async function deactivateExpiredCheckoutSession(session, store) {
-  const sessionId = sessionFromStripeObject(session)
-  if (!sessionId || !session?.id) return
-  const license = await store.getLicenseBySessionId(sessionId)
-  if (license?.stripeCheckoutSessionId !== session.id) return
-  await store.deactivateLicense(sessionId, "checkout.session.expired")
+  if (!sessionFromStripeObject(session) || !session?.id) return
+  await deactivateStripeObject(session, store, "checkout.session.expired")
 }
 
 export async function handleStripeWebhook(request, env, store) {
@@ -603,15 +752,38 @@ export async function handleStripeWebhook(request, env, store) {
     return jsonResponse({ received: true, duplicate: true })
   }
   const object = event.data?.object
-  if (event.type === "checkout.session.completed") {
-    await activateCheckoutSession(object, store)
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
+    const license = await activateCheckoutSession(object, store)
+    if (license) {
+      await recordMonetizationEvent(store, {
+        name: "purchase_completed",
+        planId: license.planId
+      })
+    }
   } else if (event.type === "checkout.session.expired") {
     await deactivateExpiredCheckoutSession(object, store)
+  } else if (event.type === "checkout.session.async_payment_failed") {
+    await recordMonetizationEvent(store, {
+      name: "purchase_failed",
+      planId: object?.metadata?.planId
+    })
   } else if (
-    event.type === "charge.refunded" ||
-    event.type === "charge.dispute.created"
+    event.type === "charge.dispute.created" ||
+    (event.type === "charge.refunded" && isFullChargeRefund(object))
   ) {
-    await deactivateStripeObject(object, store, event.type)
+    const license = await deactivateStripeObject(object, store, event.type)
+    if (license) {
+      await recordMonetizationEvent(store, {
+        name:
+          event.type === "charge.refunded"
+            ? "purchase_refunded"
+            : "purchase_failed",
+        planId: license.planId
+      })
+    }
   }
   await store.markStripeEventProcessed(event.id)
   return jsonResponse({ received: true })
@@ -627,7 +799,11 @@ export async function handleCheckout(request, env, store, fetchImpl = fetch) {
     env,
     fetchImpl
   )
-  if (!checkout.url) return jsonResponse({ error: "Stripe did not return a checkout URL." }, { status: 502 })
+  if (!checkout.url)
+    return jsonResponse(
+      { error: "Stripe did not return a checkout URL." },
+      { status: 502 }
+    )
   return jsonResponse(
     { url: checkout.url },
     { headers: { "set-cookie": sessionCookie(sessionId, env) } }
@@ -644,8 +820,10 @@ export async function handleEntitlement(request, env, store) {
 
 export async function handleRecoverLicense(request, env, store) {
   const body = await request.json().catch(() => ({}))
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
-  if (!email || !email.includes("@")) return badRequest("A valid email is required.")
+  const email =
+    typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+  if (!email || !email.includes("@"))
+    return badRequest("A valid email is required.")
   const sessionId = await store.getSessionIdByEmail(email)
   if (sessionId && typeof store.sendRecoveryEmail === "function") {
     const token = createRecoveryToken(
@@ -688,7 +866,10 @@ export async function handleCompleteLicenseRecovery(request, env, store) {
     })
   }
   const license = await store.getLicenseBySessionId(payload.sessionId)
-  if (!license || license.email?.toLowerCase() !== payload.email.toLowerCase()) {
+  if (
+    !license ||
+    license.email?.toLowerCase() !== payload.email.toLowerCase()
+  ) {
     return new Response(null, {
       status: 302,
       headers: { location: `${redirectTo}?license_recovery=invalid` }
@@ -713,7 +894,11 @@ export async function handleAnalytics(request, env, store) {
   return jsonResponse({ ok: true })
 }
 
-export function createLicenseApi({ env = process.env, store, fetchImpl = fetch } = {}) {
+export function createLicenseApi({
+  env = process.env,
+  store,
+  fetchImpl = fetch
+} = {}) {
   const licenseStore = store ?? createMemoryLicenseStore()
   return async function handleRequest(request) {
     if (request.method === "OPTIONS") {
@@ -726,23 +911,39 @@ export function createLicenseApi({ env = process.env, store, fetchImpl = fetch }
         response = await handleCheckout(request, env, licenseStore, fetchImpl)
       } else if (request.method === "GET" && url.pathname === "/entitlement") {
         response = await handleEntitlement(request, env, licenseStore)
-      } else if (request.method === "POST" && url.pathname === "/license/recover") {
+      } else if (
+        request.method === "POST" &&
+        url.pathname === "/license/recover"
+      ) {
         response = await handleRecoverLicense(request, env, licenseStore)
       } else if (
         request.method === "GET" &&
         url.pathname === "/license/recover/complete"
       ) {
-        response = await handleCompleteLicenseRecovery(request, env, licenseStore)
+        response = await handleCompleteLicenseRecovery(
+          request,
+          env,
+          licenseStore
+        )
       } else if (request.method === "POST" && url.pathname === "/analytics") {
         response = await handleAnalytics(request, env, licenseStore)
-      } else if (request.method === "POST" && url.pathname === "/stripe/webhook") {
+      } else if (
+        request.method === "POST" &&
+        url.pathname === "/stripe/webhook"
+      ) {
         response = await handleStripeWebhook(request, env, licenseStore)
-      } else if (request.method === "GET" && url.pathname === "/checkout/success") {
+      } else if (
+        request.method === "GET" &&
+        url.pathname === "/checkout/success"
+      ) {
         response = htmlResponse(
           "Checkout complete",
           "Your payment was received. Return to PhotoSweep and click Refresh license to unlock your plan."
         )
-      } else if (request.method === "GET" && url.pathname === "/checkout/cancel") {
+      } else if (
+        request.method === "GET" &&
+        url.pathname === "/checkout/cancel"
+      ) {
         response = htmlResponse(
           "Checkout canceled",
           "No payment was completed. PhotoSweep will continue using your current plan."

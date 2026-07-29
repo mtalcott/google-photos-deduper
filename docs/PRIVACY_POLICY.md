@@ -45,8 +45,14 @@ Allowed license/support data includes:
   entitlement, and categorized error events, with provider, scan mode, plan, and
   count buckets where applicable
 
-Telemetry is sent to help measure reliability and feature use. It does not
-include photo content, filenames, album names, raw reports, or provider URLs.
+Optional client telemetry is sent only after the user accepts the in-product
+disclosure. It helps measure reliability and feature use and can be declined
+without affecting scans, review, reports, Trash, licensing, or recovery. It does
+not include photo content, filenames, album names, raw reports, or provider URLs.
+
+Payment lifecycle events created by the license service, such as a completed
+purchase or full refund, are recorded as operational payment events without
+photo-library context.
 
 PhotoSweep's license service must not receive photo URLs, thumbnails, filenames,
 album names, raw reports, exact timestamps, people/location labels, or page

@@ -35,8 +35,9 @@ Refunds may be declined when:
 
 ## Plan-Specific Notes
 
-Mini Cleanup and Cleanup Pass are cleanup-session products. If PhotoSweep fails
-before the user can review the paid duplicate results, refund the purchase.
+Mini Cleanup is a permanent limited unlock. Cleanup Pass is a seven-day
+large-cleanup window. If PhotoSweep fails before the user can review the paid
+duplicate results, refund the purchase.
 
 Lifetime Early Access is refundable during the 7-day window if PhotoSweep cannot
 provide the advertised Google Photos, iCloud Photos, or Amazon Photos workflow
@@ -66,6 +67,7 @@ review.
 
 ## License Handling
 
-Approved refunds, disputes, and failed payment reversals deactivate the matching
-license entitlement through Stripe webhook handling. The extension falls back to
-free limits after the next entitlement refresh or when the cached token expires.
+Approved full refunds and disputes deactivate the matching license entitlement
+through Stripe webhook handling. A partial refund does not revoke the entire
+purchase. The extension reconciles an existing token at startup and falls back
+to free limits after refresh or when the signed token expires.

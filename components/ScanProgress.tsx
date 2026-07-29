@@ -1,12 +1,9 @@
-import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded"
-import RadioButtonUncheckedRoundedIcon from "@mui/icons-material/RadioButtonUncheckedRounded"
 import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import CircularProgress from "@mui/material/CircularProgress"
 import LinearProgress from "@mui/material/LinearProgress"
 import Paper from "@mui/material/Paper"
-import Stack from "@mui/material/Stack"
 import Typography from "@mui/material/Typography"
 import { useEffect, useRef, useState } from "react"
 
@@ -139,18 +136,23 @@ export function ScanProgress({
           backdropFilter: "saturate(180%) blur(22px)",
           boxShadow: compact ? "none" : `0 24px 70px ${photoSweepColors.shadow}`
         }}>
-        <Typography
-          variant={compact ? "subtitle2" : "h5"}
-          fontWeight={800}
-          gutterBottom>
-          Finding Duplicates
-        </Typography>
-        <Typography
-          variant={compact ? "caption" : "body2"}
-          color="text.secondary"
-          sx={{ display: "block", mb: compact ? 1.25 : 3, lineHeight: 1.35 }}>
-          Checking your library and preparing clear review sets.
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            mb: compact ? 1.25 : 2
+          }}>
+          <Typography
+            variant={compact ? "subtitle2" : "h5"}
+            fontWeight={800}>
+            Finding Duplicates
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            Step {stepNum} of {TOTAL_STEPS}
+          </Typography>
+        </Box>
 
         {showIdleWarning && (
           <Alert severity="warning" sx={{ mb: 2 }}>
@@ -160,101 +162,69 @@ export function ScanProgress({
           </Alert>
         )}
 
-        <Stack
-          direction={compact ? "column" : { xs: "column", md: "row" }}
-          spacing={compact ? 0.75 : 1}
-          sx={{ mb: compact ? 1.25 : 3 }}>
-          {(Object.keys(PHASE_STEP) as ScanPhase[])
-            .filter((step) => step !== "complete")
-            .map((step) => {
-              const complete =
-                PHASE_STEP[step] < stepNum || phase === "complete"
-              const active = step === phase
-              return (
-                <Box
-                  key={step}
-                  sx={{
-                    flex: 1,
-                    p: compact ? 0.85 : 1.25,
-                    border: "1px solid",
-                    borderColor: active ? "primary.main" : "divider",
-                    borderRadius: compact ? 1.5 : 2,
-                    bgcolor: active
-                      ? "primary.light"
-                      : photoSweepColors.surface,
-                    boxShadow: active
-                      ? compact
-                        ? `0 4px 12px ${photoSweepColors.primaryShadow}`
-                        : `0 10px 24px ${photoSweepColors.primaryShadow}`
-                      : "none",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1
-                  }}>
-                  {complete ? (
-                    <CheckCircleRoundedIcon color="success" fontSize="small" />
-                  ) : active ? (
-                    <CircularProgress size={16} thickness={5} />
-                  ) : (
-                    <RadioButtonUncheckedRoundedIcon
-                      color="disabled"
-                      fontSize="small"
-                    />
-                  )}
-                  <Typography variant="caption" fontWeight={700}>
-                    {PHASE_LABELS[step]}
-                  </Typography>
-                </Box>
-              )
-            })}
-        </Stack>
-
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "space-between",
-            mb: compact ? 1 : 2
+            gap: 2,
+            mb: compact ? 1 : 1.5
           }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <CircularProgress size={14} thickness={5} />
-            <Typography variant="body2" color="text.secondary">
-              {phase === "complete"
-                ? PHASE_LABELS[phase]
-                : `Current: ${PHASE_LABELS[phase]}`}
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant={compact ? "caption" : "body2"}
+              color="primary.main"
+              fontWeight={800}
+              sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              {phase !== "complete" && (
+                <CircularProgress size={13} thickness={5} />
+              )}
+              {PHASE_LABELS[phase]}
+            </Typography>
+            <Typography
+              variant={compact ? "h5" : "h4"}
+              fontWeight={850}
+              sx={{ mt: 0.5, letterSpacing: "-0.03em" }}>
+              {itemsProcessed.toLocaleString()}{" "}
+              <Box
+                component="span"
+                sx={{
+                  fontSize: compact ? 13 : 16,
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  letterSpacing: 0
+                }}>
+                checked
+              </Box>
             </Typography>
           </Box>
-          <Typography variant="caption" color="text.secondary">
-            Step {stepNum} of {TOTAL_STEPS}
-          </Typography>
-        </Box>
-
-        <LinearProgress
-          variant={isDeterminate ? "determinate" : "indeterminate"}
-          value={progress}
-          sx={{ mb: compact ? 0.75 : 1 }}
-        />
-
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            mb: compact ? 1 : 2
-          }}>
-          <Typography variant="caption" color="text.secondary">
-            {isDeterminate
-              ? `${itemsProcessed.toLocaleString()} of ${totalEstimate.toLocaleString()} checked`
-              : `${itemsProcessed.toLocaleString()} checked`}
-          </Typography>
           {isDeterminate && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" noWrap>
               {etaText ? `${progress}% · ${etaText}` : `${progress}%`}
             </Typography>
           )}
         </Box>
 
+        <LinearProgress
+          variant={isDeterminate ? "determinate" : "indeterminate"}
+          value={progress}
+          aria-label="Scan progress"
+          sx={{ mb: compact ? 0.75 : 1 }}
+        />
+
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", lineHeight: 1.45 }}>
+          {isDeterminate
+            ? `${itemsProcessed.toLocaleString()} of ${totalEstimate.toLocaleString()} checked. `
+            : ""}
+          You can leave this tab open. Nothing can move to Trash during the
+          scan.
+        </Typography>
+
         {onPause && (
-          <Box sx={{ mt: compact ? 1.25 : 3 }}>
+          <Box sx={{ mt: compact ? 1.25 : 2 }}>
             <Button
               variant="outlined"
               color="inherit"
@@ -263,6 +233,38 @@ export function ScanProgress({
               sx={compact ? { width: "100%" } : undefined}>
               Pause Scan
             </Button>
+          </Box>
+        )}
+
+        {message && (
+          <Box
+            component="details"
+            sx={{
+              mt: compact ? 1 : 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1.5,
+              bgcolor: photoSweepColors.surfaceSoft,
+              "& summary": {
+                cursor: "pointer",
+                px: 1.25,
+                py: 1,
+                fontSize: 12,
+                fontWeight: 750
+              }
+            }}>
+            <Box component="summary">Technical activity</Box>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: "block",
+                px: 1.25,
+                pb: 1.25,
+                overflowWrap: "anywhere"
+              }}>
+              {message}
+            </Typography>
           </Box>
         )}
       </Paper>

@@ -22,11 +22,11 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           submodules: recursive
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: 24
           cache: npm
@@ -75,7 +75,7 @@ jobs:
           cp build/chrome-mv3-prod.zip "build/photosweep-${{ inputs.environment }}-${{ github.sha }}.zip"
 
       - name: Upload extension package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: photosweep-${{ inputs.environment }}-chrome-mv3
           path: |

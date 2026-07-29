@@ -56,7 +56,9 @@ async function confirmTrashDialog(page: Page, count: number): Promise<void> {
 }
 
 async function includeAllAndOpenTrashDialog(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Include all" }).click()
+  await page
+    .getByRole("button", { name: /^Include all(?: sets)?$/i })
+    .click()
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
     .click()
@@ -189,7 +191,9 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
     timeout: 10_000
   })
 
-  await page.getByRole("button", { name: "Include all" }).click()
+  await page
+    .getByRole("button", { name: /^Include all(?: sets)?$/i })
+    .click()
   await page
     .getByRole("button", { name: /Review & move \d+ to Trash/i })
     .click()

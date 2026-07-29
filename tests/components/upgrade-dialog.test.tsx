@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from "vitest"
 import { UpgradeDialog } from "../../components/UpgradeDialog"
 import theme from "../../lib/theme"
 
-function renderDialog(props: Partial<Parameters<typeof UpgradeDialog>[0]> = {}) {
+function renderDialog(
+  props: Partial<Parameters<typeof UpgradeDialog>[0]> = {}
+) {
   const defaults: Parameters<typeof UpgradeDialog>[0] = {
     open: true,
     reason: "scan",
@@ -26,15 +28,21 @@ function renderDialog(props: Partial<Parameters<typeof UpgradeDialog>[0]> = {}) 
 }
 
 describe("UpgradeDialog", () => {
-  it("shows launch prices and restore-purchase controls", () => {
+  it("shows the paid contract, USD prices, and restore-purchase controls", () => {
     renderDialog()
 
     expect(screen.getByText("Mini Cleanup")).toBeInTheDocument()
-    expect(screen.getByText("$2.99")).toBeInTheDocument()
+    expect(screen.getByText("$2.99 USD")).toBeInTheDocument()
+    expect(screen.getByText(/permanent limited unlock/i)).toBeInTheDocument()
     expect(screen.getByText("Cleanup Pass")).toBeInTheDocument()
-    expect(screen.getByText("$4.99")).toBeInTheDocument()
+    expect(screen.getByText("$4.99 USD")).toBeInTheDocument()
+    expect(screen.getByText(/seven days/i)).toBeInTheDocument()
     expect(screen.getByText("Lifetime Early Access")).toBeInTheDocument()
-    expect(screen.getByText("$14.99")).toBeInTheDocument()
+    expect(screen.getByText("$14.99 USD")).toBeInTheDocument()
+    expect(
+      screen.getByText(/one-time payments through Stripe/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/7-day refund policy/i)).toBeInTheDocument()
     expect(screen.getByLabelText("Purchase email")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Recover" })).toBeDisabled()
   })
@@ -56,4 +64,3 @@ describe("UpgradeDialog", () => {
     ).toBeInTheDocument()
   })
 })
-

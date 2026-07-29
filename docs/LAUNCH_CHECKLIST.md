@@ -1,6 +1,6 @@
 # PhotoSweep Paid Launch Checklist
 
-Last updated: 2026-06-30
+Last updated: 2026-07-28
 
 Use this as the release gate for paid multi-provider support. Do not mark a paid
 launch complete until every item has current evidence.
@@ -20,6 +20,8 @@ launch complete until every item has current evidence.
   - `PHOTOSWEEP_STRIPE_PRICE_LIFETIME_EARLY_ACCESS`
 - Create a Stripe webhook endpoint for:
   - `checkout.session.completed`
+  - `checkout.session.async_payment_succeeded`
+  - `checkout.session.async_payment_failed`
   - `checkout.session.expired`
   - `charge.refunded`
   - `charge.dispute.created`
@@ -27,8 +29,10 @@ launch complete until every item has current evidence.
 - Set `STRIPE_WEBHOOK_SECRET` from that endpoint.
 - Run a test-mode checkout and verify the extension receives a signed paid
   entitlement after webhook delivery.
-- Run test-mode refund and dispute events and verify the extension downgrades to
-  free on refresh.
+- Run a delayed-payment test and verify `checkout.session.completed` does not
+  unlock until `checkout.session.async_payment_succeeded`.
+- Run test-mode partial refund, full refund, and dispute events. Verify a partial
+  refund preserves access and a full refund/dispute downgrades on startup refresh.
 
 ## 2. License API Deployment
 
@@ -79,6 +83,7 @@ launch complete until every item has current evidence.
   ```
 
 - Confirm production bundle has dev entitlement disabled.
+- Confirm client telemetry remains off until the in-product disclosure is accepted.
 - Confirm extension pages do not load remote executable JavaScript.
 - Confirm manifest host permissions include the deployed license API origin.
 
@@ -140,7 +145,8 @@ launch complete until every item has current evidence.
   npm run build
   ```
 
-- Test-mode Stripe checkout, refund, and entitlement refresh pass.
+- Test-mode card and delayed-payment checkout, cancel, failure, partial refund,
+  full refund, dispute, restart refresh, and fresh-profile recovery pass.
 - Live Google Photos scan, report, Trash, and restore pass.
 - Policies and support pages are published.
 - The final Chrome Web Store package is built with production env vars only.

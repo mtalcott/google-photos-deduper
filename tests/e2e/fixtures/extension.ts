@@ -20,6 +20,25 @@ export const extensionPath = path.resolve(
   "../../../build/chrome-mv3-dev"
 )
 
+const extensionIds = new WeakMap<BrowserContext, string>()
+
+function rememberExtensionId(context: BrowserContext, extensionId: string): void {
+  extensionIds.set(context, extensionId)
+}
+
+async function openExtensionStoragePage(context: BrowserContext): Promise<Page> {
+  const extensionId = extensionIds.get(context)
+  if (!extensionId) {
+    throw new Error("Extension ID is unavailable for the test context.")
+  }
+
+  const page = await context.newPage()
+  // A static extension resource gives this page chrome.storage access without
+  // booting the app, whose startup effects would race test storage setup.
+  await page.goto(`chrome-extension://${extensionId}/manifest.json`)
+  return page
+}
+
 // ============================================================
 // Connect to an already-running Chrome (full E2E only)
 // ============================================================
@@ -66,6 +85,7 @@ export async function connectToChrome(
     let sw = context.serviceWorkers()[0]
     if (!sw) sw = await context.waitForEvent("serviceworker")
     const extensionId = new URL(sw.url()).hostname
+    rememberExtensionId(context, extensionId)
     const browser = {
       close: () => context.close()
     } as Browser
@@ -135,6 +155,7 @@ export async function connectToChrome(
     )
   }
 
+  rememberExtensionId(context, extensionId)
   return { browser, context, extensionId }
 }
 
@@ -158,6 +179,7 @@ export async function launchExtension(): Promise<{
   let sw = context.serviceWorkers()[0]
   if (!sw) sw = await context.waitForEvent("serviceworker")
   const extensionId = new URL(sw.url()).hostname
+  rememberExtensionId(context, extensionId)
 
   return { context, extensionId }
 }
@@ -174,8 +196,20 @@ export function openAppTab(
 }
 
 // ============================================================
-// Storage helpers (via service worker)
+// Storage helpers (via an extension page, not the ephemeral MV3 worker)
 // ============================================================
+
+async function withExtensionStorage<T>(
+  context: BrowserContext,
+  operation: (page: Page) => Promise<T>
+): Promise<T> {
+  const page = await openExtensionStoragePage(context)
+  try {
+    return await operation(page)
+  } finally {
+    await page.close()
+  }
+}
 
 export async function injectScanResults(
   context: BrowserContext,
@@ -184,24 +218,25 @@ export async function injectScanResults(
   totalItems: number,
   accountEmail: string | null = "test@example.com"
 ): Promise<void> {
-  const sw = context.serviceWorkers()[0]
-  await sw.evaluate(
-    ({ groups, mediaItems, totalItems, accountEmail }) =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.set(
-          {
-            scanResults: {
-              groups,
-              mediaItems,
-              totalItems,
-              scanDate: Date.now(),
-              ...(accountEmail ? { accountEmail } : {})
-            }
-          },
-          resolve
-        )
-      }),
-    { groups, mediaItems, totalItems, accountEmail }
+  await withExtensionStorage(context, (page) =>
+    page.evaluate(
+      ({ groups, mediaItems, totalItems, accountEmail }) =>
+        new Promise<void>((resolve) => {
+          chrome.storage.local.set(
+            {
+              scanResults: {
+                groups,
+                mediaItems,
+                totalItems,
+                scanDate: Date.now(),
+                ...(accountEmail ? { accountEmail } : {})
+              }
+            },
+            resolve
+          )
+        }),
+      { groups, mediaItems, totalItems, accountEmail }
+    )
   )
 }
 
@@ -210,16 +245,17 @@ export async function injectSelections(
   selectedGroupIds: string[],
   keptOverrides: Record<string, string[]> = {}
 ): Promise<void> {
-  const sw = context.serviceWorkers()[0]
-  await sw.evaluate(
-    ({ selectedGroupIds, keptOverrides }) =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.set(
-          { selections: { selectedGroupIds, keptOverrides } },
-          resolve
-        )
-      }),
-    { selectedGroupIds, keptOverrides }
+  await withExtensionStorage(context, (page) =>
+    page.evaluate(
+      ({ selectedGroupIds, keptOverrides }) =>
+        new Promise<void>((resolve) => {
+          chrome.storage.local.set(
+            { selections: { selectedGroupIds, keptOverrides } },
+            resolve
+          )
+        }),
+      { selectedGroupIds, keptOverrides }
+    )
   )
 }
 
@@ -227,13 +263,14 @@ export async function injectScanCheckpoint(
   context: BrowserContext,
   scanCheckpoint: ScanCheckpoint
 ): Promise<void> {
-  const sw = context.serviceWorkers()[0]
-  await sw.evaluate(
-    (scanCheckpoint) =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.set({ scanCheckpoint }, resolve)
-      }),
-    scanCheckpoint
+  await withExtensionStorage(context, (page) =>
+    page.evaluate(
+      (scanCheckpoint) =>
+        new Promise<void>((resolve) => {
+          chrome.storage.local.set({ scanCheckpoint }, resolve)
+        }),
+      scanCheckpoint
+    )
   )
 }
 
@@ -241,38 +278,31 @@ export async function injectEntitlement(
   context: BrowserContext,
   planId: Exclude<PlanId, "free">
 ): Promise<void> {
-  const sw = context.serviceWorkers()[0]
-  await sw.evaluate(
-    (planId) =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.set(
-          {
-            photoSweepDevEntitlement: {
-              planId,
-              active: true,
-              source: "local_dev"
-            }
-          },
-          resolve
-        )
-      }),
-    planId
+  await withExtensionStorage(context, (page) =>
+    page.evaluate(
+      (planId) =>
+        new Promise<void>((resolve) => {
+          chrome.storage.local.set(
+            {
+              photoSweepDevEntitlement: {
+                planId,
+                active: true,
+                source: "local_dev"
+              }
+            },
+            resolve
+          )
+        }),
+      planId
+    )
   )
 }
 
 export async function clearStorage(context: BrowserContext): Promise<void> {
-  let sw = context.serviceWorkers()[0]
-  if (!sw) {
-    try {
-      sw = await context.waitForEvent("serviceworker", { timeout: 5_000 })
-    } catch {
-      // No service worker available (e.g. CDP context without extension SW registered yet)
-      // Skip storage clear — tests must handle stale state themselves
-      return
-    }
-  }
-  await sw.evaluate(
-    () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+  await withExtensionStorage(context, (page) =>
+    page.evaluate(
+      () => new Promise<void>((resolve) => chrome.storage.local.clear(resolve))
+    )
   )
 }
 

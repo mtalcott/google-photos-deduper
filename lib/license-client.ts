@@ -1,16 +1,19 @@
 import type { Entitlement, PlanId } from "./entitlement"
 import { FREE_ENTITLEMENT, isPlanId } from "./entitlement"
+import {
+  ALLOW_DEV_ENTITLEMENT,
+  DEV_ENTITLEMENT_STORAGE_KEY
+} from "./generated/build-flags"
+
+export { ALLOW_DEV_ENTITLEMENT, DEV_ENTITLEMENT_STORAGE_KEY }
 
 export const ENTITLEMENT_STORAGE_KEY = "photoSweepEntitlement"
 export const ENTITLEMENT_TOKEN_STORAGE_KEY = "photoSweepEntitlementToken"
 export const LICENSE_API_BASE_STORAGE_KEY = "photoSweepLicenseApiBase"
-export const DEV_ENTITLEMENT_STORAGE_KEY = "photoSweepDevEntitlement"
 export const LICENSE_API_BASE_URL =
   process.env.PLASMO_PUBLIC_PHOTOSWEEP_LICENSE_API_BASE_URL
 export const ENTITLEMENT_PUBLIC_KEY =
   process.env.PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY
-export const ALLOW_DEV_ENTITLEMENT =
-  process.env.PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT === "1"
 
 export interface SignedEntitlementPayload {
   planId: PlanId
@@ -122,7 +125,10 @@ export async function verifySignedEntitlementToken(
 }
 
 function devEntitlementAllowed(override?: boolean): boolean {
-  return override ?? ALLOW_DEV_ENTITLEMENT
+  return (
+    DEV_ENTITLEMENT_STORAGE_KEY !== undefined &&
+    (override ?? ALLOW_DEV_ENTITLEMENT)
+  )
 }
 
 export function getEffectiveLicenseApiBaseUrl(
@@ -147,14 +153,12 @@ export async function verifyEntitlementTokenWithBundledKey(
 export async function loadStoredEntitlement(
   options: LoadStoredEntitlementOptions = {}
 ): Promise<StoredEntitlement> {
-  const stored = await chrome.storage.local.get([
-    DEV_ENTITLEMENT_STORAGE_KEY,
-    ENTITLEMENT_STORAGE_KEY,
-    ENTITLEMENT_TOKEN_STORAGE_KEY
-  ])
-  const devEntitlement = stored[DEV_ENTITLEMENT_STORAGE_KEY] as
-    | Entitlement
-    | undefined
+  const storageKeys = [ENTITLEMENT_STORAGE_KEY, ENTITLEMENT_TOKEN_STORAGE_KEY]
+  if (DEV_ENTITLEMENT_STORAGE_KEY) storageKeys.unshift(DEV_ENTITLEMENT_STORAGE_KEY)
+  const stored = await chrome.storage.local.get(storageKeys)
+  const devEntitlement = DEV_ENTITLEMENT_STORAGE_KEY
+    ? (stored[DEV_ENTITLEMENT_STORAGE_KEY] as Entitlement | undefined)
+    : undefined
   if (
     devEntitlementAllowed(options.allowDevEntitlement) &&
     devEntitlement?.source === "local_dev"

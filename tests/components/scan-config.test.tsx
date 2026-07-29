@@ -9,10 +9,13 @@ import { ThemeProvider } from "@mui/material/styles"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { ScanConfig } from "../../components/ScanConfig"
+import {
+  recommendedFirstScanDateRange,
+  ScanConfig
+} from "../../components/ScanConfig"
+import type { Entitlement } from "../../lib/entitlement"
 import { createScanCheckpoint } from "../../lib/scan-checkpoint"
 import theme from "../../lib/theme"
-import type { Entitlement } from "../../lib/entitlement"
 import type { ScanSettings } from "../../lib/types"
 
 // ============================================================
@@ -132,6 +135,36 @@ describe("ScanConfig — time window toggle", () => {
 })
 
 describe("ScanConfig — taken date range", () => {
+  it("keeps date scope in the primary path and summarizes the recommended scan", () => {
+    renderConfig()
+
+    expect(screen.getByLabelText("From")).toBeVisible()
+    expect(screen.getByLabelText("To")).toBeVisible()
+    expect(screen.getByText("Recent 30 days · Recommended")).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: /Scan recent 30 days/i })
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: /Check entire library instead/i })
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: /Advanced matching/i })
+    ).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("launches a bounded recommended scan without manual date entry", () => {
+    const { onSettingsChange, onStartScan } = renderConfig()
+    fireEvent.click(
+      screen.getByRole("button", { name: /Scan recent 30 days/i })
+    )
+
+    const dateRange = recommendedFirstScanDateRange()
+    expect(onSettingsChange).toHaveBeenCalledWith({ dateRange })
+    expect(onStartScan).toHaveBeenCalledWith(
+      expect.objectContaining({ dateRange })
+    )
+  })
+
   it("emits date range updates from the date inputs", () => {
     const { onSettingsChange } = renderConfig()
 
@@ -216,7 +249,7 @@ describe("ScanConfig — large-library scan warning", () => {
 describe("ScanConfig — similarity threshold guidance", () => {
   it("explains that lower thresholds catch more reuploads", () => {
     renderConfig({ scanMode: "full", similarityThreshold: 0.95 })
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
 
     expect(
       screen.getByText(
@@ -234,7 +267,7 @@ describe("ScanConfig — album scope", () => {
   it("shows album count and emits the selected album scope", () => {
     const { onSettingsChange } = renderConfig()
 
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     expect(screen.getByText(/2 albums available/i)).toBeInTheDocument()
     fireEvent.mouseDown(screen.getByRole("combobox", { name: /Library area/i }))
     fireEvent.click(screen.getByRole("option", { name: /Tiny test album/i }))
@@ -271,7 +304,7 @@ describe("ScanConfig — photo source", () => {
   it("switches to iCloud and explains scan-only support", () => {
     const { onSettingsChange } = renderConfig()
 
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     fireEvent.click(screen.getByRole("button", { name: /iCloud Photos/i }))
 
     expect(onSettingsChange).toHaveBeenCalledWith({
@@ -291,11 +324,13 @@ describe("ScanConfig — photo source", () => {
       screen.getByText(/Free users can review scoped Smart scans/i)
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     expect(
       screen.queryByRole("combobox", { name: /Library area/i })
     ).not.toBeInTheDocument()
-    expect(screen.queryByText(/iCloud test batch size/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/iCloud test batch size/i)
+    ).not.toBeInTheDocument()
   })
 
   it("uses the same compact scope visual pattern for non-Google providers", () => {
@@ -341,26 +376,28 @@ describe("ScanConfig — photo source", () => {
     ).toBeInTheDocument()
   })
 
-  it("ignores saved iCloud test batches for Free users", () => {
+  it("uses the bounded first-scan recommendation for free iCloud users", () => {
     const { onStartScan, onUpgrade } = renderConfig({
       sourceProvider: "icloud",
       icloudBatchLimit: 50
     })
 
     const startButton = screen.getByRole("button", {
-      name: /Check entire library/i
+      name: /Scan recent 30 days/i
     })
     expect(startButton).toBeInTheDocument()
     expect(screen.queryByText(/Test batch is on/i)).not.toBeInTheDocument()
     expect(
-      screen.getByText(/Free iCloud scans need a date range before scanning/i)
-    ).toBeInTheDocument()
+      screen.queryByText(/Free iCloud scans need a date range before scanning/i)
+    ).not.toBeInTheDocument()
 
     fireEvent.click(startButton)
-    expect(onStartScan).not.toHaveBeenCalled()
-    expect(onUpgrade).toHaveBeenCalledWith(
-      expect.stringMatching(/Free iCloud scans need a date range/i)
+    expect(onStartScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dateRange: recommendedFirstScanDateRange()
+      })
     )
+    expect(onUpgrade).not.toHaveBeenCalled()
   })
 
   it("labels iCloud capped scans as test batches for paid users", () => {
@@ -402,7 +439,7 @@ describe("ScanConfig — photo source", () => {
     expect(
       screen.getByText(/Free and paid limits match the Google Photos workflow/i)
     ).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     expect(
       screen.queryByRole("combobox", { name: /Library area/i })
     ).not.toBeInTheDocument()
@@ -436,7 +473,7 @@ describe("ScanConfig — embedding cache controls", () => {
     )
 
     expect(screen.getByText(/1,234 cached embeddings/i)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: /More options/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Advanced matching/i }))
     fireEvent.click(screen.getByRole("button", { name: /Clear Cache/i }))
     fireEvent.click(screen.getByRole("button", { name: /Rebuild Cache/i }))
     fireEvent.click(screen.getByRole("button", { name: /Export Diagnostics/i }))

@@ -20,22 +20,27 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
 import Typography from "@mui/material/Typography"
 
 import { FULL_SCAN_BLOCK_SIZE } from "../lib/duplicate-detector"
-import type { ScanCheckpoint } from "../lib/scan-checkpoint"
 import {
-  describeScanCheckpointResume,
-  summarizeScanCheckpoint
-} from "../lib/scan-checkpoint"
-import {
-  canUseScanMode,
   canUsePaidProvider,
-  getEstimatedScanCount,
+  canUseScanMode,
   getEffectivePlanId,
+  getEstimatedScanCount,
   getScanGate,
   isFreeIcloudPlan,
   PLAN_LABELS,
   scanSettingsForEntitlement,
   type Entitlement
 } from "../lib/entitlement"
+import {
+  getProviderOperations,
+  providerBatchLimit,
+  providerLabel
+} from "../lib/provider-operations"
+import type { ScanCheckpoint } from "../lib/scan-checkpoint"
+import {
+  describeScanCheckpointResume,
+  summarizeScanCheckpoint
+} from "../lib/scan-checkpoint"
 import { photoSweepColors } from "../lib/theme"
 import type { GpdAlbum, PhotoProvider, ScanSettings } from "../lib/types"
 
@@ -53,16 +58,22 @@ function isDateRangeInvalid(settings: ScanSettings): boolean {
   return !!(from && to && from > to)
 }
 
-function providerUrl(provider: ScanSettings["sourceProvider"]): string {
-  if (provider === "icloud") return "https://www.icloud.com/photos"
-  if (provider === "amazon") return "https://www.amazon.com/photos?sf=1"
-  return "https://photos.google.com/"
+function dateInputValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
-function providerLabel(provider: ScanSettings["sourceProvider"]): string {
-  if (provider === "icloud") return "iCloud Photos"
-  if (provider === "amazon") return "Amazon Photos"
-  return "Google Photos"
+export function recommendedFirstScanDateRange(
+  now = new Date()
+): NonNullable<ScanSettings["dateRange"]> {
+  const from = new Date(now)
+  from.setDate(from.getDate() - 29)
+  return {
+    from: dateInputValue(from),
+    to: dateInputValue(now)
+  }
 }
 
 function providerHelpText(provider: ScanSettings["sourceProvider"]): string {
@@ -87,23 +98,10 @@ function compactScopeHelp(provider: ScanSettings["sourceProvider"]): string {
   return "Choose an album or scan the full timeline."
 }
 
-function providerBatchLimit(settings: ScanSettings): number | undefined {
-  const provider = settings.sourceProvider ?? "google"
-  const limit =
-    provider === "amazon"
-      ? settings.amazonBatchLimit
-      : provider === "icloud"
-        ? settings.icloudBatchLimit
-        : undefined
-  return typeof limit === "number" && Number.isFinite(limit) && limit > 0
-    ? Math.floor(limit)
-    : undefined
-}
-
 interface ScanConfigProps {
   settings: ScanSettings
   onSettingsChange: (settings: Partial<ScanSettings>) => void
-  onStartScan: () => void
+  onStartScan: (settingsOverride?: ScanSettings) => void
   onOpenProvider?: (provider: PhotoProvider) => void
   onResumeScan?: () => void
   onDismissResume?: () => void
@@ -152,7 +150,8 @@ export function ScanConfig({
   const sourceProvider = settings.sourceProvider ?? "google"
   const isIcloud = sourceProvider === "icloud"
   const isAmazon = sourceProvider === "amazon"
-  const supportsAlbumScope = sourceProvider === "google"
+  const supportsAlbumScope =
+    getProviderOperations(sourceProvider).supportsAlbumScope
   const entitlementSettings = scanSettingsForEntitlement(settings, entitlement)
   const batchLimit = providerBatchLimit(entitlementSettings)
   const freeIcloudPlan = isFreeIcloudPlan(settings, entitlement)
@@ -160,10 +159,24 @@ export function ScanConfig({
   const hasScanScope = Boolean(
     settings.albumScope || settings.dateRange?.from || settings.dateRange?.to
   )
+  const useRecommendedFirstScope =
+    settings.scanMode === "smart" && !hasScanScope && !batchLimit
+  const recommendedDateRange = recommendedFirstScanDateRange()
+  const startSettings = useRecommendedFirstScope
+    ? { ...settings, dateRange: recommendedDateRange }
+    : settings
   const showUnscopedFullScanWarning =
     settings.scanMode === "full" && !hasScanScope
-  const estimatedScanCount = getEstimatedScanCount(entitlementSettings)
-  const scanGate = getScanGate(entitlementSettings, estimatedScanCount, entitlement)
+  const startEntitlementSettings = scanSettingsForEntitlement(
+    startSettings,
+    entitlement
+  )
+  const estimatedScanCount = getEstimatedScanCount(startEntitlementSettings)
+  const scanGate = getScanGate(
+    startEntitlementSettings,
+    estimatedScanCount,
+    entitlement
+  )
   const fullScanAllowed = canUseScanMode("full", entitlement)
   const planName = PLAN_LABELS[getEffectivePlanId(entitlement)]
   const providerPaidSupported = canUsePaidProvider(sourceProvider, entitlement)
@@ -337,7 +350,11 @@ export function ScanConfig({
                   <ToggleButton value="amazon">Amazon Photos</ToggleButton>
                 </ToggleButtonGroup>
                 <Button
-                  href={onOpenProvider ? undefined : providerUrl(sourceProvider)}
+                  href={
+                    onOpenProvider
+                      ? undefined
+                      : getProviderOperations(sourceProvider).openUrl()
+                  }
                   target={onOpenProvider ? undefined : "_blank"}
                   rel={onOpenProvider ? undefined : "noopener noreferrer"}
                   size="small"
@@ -639,6 +656,74 @@ export function ScanConfig({
           )}
         </Paper>
 
+        <Paper
+          variant="outlined"
+          sx={{
+            p: compact ? 1 : 2,
+            mb: compact ? 0.75 : 2,
+            borderRadius: compact ? 1.5 : 2,
+            borderColor: "rgba(214,226,221,0.86)",
+            bgcolor: compact
+              ? "rgba(255,255,255,0.82)"
+              : photoSweepColors.surfaceSoft
+          }}>
+          <Typography variant="body2" fontWeight={750} sx={{ mb: 0.35 }}>
+            When
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 1 }}>
+            Add either date to focus the scan. Leave both blank to check every
+            taken date.
+          </Typography>
+          <Stack
+            direction={compact ? "row" : { xs: "column", sm: "row" }}
+            spacing={1}>
+            <TextField
+              label="From"
+              type="date"
+              size="small"
+              fullWidth
+              value={settings.dateRange?.from ?? ""}
+              InputLabelProps={{ shrink: true }}
+              onChange={(event) =>
+                onSettingsChange({
+                  dateRange: {
+                    ...settings.dateRange,
+                    from: event.target.value || undefined
+                  }
+                })
+              }
+            />
+            <TextField
+              label="To"
+              type="date"
+              size="small"
+              fullWidth
+              value={settings.dateRange?.to ?? ""}
+              InputLabelProps={{ shrink: true }}
+              onChange={(event) =>
+                onSettingsChange({
+                  dateRange: {
+                    ...settings.dateRange,
+                    to: event.target.value || undefined
+                  }
+                })
+              }
+            />
+          </Stack>
+          {(settings.dateRange?.from || settings.dateRange?.to) && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 0.5 }}>
+              <Button
+                size="small"
+                onClick={() => onSettingsChange({ dateRange: undefined })}>
+                Clear dates
+              </Button>
+            </Box>
+          )}
+        </Paper>
+
         {showUnscopedFullScanWarning && !compact && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             Full-library comparison can be slow and memory-heavy on large photo
@@ -682,6 +767,41 @@ export function ScanConfig({
           </Alert>
         )}
 
+        <Box
+          sx={{
+            mb: compact ? 0.75 : 1.5,
+            px: compact ? 1 : 1.5,
+            py: compact ? 0.9 : 1.25,
+            borderRadius: compact ? 1.5 : 2,
+            border: "1px solid",
+            borderColor:
+              settings.scanMode === "smart"
+                ? photoSweepColors.primaryBorder
+                : photoSweepColors.border,
+            bgcolor:
+              settings.scanMode === "smart"
+                ? photoSweepColors.primarySoft
+                : photoSweepColors.surfaceSoft
+          }}>
+          <Typography variant="body2" fontWeight={800}>
+            {useRecommendedFirstScope
+              ? "Recent 30 days · Recommended"
+              : settings.scanMode === "smart"
+                ? "Smart scan · Recommended"
+                : "Full scan"}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
+            {useRecommendedFirstScope
+              ? "Starts with a bounded first pass. Widen the dates or use the entire library after you see the first results."
+              : settings.scanMode === "smart"
+                ? "Compares photos and videos saved close together. It is faster and works well for normal duplicates."
+                : `Compares every item in ${FULL_SCAN_BLOCK_SIZE.toLocaleString()}-item blocks to find copies saved far apart.`}
+          </Typography>
+        </Box>
+
         <Button
           variant="contained"
           fullWidth
@@ -698,6 +818,11 @@ export function ScanConfig({
                       ? `Your ${planName} plan needs an album, date range, or smaller test batch before scanning.`
                       : `This scan is above the ${scanGate.limit?.toLocaleString()} photo limit for ${planName}.`
               )
+              return
+            }
+            if (useRecommendedFirstScope) {
+              onSettingsChange({ dateRange: recommendedDateRange })
+              onStartScan(startSettings)
               return
             }
             onStartScan()
@@ -723,8 +848,20 @@ export function ScanConfig({
               ? `Check ${batchLimit.toLocaleString()} item test batch`
               : settings.dateRange?.from || settings.dateRange?.to
                 ? "Check this date range"
-                : "Check entire library"}
+                : useRecommendedFirstScope
+                  ? "Scan recent 30 days"
+                  : "Check entire library"}
         </Button>
+
+        {useRecommendedFirstScope && (
+          <Button
+            fullWidth
+            size="small"
+            onClick={() => onStartScan(settings)}
+            sx={{ mb: compact ? 1 : 2, fontWeight: 750 }}>
+            Check entire library instead
+          </Button>
+        )}
 
         {showUnscopedFullScanWarning && compact && (
           <Alert
@@ -786,7 +923,7 @@ export function ScanConfig({
               variant="body2"
               fontWeight={compact ? 700 : undefined}
               color={compact ? "text.primary" : "text.secondary"}>
-              {compact ? "Advanced" : "More options"}
+              Advanced matching
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={compact ? { px: 1, pt: 0, pb: 1 } : undefined}>
@@ -910,67 +1047,6 @@ export function ScanConfig({
                 />
               </Box>
             )}
-
-            <Box sx={{ mb: compact ? 1.75 : 3 }}>
-              <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-                Date range
-              </Typography>
-              <Stack
-                direction={compact ? "row" : { xs: "column", sm: "row" }}
-                spacing={1}>
-                <TextField
-                  label="From"
-                  type="date"
-                  size="small"
-                  fullWidth
-                  value={settings.dateRange?.from ?? ""}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(event) =>
-                    onSettingsChange({
-                      dateRange: {
-                        ...settings.dateRange,
-                        from: event.target.value || undefined
-                      }
-                    })
-                  }
-                />
-                <TextField
-                  label="To"
-                  type="date"
-                  size="small"
-                  fullWidth
-                  value={settings.dateRange?.to ?? ""}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(event) =>
-                    onSettingsChange({
-                      dateRange: {
-                        ...settings.dateRange,
-                        to: event.target.value || undefined
-                      }
-                    })
-                  }
-                />
-              </Stack>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mt: 1
-                }}>
-                {!compact && (
-                  <Typography variant="caption" color="text.secondary">
-                    Leave blank to check every taken date.
-                  </Typography>
-                )}
-                {(settings.dateRange?.from || settings.dateRange?.to) && (
-                  <Button
-                    size="small"
-                    onClick={() => onSettingsChange({ dateRange: undefined })}>
-                    Clear
-                  </Button>
-                )}
-              </Box>
-            </Box>
 
             <Box>
               <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>

@@ -174,7 +174,7 @@ Recommended launch pricing:
 | Plan | Price | Purpose |
 | --- | ---: | --- |
 | Free | $0 | Prove trust and show value |
-| Mini Cleanup | $2.99 | Convert small one-session cleanup users |
+| Mini Cleanup | $2.99 | Permanent limited unlock for smaller libraries |
 | Cleanup Pass | $4.99 for 7 days | Convert one-time large cleanup users |
 | Lifetime Early Access | $14.99 | Best consumer-friendly launch anchor |
 
@@ -214,7 +214,8 @@ Limit:
 
 Unlock:
 
-- Mini Cleanup: 2,500-photo scans, 75 visible groups, and 100 Trash moves.
+- Mini Cleanup: permanent access to 2,500-photo scans, 75 visible groups, and
+  100 Trash moves per session.
 - Cleanup Pass: 10,000-photo sessions, full reports, full scan, and large resume for 7 days.
 - Lifetime Early Access: unlimited Google Photos, iCloud Photos, and Amazon
   Photos workflows for early users.

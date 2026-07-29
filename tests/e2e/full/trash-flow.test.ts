@@ -18,9 +18,9 @@ import { connectToChrome } from "../fixtures/extension"
 test.setTimeout(600_000)
 
 async function expandMoreOptions(page: Page): Promise<void> {
-  const albumInput = page.getByRole("combobox", { name: /Album/i })
+  const albumInput = page.getByRole("combobox", { name: /Library area/i })
   if (await albumInput.isVisible().catch(() => false)) return
-  await page.getByRole("button", { name: /More options/i }).click()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
 }
 
 async function applyConfiguredScope(page: Page): Promise<void> {
@@ -31,7 +31,7 @@ async function applyConfiguredScope(page: Page): Promise<void> {
   await expandMoreOptions(page)
 
   if (albumTitle) {
-    await page.getByRole("combobox", { name: /Album/i }).click()
+    await page.getByRole("combobox", { name: /Library area/i }).click()
     await page
       .getByRole("option", { name: new RegExp(albumTitle, "i") })
       .click()
@@ -95,7 +95,7 @@ test("trashes duplicates via API and undoes via undo snackbar", async () => {
 
     // Skip gracefully if no duplicates are selected in this account.
     const trashButton = appPage.getByRole("button", {
-      name: /Move \d+ Duplicates? to Trash/i
+      name: /Review & move \d+ to Trash/i
     })
     if (!(await trashButton.isEnabled())) {
       test.skip()
@@ -107,12 +107,14 @@ test("trashes duplicates via API and undoes via undo snackbar", async () => {
     const groupCountBefore = await groupCountEl.textContent()
 
     const trashButtonText = (await trashButton.textContent()) || ""
-    const countMatch = trashButtonText.match(/Move\s+(\d+)\s+Duplicate/i)
+    const countMatch = trashButtonText.match(
+      /Review\s*&\s*move\s+([\d,]+)\s+to\s+Trash/i
+    )
     expect(
       countMatch,
       `Could not parse Trash count from "${trashButtonText}"`
     ).toBeTruthy()
-    const trashCount = Number(countMatch![1])
+    const trashCount = Number(countMatch![1].replaceAll(",", ""))
 
     // Confirm the dialog by typing the exact item count.
     await trashButton.click()

@@ -18,9 +18,9 @@ import { clearStorage, connectToChrome } from "../fixtures/extension"
 test.setTimeout(600_000)
 
 async function expandMoreOptions(page: Page): Promise<void> {
-  const albumInput = page.getByRole("combobox", { name: /Album/i })
+  const albumInput = page.getByRole("combobox", { name: /Library area/i })
   if (await albumInput.isVisible().catch(() => false)) return
-  await page.getByRole("button", { name: /More options/i }).click()
+  await page.getByRole("button", { name: /Advanced matching/i }).click()
 }
 
 async function applyConfiguredScope(page: Page): Promise<string> {
@@ -31,7 +31,7 @@ async function applyConfiguredScope(page: Page): Promise<string> {
   await expandMoreOptions(page)
 
   if (albumTitle) {
-    await page.getByRole("combobox", { name: /Album/i }).click()
+    await page.getByRole("combobox", { name: /Library area/i }).click()
     await page
       .getByRole("option", { name: new RegExp(albumTitle, "i") })
       .click()

@@ -5,14 +5,14 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 import {
+  importEntitlementPublicKey,
+  verifySignedEntitlementToken
+} from "../../lib/license-client"
+import {
   createJsonFileLicenseStore,
   createLicenseApi,
   createMemoryLicenseStore
 } from "../../server/license-api.mjs"
-import {
-  importEntitlementPublicKey,
-  verifySignedEntitlementToken
-} from "../../lib/license-client"
 
 function base64Url(value: string): string {
   return Buffer.from(value).toString("base64url")
@@ -24,7 +24,9 @@ function testKeys(): { privateKey: string; publicKey: string } {
   })
   return {
     privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
-    publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64url")
+    publicKey: publicKey
+      .export({ type: "spki", format: "der" })
+      .toString("base64url")
   }
 }
 
@@ -100,9 +102,9 @@ describe("license API", () => {
     expect(stripeBody.get("line_items[0][price]")).toBe("price_pass")
     expect(stripeBody.get("metadata[planId]")).toBe("cleanup_pass")
     expect(stripeBody.get("metadata[licenseSessionId]")).toBe(licenseSessionId)
-    expect(
-      new Headers(stripeCalls[0].init.headers).get("stripe-version")
-    ).toBe("2026-02-25.clover")
+    expect(new Headers(stripeCalls[0].init.headers).get("stripe-version")).toBe(
+      "2026-02-25.clover"
+    )
 
     const webhookBody = JSON.stringify({
       id: "evt_checkout",
@@ -111,6 +113,7 @@ describe("license API", () => {
         object: {
           id: "cs_test_123",
           customer: "cus_test_123",
+          payment_status: "paid",
           client_reference_id: licenseSessionId,
           metadata: {
             planId: "cleanup_pass",
@@ -124,7 +127,10 @@ describe("license API", () => {
       new Request("https://license.test/stripe/webhook", {
         method: "POST",
         headers: {
-          "stripe-signature": webhookSignature(webhookBody, env.STRIPE_WEBHOOK_SECRET)
+          "stripe-signature": webhookSignature(
+            webhookBody,
+            env.STRIPE_WEBHOOK_SECRET
+          )
         },
         body: webhookBody
       })
@@ -138,11 +144,97 @@ describe("license API", () => {
     )
     expect(entitlementResponse.status).toBe(200)
     const entitlement = (await entitlementResponse.json()) as { token: string }
-    await expect(verifyToken(entitlement.token, keys.publicKey)).resolves.toMatchObject({
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
       planId: "cleanup_pass",
       active: true,
       source: "signed_token"
     })
+    expect(store.snapshot().analyticsEvents).toEqual([
+      expect.objectContaining({
+        name: "purchase_completed",
+        planId: "cleanup_pass"
+      })
+    ])
+  })
+
+  it("waits for delayed payment success before activating access", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const licenseSessionId = "pls_delayed_payment"
+    const checkoutSession = {
+      id: "cs_delayed",
+      customer: "cus_delayed",
+      payment_intent: "pi_delayed",
+      payment_status: "unpaid",
+      client_reference_id: licenseSessionId,
+      metadata: {
+        planId: "lifetime",
+        licenseSessionId
+      }
+    }
+    const sendEvent = (id: string, type: string, object = checkoutSession) => {
+      const body = JSON.stringify({ id, type, data: { object } })
+      return api(
+        new Request("https://license.test/stripe/webhook", {
+          method: "POST",
+          headers: {
+            "stripe-signature": webhookSignature(
+              body,
+              env.STRIPE_WEBHOOK_SECRET
+            )
+          },
+          body
+        })
+      )
+    }
+
+    expect(
+      (await sendEvent("evt_delayed_completed", "checkout.session.completed"))
+        .status
+    ).toBe(200)
+    expect(store.snapshot().licensesBySessionId).toEqual({})
+
+    expect(
+      (
+        await sendEvent(
+          "evt_delayed_paid",
+          "checkout.session.async_payment_succeeded",
+          {
+            ...checkoutSession,
+            payment_status: "paid"
+          }
+        )
+      ).status
+    ).toBe(200)
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      planId: "lifetime",
+      status: "active"
+    })
+    expect(store.snapshot().analyticsEvents).toEqual([
+      expect.objectContaining({
+        name: "purchase_completed",
+        planId: "lifetime"
+      })
+    ])
+
+    expect(
+      (
+        await sendEvent("evt_delayed_replay", "checkout.session.completed", {
+          ...checkoutSession,
+          payment_status: "paid"
+        })
+      ).status
+    ).toBe(200)
+    expect(store.snapshot().analyticsEvents).toHaveLength(1)
   })
 
   it("is idempotent and downgrades refunded customer licenses", async () => {
@@ -192,6 +284,7 @@ describe("license API", () => {
         object: {
           id: "cs_test_456",
           customer: "cus_refund_456",
+          payment_status: "paid",
           client_reference_id: licenseSessionId,
           metadata: { planId: "lifetime", licenseSessionId }
         }
@@ -216,7 +309,13 @@ describe("license API", () => {
     const refundEvent = JSON.stringify({
       id: "evt_refund",
       type: "charge.refunded",
-      data: { object: { customer: "cus_refund_456" } }
+      data: {
+        object: {
+          payment_intent: "pi_refund_456",
+          amount: 1499,
+          amount_refunded: 1499
+        }
+      }
     })
     expect(
       (
@@ -242,11 +341,117 @@ describe("license API", () => {
     )
     expect(entitlementResponse.status).toBe(200)
     const entitlement = (await entitlementResponse.json()) as { token: string }
-    await expect(verifyToken(entitlement.token, keys.publicKey)).resolves.toMatchObject({
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
       planId: "free",
       active: true,
       source: "signed_token"
     })
+  })
+
+  it("keeps access after a partial refund and revokes it after a full refund", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const licenseSessionId = "pls_partial_refund"
+    await store.upsertLicense({
+      sessionId: licenseSessionId,
+      planId: "lifetime",
+      status: "active",
+      stripePaymentIntentId: "pi_partial_refund",
+      purchasedAt: Date.now()
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const sendRefund = async (
+      eventId: string,
+      amountRefunded: number
+    ): Promise<Response> => {
+      const body = JSON.stringify({
+        id: eventId,
+        type: "charge.refunded",
+        data: {
+          object: {
+            payment_intent: "pi_partial_refund",
+            amount: 1499,
+            amount_refunded: amountRefunded
+          }
+        }
+      })
+      return api(
+        new Request("https://license.test/stripe/webhook", {
+          method: "POST",
+          headers: {
+            "stripe-signature": webhookSignature(
+              body,
+              env.STRIPE_WEBHOOK_SECRET
+            )
+          },
+          body
+        })
+      )
+    }
+
+    expect((await sendRefund("evt_partial_refund", 500)).status).toBe(200)
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      status: "active"
+    })
+    expect(store.snapshot().analyticsEvents).toEqual([])
+
+    expect((await sendRefund("evt_full_refund", 1499)).status).toBe(200)
+    expect(
+      store.snapshot().licensesBySessionId[licenseSessionId]
+    ).toMatchObject({
+      status: "inactive",
+      inactiveReason: "charge.refunded"
+    })
+    expect(store.snapshot().analyticsEvents).toEqual([
+      expect.objectContaining({
+        name: "purchase_refunded",
+        planId: "lifetime"
+      })
+    ])
+  })
+
+  it("bounds long-lived signed access so revocations can reconcile", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    await store.upsertLicense({
+      sessionId: "pls_token_ttl",
+      planId: "lifetime",
+      status: "active",
+      purchasedAt: Date.now()
+    })
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store
+    })
+    const before = Date.now()
+    const response = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": "pls_token_ttl" }
+      })
+    )
+    const body = (await response.json()) as { token: string }
+    const entitlement = await verifyToken(body.token, keys.publicKey)
+
+    expect(entitlement).toMatchObject({
+      planId: "lifetime",
+      active: true,
+      source: "signed_token"
+    })
+    expect(entitlement.expiresAt).toBeGreaterThan(
+      before + 29 * 24 * 60 * 60 * 1000
+    )
+    expect(entitlement.expiresAt).toBeLessThanOrEqual(
+      Date.now() + 30 * 24 * 60 * 60 * 1000
+    )
   })
 
   it("refunds by payment intent without deactivating another license for the same customer", async () => {
@@ -309,7 +514,9 @@ describe("license API", () => {
       })
     )
     const current = (await currentEntitlement.json()) as { token: string }
-    await expect(verifyToken(current.token, keys.publicKey)).resolves.toMatchObject({
+    await expect(
+      verifyToken(current.token, keys.publicKey)
+    ).resolves.toMatchObject({
       planId: "lifetime",
       active: true,
       source: "signed_token"
@@ -320,11 +527,154 @@ describe("license API", () => {
       })
     )
     const old = (await oldEntitlement.json()) as { token: string }
-    await expect(verifyToken(old.token, keys.publicKey)).resolves.toMatchObject({
-      planId: "free",
-      active: true,
-      source: "signed_token"
+    await expect(verifyToken(old.token, keys.publicKey)).resolves.toMatchObject(
+      {
+        planId: "free",
+        active: true,
+        source: "signed_token"
+      }
+    )
+  })
+
+  it("keeps the highest valid purchase when another purchase is refunded", async () => {
+    const keys = testKeys()
+    const env = envFor(keys.privateKey)
+    const store = createMemoryLicenseStore()
+    const stripeCalls: Array<{ body: URLSearchParams }> = []
+    const api = createLicenseApi({
+      env: env as unknown as NodeJS.ProcessEnv,
+      store,
+      fetchImpl: (async (_url: RequestInfo | URL, init?: RequestInit) => {
+        const body = init?.body as URLSearchParams
+        stripeCalls.push({ body })
+        return new Response(
+          JSON.stringify({
+            id: `cs_multi_${stripeCalls.length}`,
+            url: `https://checkout.stripe.test/cs_multi_${stripeCalls.length}`
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      }) as typeof fetch
     })
+    const sessionId = "pls_multi_purchase"
+
+    for (const planId of ["lifetime", "cleanup_pass"]) {
+      const response = await api(
+        new Request("https://license.test/checkout", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-photosweep-license-session": sessionId
+          },
+          body: JSON.stringify({ planId })
+        })
+      )
+      expect(response.status).toBe(200)
+    }
+    expect(stripeCalls).toHaveLength(2)
+    expect(
+      stripeCalls.map((call) => call.body.get("metadata[licenseSessionId]"))
+    ).toEqual([sessionId, sessionId])
+
+    const sendPaidCheckout = async (
+      eventId: string,
+      checkoutId: string,
+      paymentIntentId: string,
+      planId: "lifetime" | "cleanup_pass"
+    ) => {
+      const body = JSON.stringify({
+        id: eventId,
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: checkoutId,
+            payment_intent: paymentIntentId,
+            payment_status: "paid",
+            client_reference_id: sessionId,
+            metadata: { planId, licenseSessionId: sessionId }
+          }
+        }
+      })
+      return api(
+        new Request("https://license.test/stripe/webhook", {
+          method: "POST",
+          headers: {
+            "stripe-signature": webhookSignature(
+              body,
+              env.STRIPE_WEBHOOK_SECRET
+            )
+          },
+          body
+        })
+      )
+    }
+
+    expect(
+      (await sendPaidCheckout("evt_lifetime", "cs_multi_1", "pi_lifetime", "lifetime"))
+        .status
+    ).toBe(200)
+    expect(
+      (
+        await sendPaidCheckout(
+          "evt_cleanup_pass",
+          "cs_multi_2",
+          "pi_cleanup_pass",
+          "cleanup_pass"
+        )
+      ).status
+    ).toBe(200)
+
+    const entitlementBeforeRefund = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": sessionId }
+      })
+    )
+    await expect(
+      verifyToken(
+        (await entitlementBeforeRefund.json() as { token: string }).token,
+        keys.publicKey
+      )
+    ).resolves.toMatchObject({ planId: "lifetime", active: true })
+
+    const refundBody = JSON.stringify({
+      id: "evt_lifetime_refund",
+      type: "charge.refunded",
+      data: {
+        object: {
+          payment_intent: "pi_lifetime",
+          amount: 1499,
+          amount_refunded: 1499
+        }
+      }
+    })
+    expect(
+      (
+        await api(
+          new Request("https://license.test/stripe/webhook", {
+            method: "POST",
+            headers: {
+              "stripe-signature": webhookSignature(
+                refundBody,
+                env.STRIPE_WEBHOOK_SECRET
+              )
+            },
+            body: refundBody
+          })
+        )
+      ).status
+    ).toBe(200)
+
+    const entitlementAfterRefund = await api(
+      new Request("https://license.test/entitlement", {
+        headers: { "x-photosweep-license-session": sessionId }
+      })
+    )
+    await expect(
+      verifyToken(
+        (await entitlementAfterRefund.json() as { token: string }).token,
+        keys.publicKey
+      )
+    ).resolves.toMatchObject({ planId: "cleanup_pass", active: true })
   })
 
   it("does not deactivate a paid license from an older expired checkout", async () => {
@@ -376,7 +726,9 @@ describe("license API", () => {
       })
     )
     const entitlement = (await entitlementResponse.json()) as { token: string }
-    await expect(verifyToken(entitlement.token, keys.publicKey)).resolves.toMatchObject({
+    await expect(
+      verifyToken(entitlement.token, keys.publicKey)
+    ).resolves.toMatchObject({
       planId: "lifetime",
       active: true,
       source: "signed_token"
@@ -442,7 +794,10 @@ describe("license API", () => {
       env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
       store: {
         ...store,
-        async sendRecoveryEmail(message: { email: string; recoveryUrl: string }) {
+        async sendRecoveryEmail(message: {
+          email: string
+          recoveryUrl: string
+        }) {
           sent.push(message)
         }
       }
@@ -495,7 +850,10 @@ describe("license API", () => {
       env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
       store: {
         ...store,
-        async sendRecoveryEmail(message: { email: string; recoveryUrl: string }) {
+        async sendRecoveryEmail(message: {
+          email: string
+          recoveryUrl: string
+        }) {
           sent.push(message)
         }
       }
@@ -561,8 +919,33 @@ describe("license API", () => {
       errorCategory: undefined
     })
     expect(typeof snapshot.analyticsEvents[0].recordedAt).toBe("number")
-    expect(JSON.stringify(snapshot.analyticsEvents)).not.toContain("photos.google.com")
+    expect(JSON.stringify(snapshot.analyticsEvents)).not.toContain(
+      "photos.google.com"
+    )
     expect(JSON.stringify(snapshot.analyticsEvents)).not.toContain("IMG_1234")
+  })
+
+  it("rejects client attempts to forge payment lifecycle analytics", async () => {
+    const keys = testKeys()
+    const store = createMemoryLicenseStore()
+    const api = createLicenseApi({
+      env: envFor(keys.privateKey) as unknown as NodeJS.ProcessEnv,
+      store
+    })
+
+    const response = await api(
+      new Request("https://license.test/analytics", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "purchase_completed",
+          planId: "lifetime"
+        })
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(store.snapshot().analyticsEvents).toEqual([])
   })
 
   it("persists licenses and processed Stripe events in the JSON file store", async () => {
@@ -588,14 +971,18 @@ describe("license API", () => {
     })
 
     const reloaded = createJsonFileLicenseStore(storePath)
-    await expect(reloaded.getLicenseBySessionId("pls_file")).resolves.toMatchObject({
+    await expect(
+      reloaded.getLicenseBySessionId("pls_file")
+    ).resolves.toMatchObject({
       planId: "mini_cleanup",
       status: "active"
     })
     await expect(
       reloaded.getSessionIdByStripeCustomerId("cus_file")
     ).resolves.toBe("pls_file")
-    await expect(reloaded.hasProcessedStripeEvent("evt_file")).resolves.toBe(true)
+    await expect(reloaded.hasProcessedStripeEvent("evt_file")).resolves.toBe(
+      true
+    )
     const snapshot = await reloaded.snapshot()
     expect(snapshot.analyticsEvents).toHaveLength(1)
     expect(snapshot.analyticsEvents[0]).toMatchObject({

@@ -81,17 +81,22 @@ describe("ScanProgress", () => {
 
     it("shows processed count only when totalEstimate is 0", () => {
       renderScanProgress({ itemsProcessed: 123, totalEstimate: 0 })
-      expect(screen.getByText("123 checked")).toBeInTheDocument()
+      expect(screen.getByText("123", { exact: false })).toBeInTheDocument()
+      expect(
+        screen.getByText(/You can leave this tab open/i)
+      ).toBeInTheDocument()
     })
 
     it("shows processed / total when totalEstimate > 0", () => {
       renderScanProgress({ itemsProcessed: 300, totalEstimate: 1000 })
-      expect(screen.getByText("300 of 1,000 checked")).toBeInTheDocument()
+      expect(screen.getByText(/300 of 1,000 checked/)).toBeInTheDocument()
     })
 
     it("formats large numbers with locale separators", () => {
       renderScanProgress({ itemsProcessed: 12345, totalEstimate: 50000 })
-      expect(screen.getByText("12,345 of 50,000 checked")).toBeInTheDocument()
+      expect(
+        screen.getByText(/12,345 of 50,000 checked/)
+      ).toBeInTheDocument()
     })
   })
 
@@ -182,6 +187,20 @@ describe("ScanProgress", () => {
     it("shows 'Finding Duplicates' heading", () => {
       renderScanProgress()
       expect(screen.getByText("Finding Duplicates")).toBeInTheDocument()
+    })
+
+    it("shows only the active scan phase instead of a second four-card stepper", () => {
+      renderScanProgress({ phase: "computing_embeddings" })
+      expect(screen.getAllByText("Comparing photos and videos")).toHaveLength(1)
+      expect(screen.queryByText("Loading previews")).not.toBeInTheDocument()
+      expect(screen.queryByText("Preparing review sets")).not.toBeInTheDocument()
+    })
+
+    it("keeps technical activity collapsed by default", () => {
+      renderScanProgress({ message: "embedding batch 3 of 10" })
+      const details = screen.getByText("Technical activity").closest("details")
+      expect(details).not.toHaveAttribute("open")
+      expect(details).toHaveTextContent("embedding batch 3 of 10")
     })
   })
 })

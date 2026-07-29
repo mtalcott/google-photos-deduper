@@ -17,11 +17,11 @@ jobs:
       PLASMO_PUBLIC_PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY: ${{ secrets.PHOTOSWEEP_ENTITLEMENT_PUBLIC_KEY }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           submodules: recursive
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: 24
           cache: npm
@@ -46,7 +46,7 @@ jobs:
         run: npm run audit:extension-package
 
       - name: Publish to Chrome Web Store
-        uses: PlasmoHQ/bpp@v3
+        uses: PlasmoHQ/bpp@c15984c0a74f452851c605cab46f34d9fd6cb158
         with:
           keys: ${{ secrets.SUBMIT_KEYS }}
           artifact: build/chrome-mv3-prod.zip

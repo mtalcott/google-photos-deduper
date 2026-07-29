@@ -1,14 +1,16 @@
 {
   "name": "google-photos-deduper",
   "displayName": "PhotoSweep - Duplicate Photo Finder",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Find and review duplicate photos in Google Photos, iCloud Photos, and Amazon Photos, with provider-specific flows where supported.",
   "author": "Mack Talcott",
   "scripts": {
     "build:gptk": "git submodule update --init && (test -d Google-Photos-Toolkit/node_modules || npm --prefix Google-Photos-Toolkit install --no-fund --no-audit) && cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js",
     "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
     "build:worker": "node_modules/.bin/esbuild workers/embedder.worker.ts --bundle --platform=browser --format=iife --target=es2020 --outfile=scripts/embedder-worker.js",
+    "pretypecheck": "node tools/write-build-flags.mjs",
     "typecheck": "tsc --noEmit --project tsconfig.json",
+    "pretest": "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=test node tools/write-build-flags.mjs",
     "test": "vitest run",
     "test:bench": "vitest bench --run",
     "test:watch": "vitest",
@@ -17,9 +19,9 @@
     "license:serve": "node server/node-server.mjs",
     "stripe:setup-products": "node tools/setup-stripe-products.mjs",
     "sync:scripts": "cp scripts/photo-provider-command-host.js scripts/google-photos-commands.js build/chrome-mv3-dev/scripts/ 2>/dev/null || true",
-    "predev": "npm run build:gptk && npm run copy:wasm && npm run build:worker && npm run sync:scripts",
+    "predev": "PLASMO_PUBLIC_PHOTOSWEEP_ALLOW_DEV_ENTITLEMENT=1 node tools/write-build-flags.mjs && npm run build:gptk && npm run copy:wasm && npm run build:worker && npm run sync:scripts",
     "dev": "plasmo dev",
-    "prebuild": "npm run build:gptk && npm run copy:wasm && npm run build:worker",
+    "prebuild": "node tools/write-build-flags.mjs && npm run build:gptk && npm run copy:wasm && npm run build:worker",
     "build": "plasmo build && cp -r build/chrome-mv3-prod/. build/chrome-mv3-dev/",
     "package": "npm run build && plasmo package",
     "release": "bash tools/release.sh",
@@ -35,7 +37,6 @@
     "@mediapipe/tasks-vision": "^0.10.18",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
-    "@plasmohq/messaging": "^0.6.2",
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
     "react": "18.2.0",
@@ -181,5 +182,9 @@
         ]
       }
     ]
+  },
+  "overrides": {
+    "gaxios": "7.1.5",
+    "rimraf": "6.1.3"
   }
 }

@@ -17,18 +17,21 @@ By default it listens on `127.0.0.1:8787` and uses
 ## Endpoints
 
 - `POST /checkout`
+
   - Body: `{ "planId": "mini_cleanup" | "cleanup_pass" | "lifetime", "email"?: string }`
   - Creates a Stripe Checkout Session.
   - Sets an HttpOnly `photosweep_license_session` cookie and stores the same
     session id in Stripe session metadata.
 
 - `GET /entitlement`
+
   - Reads `photosweep_license_session` from the cookie, or
     `x-photosweep-license-session` for non-browser/test clients.
   - Returns `{ "token": "payload.signature" }`.
   - The extension verifies the token with the bundled public key.
 
 - `POST /license/recover`
+
   - Body: `{ "email": "buyer@example.com" }`
   - Default behavior is privacy-preserving acknowledgement only.
   - If the store provides `sendRecoveryEmail({ email, recoveryUrl })`, the API
@@ -40,11 +43,13 @@ By default it listens on `127.0.0.1:8787` and uses
     `PHOTOSWEEP_UNSAFE_EMAIL_RECOVERY=1` is set for local/manual testing.
 
 - `GET /license/recover/complete?token=...`
+
   - Verifies the signed recovery token.
   - Sets the `photosweep_license_session` cookie.
   - Redirects to `PHOTOSWEEP_RECOVERY_REDIRECT_URL` or checkout success URL.
 
 - `POST /analytics`
+
   - Body is one allowlisted product/reliability event.
   - Accepted fields are event name, provider, scan mode, plan id, count buckets,
     and error category.
@@ -54,20 +59,35 @@ By default it listens on `127.0.0.1:8787` and uses
 
 - `POST /stripe/webhook`
   - Verifies the `Stripe-Signature` header.
-  - Activates entitlements on `checkout.session.completed`.
-  - Deactivates entitlements on refund, dispute, or expired checkout events.
+  - Activates entitlements only after a paid `checkout.session.completed` or
+    `checkout.session.async_payment_succeeded` event.
+  - Does not unlock an unpaid delayed-payment Checkout session.
+  - Deactivates only the matching purchase on a full refund or dispute. The
+    effective entitlement remains the highest valid purchase in that browser
+    session, so refunding one purchase cannot revoke unrelated paid access. A
+    partial refund does not revoke the whole purchase.
   - Deduplicates events by Stripe event id.
 
 ## Plans
 
-| Plan | Stripe price env var | Behavior |
-|---|---|---|
-| Mini Cleanup | `PHOTOSWEEP_STRIPE_PRICE_MINI_CLEANUP` | One-time, no explicit expiry in the token |
-| Cleanup Pass | `PHOTOSWEEP_STRIPE_PRICE_CLEANUP_PASS_7D` | Expires 7 days after purchase |
-| Lifetime Early Access | `PHOTOSWEEP_STRIPE_PRICE_LIFETIME_EARLY_ACCESS` | One-time, no explicit expiry |
+| Plan                  | Stripe price env var                            | Behavior                                                                                    |
+| --------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Mini Cleanup          | `PHOTOSWEEP_STRIPE_PRICE_MINI_CLEANUP`          | Permanent limited unlock: 2,500 photos per scan, 75 groups, and 100 Trash moves per session |
+| Cleanup Pass          | `PHOTOSWEEP_STRIPE_PRICE_CLEANUP_PASS_7D`       | Expires 7 days after purchase                                                               |
+| Lifetime Early Access | `PHOTOSWEEP_STRIPE_PRICE_LIFETIME_EARLY_ACCESS` | One-time unlimited cleanup limits for the supported lifetime of the product                 |
 
 The extension-side limits remain the source of product behavior. The backend
-only decides which signed plan is active.
+only decides which signed plan is active. Each license session retains its
+purchase ledger, keyed by Stripe Checkout Session and Payment Intent. The
+highest valid purchase wins in this order: Lifetime Early Access, Cleanup Pass,
+then Mini Cleanup. Refund and dispute events must identify the matching payment
+or Checkout Session; customer-only events are not allowed to revoke access.
+
+All signed entitlement tokens have a maximum 30-day validity window. The
+extension refreshes an existing token at startup, so online refunds and
+revocations reconcile promptly while a temporary license-service outage does not
+immediately lock out a valid Mini Cleanup or Lifetime purchaser. Cleanup Pass
+tokens still expire at the earlier seven-day plan boundary.
 
 Create the Stripe products/prices with:
 
@@ -125,7 +145,9 @@ Node process or a small private launch on one instance, including the
 production because concurrent writes can race.
 
 Production at scale should provide a database-backed store with the same
-methods:
+methods. `upsertLicense` must preserve every purchase in the license record's
+`purchases` ledger rather than replacing an earlier purchase for the same
+browser session:
 
 - `getLicenseBySessionId(sessionId)`
 - `upsertLicense(license)`

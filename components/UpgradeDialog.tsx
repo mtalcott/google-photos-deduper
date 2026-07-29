@@ -10,11 +10,7 @@ import TextField from "@mui/material/TextField"
 import Typography from "@mui/material/Typography"
 import { useState } from "react"
 
-import {
-  PLAN_LABELS,
-  PLAN_PRICES,
-  type PlanId
-} from "../lib/entitlement"
+import { PLAN_LABELS, PLAN_PRICES, type PlanId } from "../lib/entitlement"
 import { photoSweepColors } from "../lib/theme"
 
 export type UpgradeReason =
@@ -36,9 +32,9 @@ interface UpgradeDialogProps {
 }
 
 const PLANS: Exclude<PlanId, "free">[] = [
-  "mini_cleanup",
+  "lifetime",
   "cleanup_pass",
-  "lifetime"
+  "mini_cleanup"
 ]
 
 function reasonTitle(reason: UpgradeReason): string {
@@ -47,6 +43,22 @@ function reasonTitle(reason: UpgradeReason): string {
   if (reason === "resume") return "Unlock large-library resume"
   if (reason === "provider") return "Unlock provider cleanup"
   return "Unlock the full cleanup"
+}
+
+function reasonBody(reason: UpgradeReason): string {
+  if (reason === "export") {
+    return "Your free results stay available. Upgrade to export the complete report while photo analysis remains local in your browser."
+  }
+  if (reason === "resume") {
+    return "Resume this large-library cleanup without starting over. Your saved scan data remains on this device."
+  }
+  if (reason === "trash") {
+    return "You reached the free Trash-move limit. Upgrade to finish the reviewed cleanup; safety confirmation and reports remain available on every plan."
+  }
+  if (reason === "provider") {
+    return "Upgrade for paid-scale cleanup on supported photo providers. Availability still depends on the provider, region, account, and loaded library area."
+  }
+  return "PhotoSweep found more items than your current cleanup limit. Upgrade after reviewing the free results; photo analysis still runs locally in your browser."
 }
 
 export function UpgradeDialog({
@@ -96,9 +108,7 @@ export function UpgradeDialog({
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          PhotoSweep found more duplicates than your current cleanup limit.
-          Upgrade to finish this cleanup safely. Photo analysis still runs
-          locally in your browser.
+          {reasonBody(reason)}
         </Typography>
         {detail && (
           <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
@@ -132,15 +142,16 @@ export function UpgradeDialog({
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {planId === "mini_cleanup"
-                    ? "Small one-session cleanup."
+                    ? "Permanent limited unlock: 2,500 photos, 75 groups, and 100 Trash moves per session."
                     : planId === "cleanup_pass"
-                      ? "Seven days of large cleanup tools."
-                      : "Best value for early users."}
+                      ? "Seven days: 10,000 photos, full reports, full scan, and large-library resume."
+                      : "One-time unlimited cleanup limits for the supported lifetime of this product."}
                 </Typography>
               </Box>
               <Box
                 component="button"
                 type="button"
+                aria-label={`Choose ${PLAN_LABELS[planId]} for ${PLAN_PRICES[planId]} USD`}
                 onClick={() => choosePlan(planId)}
                 sx={{
                   appearance: "none",
@@ -154,29 +165,37 @@ export function UpgradeDialog({
                     planId === "lifetime"
                       ? photoSweepColors.primary
                       : "transparent",
-                  color: planId === "lifetime" ? "#fff" : photoSweepColors.primary,
+                  color:
+                    planId === "lifetime" ? "#fff" : photoSweepColors.primary,
                   cursor: "pointer",
                   font: "inherit",
                   fontWeight: 800,
                   px: 2,
                   py: 0.75,
                   minWidth: 86,
-                  '&:hover': {
+                  "&:hover": {
                     bgcolor:
                       planId === "lifetime"
                         ? photoSweepColors.primary
                         : photoSweepColors.primarySoft
                   },
-                  '&:focus-visible': {
+                  "&:focus-visible": {
                     outline: `2px solid ${photoSweepColors.primary}`,
                     outlineOffset: 2
                   }
                 }}>
-                {PLAN_PRICES[planId]}
+                {PLAN_PRICES[planId]} USD
               </Box>
             </Box>
           ))}
         </Stack>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mt: 1.5 }}>
+          One-time payments through Stripe. Prices are in USD; taxes may apply.
+          Purchases follow PhotoSweep&apos;s 7-day refund policy.
+        </Typography>
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
             Restore purchase
@@ -223,8 +242,8 @@ export function UpgradeDialog({
             fontWeight: 700,
             px: 1,
             py: 0.75,
-            '&:hover': { bgcolor: photoSweepColors.primarySoft },
-            '&:focus-visible': {
+            "&:hover": { bgcolor: photoSweepColors.primarySoft },
+            "&:focus-visible": {
               outline: `2px solid ${photoSweepColors.primary}`,
               outlineOffset: 2
             }

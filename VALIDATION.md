@@ -83,9 +83,13 @@ Run this after Stripe test-mode checkout and license refresh are working.
 5. Refresh the license in PhotoSweep after each checkout.
 6. Verify each plan's scan, visible group, Trash, report, full scan, and resume
    limits match `lib/entitlement.ts`.
-7. Refund the test payment from Stripe and verify PhotoSweep downgrades to free
-   after entitlement refresh.
-8. Confirm analytics/license payloads contain only provider, scan mode, plan id,
+7. Restart the extension with a valid paid token and verify automatic
+   reconciliation preserves access.
+8. Refund the test payment from Stripe and verify PhotoSweep downgrades to free
+   after restart or manual entitlement refresh.
+9. Recover each eligible purchase in a fresh browser profile and verify an
+   ineligible email receives only the generic non-enumerating response.
+10. Confirm analytics/license payloads contain only provider, scan mode, plan id,
    count buckets, event name, and error category.
 
 ## Live Account Smoke Test - 2026-06-28
