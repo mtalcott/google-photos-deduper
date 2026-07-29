@@ -191,11 +191,11 @@ test("free Trash cap is cumulative across the cleanup session", async () => {
     timeout: 10_000
   })
 
+  // Select the one remaining group directly. This preserves the same cleanup
+  // session, so the dialog must enforce the already-used free allowance.
+  await page.locator('input[type="checkbox"]').first().click()
   await page
-    .getByRole("button", { name: /^Include all(?: sets)?$/i })
-    .click()
-  await page
-    .getByRole("button", { name: /Review & move \d+ to Trash/i })
+    .getByRole("button", { name: /Review & move 1 to Trash/i })
     .click()
 
   await expect(page.getByRole("dialog")).toBeVisible()

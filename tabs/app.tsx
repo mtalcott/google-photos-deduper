@@ -1777,6 +1777,30 @@ export default function App() {
             healthCheckAttemptsRef.current = 0
             currentAccountEmailRef.current = msg.accountEmail
             currentHasGptkRef.current = msg.hasGptk
+            // Health and restore may resolve in either order. Check the
+            // persisted review directly so legacy account-less results cannot
+            // remain available once Google identifies the signed-in account.
+            if (
+              msg.accountEmail &&
+              (settingsRef.current.sourceProvider ?? "google") === "google"
+            ) {
+              void chrome.storage.local
+                .get("scanResults")
+                .then((stored) => {
+                  const scanResults = stored.scanResults as
+                    | { accountEmail?: string; sourceProvider?: string }
+                    | undefined
+                  if (
+                    scanResults &&
+                    !areScanResultsValid(scanResults, {
+                      accountEmail: msg.accountEmail,
+                      sourceProvider: settingsRef.current.sourceProvider ?? "google"
+                    })
+                  ) {
+                    return storedReviewScope.invalidateReview()
+                  }
+                })
+            }
           }
           const currentState = stateRef.current
           const checkpoint = scanLifecycle.checkpoint

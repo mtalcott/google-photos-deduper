@@ -240,6 +240,7 @@ test("clears saved results and selections when a different Google account is det
   await expect(page.getByText("Find duplicates from your photo library")).toBeVisible({
     timeout: 8_000
   })
+  await expect(page.getByText("Signed in as bob@example.com")).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "1 Duplicate Set to Review",
