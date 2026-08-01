@@ -18,9 +18,11 @@ import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem } from "../lib/types"
 
 /**
- * Computes the optimal Google Photos URL for full-screen viewing based on current window size.
+ * Sizes a thumbnail URL to the current viewport (not necessarily the source
+ * photo's full resolution — a genuinely higher-res photo is still downscaled
+ * to fit the window).
  */
-function getFullResThumbUrl(thumb: string): string {
+function getViewportSizedThumbUrl(thumb: string): string {
   const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1))
   const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1))
   return buildThumbUrl(thumb, { width, height })
@@ -52,7 +54,7 @@ function useGroupBlobUrls(items: GpdMediaItem[]): Record<string, string | undefi
 
       // Request thumnails of same size as window
       // Use window.devicePixelRatio to handle high-DPI displays
-      const fetchUrl = getFullResThumbUrl(item.thumb)
+      const fetchUrl = getViewportSizedThumbUrl(item.thumb)
       fetch(fetchUrl, { credentials: "include", signal: controller.signal })
         .then((r) => (r.ok ? r.blob() : null))
         .then((blob) => {
@@ -121,7 +123,7 @@ function usePrefetchNextGroup(nextItems: GpdMediaItem[]) {
     nextItems.forEach((item) => {
       const controller = new AbortController()
       controllers.push(controller)
-      const fetchUrl = getFullResThumbUrl(item.thumb)
+      const fetchUrl = getViewportSizedThumbUrl(item.thumb)
       // Fire and forget to prime the browser HTTP cache
       fetch(fetchUrl, { credentials: "include", signal: controller.signal }).catch(() => {})
     })
