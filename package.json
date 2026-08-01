@@ -4,6 +4,7 @@
   "version": "2.2.1",
   "description": "Find and remove duplicate photos from Google Photos",
   "author": "Mack Talcott",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "build:gptk": "git submodule update --init && (test -d Google-Photos-Toolkit/node_modules || npm --prefix Google-Photos-Toolkit install --no-fund --no-audit) && cd Google-Photos-Toolkit && npm run build && cp google_photos_toolkit.user.js ../scripts/google-photos-toolkit.user.js",
     "copy:wasm": "cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.js scripts/ && cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm scripts/",
