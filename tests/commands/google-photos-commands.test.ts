@@ -99,6 +99,7 @@ describe("getAllMediaItems — field mapping", () => {
 
   afterEach(() => {
     delete (window as any).gptkApi
+    window.history.pushState({}, "", "/")
   })
 
   it("passes isOriginalQuality=true through to output item", async () => {
