@@ -182,13 +182,13 @@ export async function fullDetectDuplicates(
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
   const scanStart = performance.now();
 
-  mediaItems = dropDuplicateDedupKeys(mediaItems);
+  const dedupedItems = dropDuplicateDedupKeys(mediaItems);
 
   // Filter to items with thumbnails (photos only, skip videos)
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical
   // embeddings.
-  const candidates = mediaItems.filter((item) => item.thumb);
+  const candidates = dedupedItems.filter((item) => item.thumb);
   console.log(
     `[GPD] detectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates`,
   );
@@ -491,12 +491,12 @@ export async function smartDetectDuplicates(
 ): Promise<DuplicateGroup[]> {
   const scanStart = performance.now();
 
-  mediaItems = dropDuplicateDedupKeys(mediaItems);
+  const dedupedItems = dropDuplicateDedupKeys(mediaItems);
 
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical
   // embeddings.
-  const candidates = mediaItems.filter((item) => item.thumb);
+  const candidates = dedupedItems.filter((item) => item.thumb);
 
   // Step 1: Bucket by timestamp — no I/O, instant
   const buckets = groupByTimestamp(candidates, windowMs);
