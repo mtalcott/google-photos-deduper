@@ -13,6 +13,7 @@ import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
+import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
 const PAGE_SIZE = 30
@@ -180,7 +181,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 }]}>
                 <CardActionArea onClick={() => onToggleKept(group, key)}>
                   <ThumbnailImage
-                    src={item.thumb + "=h200"}
+                    src={buildThumbUrl(item.thumb, { height: 200 })}
                     alt={item.fileName || item.mediaKey}
                   />
                   <CardContent sx={sxCardContent}>

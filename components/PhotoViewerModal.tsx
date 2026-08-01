@@ -14,6 +14,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight"
 import CloseIcon from "@mui/icons-material/Close"
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline"
 import OpenInNewIcon from "@mui/icons-material/OpenInNew"
+import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem } from "../lib/types"
 
 /**
@@ -22,7 +23,7 @@ import type { GpdMediaItem } from "../lib/types"
 function getFullResThumbUrl(thumb: string): string {
   const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1))
   const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1))
-  return `${thumb}=w${width}-h${height}`
+  return buildThumbUrl(thumb, { width, height })
 }
 
 /**

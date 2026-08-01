@@ -7,6 +7,7 @@
 // 3. Group duplicates using fast community detection (cosine similarity)
 
 import type { GpdMediaItem, DuplicateGroup } from "./types";
+import { buildThumbUrl } from "./photo-url";
 import { StabilityTracker } from "./scan-log";
 import type { ScanLogger } from "./scan-log";
 
@@ -639,7 +640,7 @@ async function fetchThumbnails(
       if (!entry) break;
 
       try {
-        const url = entry.item.thumb + `=h${THUMB_HEIGHT}`;
+        const url = buildThumbUrl(entry.item.thumb, { height: THUMB_HEIGHT });
         const response = await fetch(url, {
           credentials: "include",
           signal: (AbortSignal as typeof AbortSignal & { any(signals: AbortSignal[]): AbortSignal }).any([
