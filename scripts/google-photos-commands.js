@@ -99,6 +99,11 @@ async function getAllMediaItems(requestId, args) {
     const mediaItems = []
     let reachedCache = false
 
+    // Accounts after the first are addressed via a /u/{index}/ path prefix;
+    // computed once since it's invariant for the whole scan.
+    const accountUrlPrefix =
+      window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/"
+
     do {
       const page = await withTimeout(
         gptkApi.getItemsByUploadedDate(nextPageId),
@@ -131,7 +136,7 @@ async function getAllMediaItems(requestId, args) {
             isOwned: item.isOwned,
             isOriginalQuality: item.isOriginalQuality ?? null,
             fileName: item.descriptionShort || null,
-            productUrl: "https://photos.google.com" + (window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/") + "photo/" + item.mediaKey
+            productUrl: "https://photos.google.com" + accountUrlPrefix + "photo/" + item.mediaKey
           })
         }
       }
