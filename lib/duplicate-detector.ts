@@ -38,7 +38,7 @@ export function selectDefaultKeep(items: GpdMediaItem[]): string {
  * - API doesn't allow to trash one of them without trashing others
  * So keep only the first item we see for each dedupKey.
  */
-export function dropDuplicateDedupKeys(items: GpdMediaItem[]): GpdMediaItem[] {
+export function dedupeByDedupKey(items: GpdMediaItem[]): GpdMediaItem[] {
   const seen = new Set<string>();
   const uniqueItems: GpdMediaItem[] = [];
   for (const item of items) {
@@ -182,7 +182,7 @@ export async function fullDetectDuplicates(
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
   const scanStart = performance.now();
 
-  const dedupedItems = dropDuplicateDedupKeys(mediaItems);
+  const dedupedItems = dedupeByDedupKey(mediaItems);
 
   // Filter to items with thumbnails (photos only, skip videos)
   // Include items with thumbnails. Video posters work too — two copies of the
@@ -491,7 +491,7 @@ export async function smartDetectDuplicates(
 ): Promise<DuplicateGroup[]> {
   const scanStart = performance.now();
 
-  const dedupedItems = dropDuplicateDedupKeys(mediaItems);
+  const dedupedItems = dedupeByDedupKey(mediaItems);
 
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical

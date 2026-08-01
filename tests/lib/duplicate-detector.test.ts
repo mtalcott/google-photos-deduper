@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, dropDuplicateDedupKeys } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, dedupeByDedupKey } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -537,17 +537,17 @@ describe("selectDefaultKeep", () => {
 })
 
 // ============================================================
-// dropDuplicateDedupKeys
+// dedupeByDedupKey
 // ============================================================
 
-describe("dropDuplicateDedupKeys", () => {
+describe("dedupeByDedupKey", () => {
   it("keeps items with unique dedupKeys", () => {
     const a = makeItem("media1", 1000)
     a.dedupKey = "dedup1"
     const b = makeItem("media2", 1000)
     b.dedupKey = "dedup2"
 
-    const result = dropDuplicateDedupKeys([a, b])
+    const result = dedupeByDedupKey([a, b])
     expect(result).toHaveLength(2)
     expect(result).toContain(a)
     expect(result).toContain(b)
@@ -561,14 +561,13 @@ describe("dropDuplicateDedupKeys", () => {
     const c = makeItem("media3", 1000)
     c.dedupKey = "other-dedup"
 
-    const result = dropDuplicateDedupKeys([a, b, c])
+    const result = dedupeByDedupKey([a, b, c])
     expect(result).toHaveLength(2)
     expect(result[0]).toBe(a)
     expect(result[1]).toBe(c)
   })
 
   it("handles empty arrays", () => {
-    expect(dropDuplicateDedupKeys([])).toEqual([])
+    expect(dedupeByDedupKey([])).toEqual([])
   })
-
 })
