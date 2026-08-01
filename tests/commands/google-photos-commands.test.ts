@@ -173,7 +173,7 @@ describe("getAllMediaItems — field mapping", () => {
   })
 
   it("constructs productUrl using root prefix for standard single account", async () => {
-    window.history.pushState({}, "", "/");
+    window.history.pushState({}, "", "/")
     setupGptkApi([
       {
         mediaKey: "mk-single",
@@ -196,7 +196,7 @@ describe("getAllMediaItems — field mapping", () => {
   })
 
   it("constructs productUrl using /u/X/ prefix for multiple accounts", async () => {
-    window.history.pushState({}, "", "/u/2/search/");
+    window.history.pushState({}, "", "/u/2/search/")
     setupGptkApi([
       {
         mediaKey: "mk-multi",
