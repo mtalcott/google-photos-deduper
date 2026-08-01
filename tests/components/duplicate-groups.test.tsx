@@ -8,7 +8,7 @@
  * - Zoom button does not trigger onToggleKept (stopPropagation)
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, act } from "@testing-library/react"
 import { ThemeProvider, createTheme } from "@mui/material/styles"
 import { DuplicateGroups } from "../../components/DuplicateGroups"
 import type { GpdMediaItem, DuplicateGroup } from "../../lib/types"
@@ -244,5 +244,40 @@ describe("DuplicateGroups — empty state", () => {
   it("shows no duplicates message when groups is empty", () => {
     wrap(<DuplicateGroups {...defaultProps} groups={[]} />)
     expect(screen.getByText(/no duplicates found/i)).toBeInTheDocument()
+  })
+})
+
+// ============================================================
+// Spacebar preview
+// ============================================================
+
+describe("DuplicateGroups — Spacebar preview", () => {
+  it("opens the viewer modal when 'Space' is pressed while hovering a photo", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    expect(screen.queryByTestId("viewer-modal")).not.toBeInTheDocument()
+
+    const img1Card = screen.getByTitle("img1.jpg").closest(".MuiBox-root")
+    expect(img1Card).toBeTruthy()
+
+    // Hover over the first photo
+    act(() => {
+      fireEvent.mouseOver(img1Card!)
+    })
+
+    // Press ' ' (Spacebar)
+    const spy = vi.spyOn(KeyboardEvent.prototype, "preventDefault")
+    act(() => {
+      fireEvent.keyDown(window, { key: " ", code: "Space" })
+    })
+
+    expect(screen.getByTestId("viewer-modal")).toBeInTheDocument()
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it("does not open the viewer modal when 'Space' is pressed but no photo is hovered", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    fireEvent.keyDown(window, { key: " ", code: "Space" })
+    expect(screen.queryByTestId("viewer-modal")).not.toBeInTheDocument()
   })
 })

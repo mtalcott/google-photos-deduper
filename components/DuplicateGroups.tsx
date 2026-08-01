@@ -126,6 +126,8 @@ interface DuplicateGroupRowProps {
   onToggleGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
+  onMouseEnterPhoto: (group: DuplicateGroup, index: number) => void
+  onMouseLeavePhoto: () => void
 }
 
 const DuplicateGroupRow = memo(function DuplicateGroupRow({
@@ -136,6 +138,8 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   onToggleGroup,
   onToggleKept,
   onOpenViewer,
+  onMouseEnterPhoto,
+  onMouseLeavePhoto,
 }: DuplicateGroupRowProps) {
   return (
     <Paper
@@ -171,7 +175,11 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           const isKept = keptSet.has(key)
 
           return (
-            <Box key={key} sx={sxItemWrapper}>
+            <Box
+              key={key}
+              sx={sxItemWrapper}
+              onMouseEnter={() => onMouseEnterPhoto(group, itemIndex)}
+              onMouseLeave={() => onMouseLeavePhoto()}>
               <Card
                 variant="outlined"
                 sx={[sxCardBase, {
@@ -299,6 +307,11 @@ export function DuplicateGroups({
     group: DuplicateGroup
     index: number
   } | null>(null)
+  const hoveredPhotoRef = useRef<{
+    group: DuplicateGroup
+    index: number
+  } | null>(null)
+
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -323,6 +336,26 @@ export function DuplicateGroups({
   const onOpenViewer = useCallback((group: DuplicateGroup, index: number) => {
     setViewerState({ group, index })
   }, [])
+
+  const onMouseEnterPhoto = useCallback((group: DuplicateGroup, index: number) => {
+    hoveredPhotoRef.current = { group, index }
+  }, [])
+
+  const onMouseLeavePhoto = useCallback(() => {
+    hoveredPhotoRef.current = null
+  }, [])
+
+  // Spacebar key opens preview for the photo under the cursor
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === " " && hoveredPhotoRef.current && !viewerState) {
+        e.preventDefault()
+        onOpenViewer(hoveredPhotoRef.current.group, hoveredPhotoRef.current.index)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [viewerState, onOpenViewer])
 
   const currentGroupIndex = useMemo(() => {
     return viewerState
@@ -380,6 +413,8 @@ export function DuplicateGroups({
           onToggleGroup={onToggleGroup}
           onToggleKept={onToggleKept}
           onOpenViewer={onOpenViewer}
+          onMouseEnterPhoto={onMouseEnterPhoto}
+          onMouseLeavePhoto={onMouseLeavePhoto}
         />
       ))}
 
