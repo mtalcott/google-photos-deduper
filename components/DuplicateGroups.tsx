@@ -13,6 +13,7 @@ import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
+import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
 
 const PAGE_SIZE = 30
@@ -188,7 +189,7 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                 }]}>
                 <CardActionArea onClick={() => onToggleKept(group, key)}>
                   <ThumbnailImage
-                    src={item.thumb + "=h200"}
+                    src={buildThumbUrl(item.thumb, { height: 200 })}
                     alt={item.fileName || item.mediaKey}
                   />
                   <CardContent sx={sxCardContent}>
@@ -382,6 +383,14 @@ export function DuplicateGroups({
       .filter((item): item is GpdMediaItem => !!item)
   }, [viewerState, mediaItems])
 
+  const nextGroupItems = useMemo(() => {
+    if (!viewerState || currentGroupIndex === -1 || currentGroupIndex >= groups.length - 1) return []
+    const nextGroup = groups[currentGroupIndex + 1]
+    return nextGroup.mediaKeys
+      .map((k) => mediaItems[k])
+      .filter((item): item is GpdMediaItem => !!item)
+  }, [viewerState, currentGroupIndex, groups, mediaItems])
+
   if (groups.length === 0) {
     const totalItems = Object.keys(mediaItems).length
     return (
@@ -426,6 +435,7 @@ export function DuplicateGroups({
         <PhotoViewerModal
           open={true}
           items={viewerItems}
+          nextGroupItems={nextGroupItems}
           initialIndex={viewerState.index}
           keptSet={keptByGroupId.get(viewerState.group.id)!}
           isGroupSelected={selectedGroupIds.has(viewerState.group.id)}

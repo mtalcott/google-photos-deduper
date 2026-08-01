@@ -405,3 +405,35 @@ describe("PhotoViewerModal — Shift keyboard group shortcuts", () => {
     expect(onNextGroup).toHaveBeenCalledOnce()
   })
 })
+
+// ============================================================
+// Fetching and Prefetching
+// ============================================================
+
+describe("PhotoViewerModal — fetching and prefetching", () => {
+  it("fetches images with dimensions based on window size and devicePixelRatio", () => {
+    Object.assign(window, { innerWidth: 1000, innerHeight: 800, devicePixelRatio: 2 })
+
+    const fetchSpy = vi.spyOn(global, "fetch")
+    wrap(<PhotoViewerModal {...defaultProps} />)
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("https://example.com/img1=w2000-h1600"),
+      expect.any(Object)
+    )
+  })
+
+  it("prefetches nextGroupItems when provided", () => {
+    Object.assign(window, { innerWidth: 1000, innerHeight: 800, devicePixelRatio: 2 })
+
+    const fetchSpy = vi.spyOn(global, "fetch")
+    const nextGroupItems = [makeItem("img4")]
+
+    wrap(<PhotoViewerModal {...defaultProps} nextGroupItems={nextGroupItems} />)
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://example.com/img4=w2000-h1600",
+      expect.any(Object)
+    )
+  })
+})
