@@ -32,7 +32,7 @@ No OAuth setup. No Google Cloud project. No data leaves your browser.
 
 ### Setup
 
-**Prerequisites:** Google Chrome, Node.js 24
+**Prerequisites:** Google Chrome, Node.js 22
 
 ```bash
 git clone https://github.com/mtalcott/google-photos-deduper.git
