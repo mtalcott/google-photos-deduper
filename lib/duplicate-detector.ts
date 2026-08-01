@@ -29,6 +29,28 @@ export function selectDefaultKeep(items: GpdMediaItem[]): string {
   return best[0].mediaKey;
 }
 
+/**
+ * Deduplicate media items by dedupKey.
+ * There can be photos with different mediaKeys but same dedupKey,
+ * likely caused by saving shared albums.
+ * We should not solve for them, since
+ * - Google Photos natively collapses them into one in timeline/albums
+ * - API doesn't allow to trash one of them without trashing others
+ * So keep only the first item we see for each dedupKey.
+ */
+export function dedupeByDedupKey(items: GpdMediaItem[]): GpdMediaItem[] {
+  const seen = new Set<string>();
+  const uniqueItems: GpdMediaItem[] = [];
+  for (const item of items) {
+    if (item.dedupKey) {
+      if (seen.has(item.dedupKey)) continue;
+      seen.add(item.dedupKey);
+    }
+    uniqueItems.push(item);
+  }
+  return uniqueItems;
+}
+
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite";
 
@@ -160,11 +182,13 @@ export async function fullDetectDuplicates(
 ): Promise<{ groups: DuplicateGroup[]; timing: ScanTiming }> {
   const scanStart = performance.now();
 
+  const dedupedItems = dedupeByDedupKey(mediaItems);
+
   // Filter to items with thumbnails (photos only, skip videos)
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical
   // embeddings.
-  const candidates = mediaItems.filter((item) => item.thumb);
+  const candidates = dedupedItems.filter((item) => item.thumb);
   console.log(
     `[GPD] detectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates`,
   );
@@ -466,10 +490,13 @@ export async function smartDetectDuplicates(
   logger?: ScanLogger,
 ): Promise<DuplicateGroup[]> {
   const scanStart = performance.now();
+
+  const dedupedItems = dedupeByDedupKey(mediaItems);
+
   // Include items with thumbnails. Video posters work too — two copies of the
   // same clip have identical poster frames, which produce near-identical
   // embeddings.
-  const candidates = mediaItems.filter((item) => item.thumb);
+  const candidates = dedupedItems.filter((item) => item.thumb);
 
   // Step 1: Bucket by timestamp — no I/O, instant
   const buckets = groupByTimestamp(candidates, windowMs);

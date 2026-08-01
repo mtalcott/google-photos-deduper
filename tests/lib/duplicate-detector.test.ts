@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, dedupeByDedupKey } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -533,5 +533,41 @@ describe("selectDefaultKeep", () => {
     const b = item("b", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 0 })
     const result = selectDefaultKeep([a, b])
     expect(["a", "b"]).toContain(result)
+  })
+})
+
+// ============================================================
+// dedupeByDedupKey
+// ============================================================
+
+describe("dedupeByDedupKey", () => {
+  it("keeps items with unique dedupKeys", () => {
+    const a = makeItem("media1", 1000)
+    a.dedupKey = "dedup1"
+    const b = makeItem("media2", 1000)
+    b.dedupKey = "dedup2"
+
+    const result = dedupeByDedupKey([a, b])
+    expect(result).toHaveLength(2)
+    expect(result).toContain(a)
+    expect(result).toContain(b)
+  })
+
+  it("keeps only the first item with a duplicated dedupKey", () => {
+    const a = makeItem("media1", 1000)
+    a.dedupKey = "shared-dedup"
+    const b = makeItem("media2", 1000)
+    b.dedupKey = "shared-dedup"
+    const c = makeItem("media3", 1000)
+    c.dedupKey = "other-dedup"
+
+    const result = dedupeByDedupKey([a, b, c])
+    expect(result).toHaveLength(2)
+    expect(result[0]).toBe(a)
+    expect(result[1]).toBe(c)
+  })
+
+  it("handles empty arrays", () => {
+    expect(dedupeByDedupKey([])).toEqual([])
   })
 })
