@@ -141,8 +141,15 @@ export function ScanConfig({
                 Similarity Threshold:{" "}
                 <strong>{settings.similarityThreshold}</strong>
               </Typography>
+              {/*
+                The floor is deliberately below the useful range for exact
+                duplicates. Down here MobileNet groups photos that are merely
+                similar — different frames of a burst, the same scene with a
+                different subject — which is useful for culling but produces
+                false positives, so the keep/trash review matters more.
+              */}
               <Slider
-                min={0.9}
+                min={0.75}
                 max={1.0}
                 step={0.01}
                 value={settings.similarityThreshold}

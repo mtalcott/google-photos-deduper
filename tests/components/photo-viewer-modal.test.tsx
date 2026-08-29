@@ -437,3 +437,37 @@ describe("PhotoViewerModal — fetching and prefetching", () => {
     )
   })
 })
+
+// ============================================================
+// Favorite badge
+//
+// The grid marks favorites; the viewer is where the photo is actually
+// inspected, so the marker has to survive opening it.
+// ============================================================
+
+describe("PhotoViewerModal — favorite badge", () => {
+  it("marks a favorited photo", () => {
+    wrap(
+      <PhotoViewerModal {...defaultProps} items={[makeItem("f1", { isFavorite: true })]} />
+    )
+    expect(screen.getByTestId("viewer-favorite-badge")).toBeInTheDocument()
+  })
+
+  it("does not mark a non-favorited photo", () => {
+    wrap(<PhotoViewerModal {...defaultProps} items={[makeItem("n1")]} />)
+    expect(screen.queryByTestId("viewer-favorite-badge")).not.toBeInTheDocument()
+  })
+
+  it("follows navigation between a favorite and a non-favorite", () => {
+    wrap(
+      <PhotoViewerModal
+        {...defaultProps}
+        items={[makeItem("f1", { isFavorite: true }), makeItem("n1")]}
+        initialIndex={0}
+      />
+    )
+    expect(screen.getByTestId("viewer-favorite-badge")).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: "ArrowRight" })
+    expect(screen.queryByTestId("viewer-favorite-badge")).not.toBeInTheDocument()
+  })
+})
