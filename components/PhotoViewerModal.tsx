@@ -3,6 +3,7 @@ import { keyframes } from "@emotion/react"
 import Box from "@mui/material/Box"
 import CardMedia from "@mui/material/CardMedia"
 import Chip from "@mui/material/Chip"
+import StarIcon from "@mui/icons-material/Star"
 import CircularProgress from "@mui/material/CircularProgress"
 import Dialog from "@mui/material/Dialog"
 import DialogContent from "@mui/material/DialogContent"
@@ -290,12 +291,22 @@ export function PhotoViewerModal({
           py: 0.5,
           borderBottom: "1px solid rgba(255,255,255,0.1)",
         }}>
-        <Typography
-          variant="caption"
-          noWrap
-          sx={{ color: "rgba(255,255,255,0.45)", pl: 1 }}>
-          {item.fileName || ""}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, pl: 1, minWidth: 0 }}>
+          {/* Informational only — favorites cannot be changed from here. */}
+          {item.isFavorite === true && (
+            <StarIcon
+              data-testid="viewer-favorite-badge"
+              titleAccess="Favorite in Google Photos"
+              sx={{ fontSize: 14, color: "#FFC107", flexShrink: 0 }}
+            />
+          )}
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{ color: "rgba(255,255,255,0.45)" }}>
+            {item.fileName || ""}
+          </Typography>
+        </Box>
 
         {/* Counter — centered, prominent, slides on navigation */}
         {items.length > 1 && (

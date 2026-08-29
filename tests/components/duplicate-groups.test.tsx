@@ -281,3 +281,104 @@ describe("DuplicateGroups — Spacebar preview", () => {
     expect(screen.queryByTestId("viewer-modal")).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Split-bucket caveat
+// ============================================================
+
+describe("split bucket notice", () => {
+  it("warns when timestamp buckets were split", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={3} />)
+    const notice = screen.getByTestId("split-buckets-notice")
+    expect(notice).toBeInTheDocument()
+    expect(notice).toHaveTextContent(/3 large time groups/i)
+    expect(notice).toHaveTextContent(/may be missed/i)
+  })
+
+  it("uses singular wording for a single split group", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={1} />)
+    expect(screen.getByTestId("split-buckets-notice")).toHaveTextContent(
+      /1 large time group was split/i
+    )
+  })
+
+  it("shows nothing when no buckets were split", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={0} />)
+    expect(screen.queryByTestId("split-buckets-notice")).not.toBeInTheDocument()
+  })
+
+  // Results saved before this field existed load without it.
+  it("shows nothing when bucketsSplit is absent", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    expect(screen.queryByTestId("split-buckets-notice")).not.toBeInTheDocument()
+  })
+})
+
+// ============================================================
+// Favorite badge
+//
+// Favorites win the default keep, so the star is what explains why a
+// particular photo was chosen.
+// ============================================================
+
+describe("favorite badge", () => {
+  const favorite = (k: string): GpdMediaItem => ({ ...makeItem(k), isFavorite: true })
+
+  function renderWith(items: Record<string, GpdMediaItem>, keys: string[]) {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[makeGroup("gf", ...keys)]}
+        mediaItems={items}
+        selectedGroupIds={new Set(["gf"])}
+        keptByGroupId={new Map([["gf", new Set([keys[0]])]])}
+      />
+    )
+  }
+
+  it("marks a favorited photo with a star", () => {
+    renderWith({ a: favorite("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.getByTestId("favorite-badge-a")).toBeInTheDocument()
+  })
+
+  it("does not mark a non-favorited photo", () => {
+    renderWith({ a: favorite("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.queryByTestId("favorite-badge-b")).not.toBeInTheDocument()
+  })
+
+  // Google omits the field rather than sending false.
+  it("does not mark a photo whose isFavorite is absent", () => {
+    renderWith({ a: makeItem("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.queryByTestId("favorite-badge-a")).not.toBeInTheDocument()
+  })
+
+  it("marks every favorited photo in a group", () => {
+    renderWith(
+      { a: favorite("a"), b: makeItem("b"), c: favorite("c") },
+      ["a", "b", "c"]
+    )
+    expect(screen.getByTestId("favorite-badge-a")).toBeInTheDocument()
+    expect(screen.getByTestId("favorite-badge-c")).toBeInTheDocument()
+    expect(screen.queryByTestId("favorite-badge-b")).not.toBeInTheDocument()
+  })
+
+  it("marks a favorite regardless of whether it is the kept photo", () => {
+    renderWith({ a: makeItem("a"), b: favorite("b") }, ["a", "b"])
+    expect(screen.getByTestId("favorite-badge-b")).toBeInTheDocument()
+  })
+
+  // It reports Google Photos state we cannot change from here, so it must not
+  // be a control — and must not steal the card's keep/trash click.
+  it("is not a button", () => {
+    renderWith({ a: favorite("a") }, ["a"])
+    expect(screen.getByTestId("favorite-badge-a").tagName).not.toBe("BUTTON")
+  })
+
+  it("explains itself on hover", () => {
+    renderWith({ a: favorite("a") }, ["a"])
+    expect(screen.getByTestId("favorite-badge-a")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/favorite/i)
+    )
+  })
+})

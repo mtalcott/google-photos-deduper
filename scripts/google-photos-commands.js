@@ -34,14 +34,16 @@ function postError(command, requestId, error) {
 }
 
 // command is optional; when provided, the app can route progress to the right handler.
-function postProgress(requestId, itemsProcessed, message, command) {
+// extra carries optional fields such as the fetch position dates.
+function postProgress(requestId, itemsProcessed, message, command, extra) {
   window.postMessage({
     app: GPD_APP_ID,
     action: "gptkProgress",
     requestId,
     itemsProcessed,
     message,
-    ...(command !== undefined ? { command } : {})
+    ...(command !== undefined ? { command } : {}),
+    ...(extra || {})
   })
 }
 
@@ -135,6 +137,9 @@ async function getAllMediaItems(requestId, args) {
             duration: item.duration,
             isOwned: item.isOwned,
             isOriginalQuality: item.isOriginalQuality ?? null,
+            // GPTK omits this rather than sending false; normalise to a boolean
+            // so downstream keep-selection can test it plainly.
+            isFavorite: item.isFavorite === true,
             fileName: item.descriptionShort || null,
             productUrl: "https://photos.google.com" + accountUrlPrefix + "photo/" + item.mediaKey
           })
@@ -142,10 +147,25 @@ async function getAllMediaItems(requestId, args) {
       }
       nextPageId = page.nextPageId || null
 
+      // Report how far back the fetch has reached. Items arrive newest-first by
+      // upload date, so the last item of the page is the oldest seen so far.
+      // Only finite, non-zero values are sent — some items carry no usable date
+      // and would otherwise render as 1 Jan 1970.
+      const oldest = mediaItems[mediaItems.length - 1]
+      const position = {}
+      if (oldest) {
+        if (Number.isFinite(oldest.creationTimestamp) && oldest.creationTimestamp > 0)
+          position.oldestUploadedAt = oldest.creationTimestamp
+        if (Number.isFinite(oldest.timestamp) && oldest.timestamp > 0)
+          position.oldestTakenAt = oldest.timestamp
+      }
+
       postProgress(
         requestId,
         mediaItems.length,
-        `Fetched ${mediaItems.length} items`
+        `Fetched ${mediaItems.length} items`,
+        undefined,
+        position
       )
 
       if (reachedCache) break
