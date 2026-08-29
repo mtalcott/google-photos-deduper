@@ -281,3 +281,35 @@ describe("DuplicateGroups — Spacebar preview", () => {
     expect(screen.queryByTestId("viewer-modal")).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Split-bucket caveat
+// ============================================================
+
+describe("split bucket notice", () => {
+  it("warns when timestamp buckets were split", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={3} />)
+    const notice = screen.getByTestId("split-buckets-notice")
+    expect(notice).toBeInTheDocument()
+    expect(notice).toHaveTextContent(/3 large time groups/i)
+    expect(notice).toHaveTextContent(/may be missed/i)
+  })
+
+  it("uses singular wording for a single split group", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={1} />)
+    expect(screen.getByTestId("split-buckets-notice")).toHaveTextContent(
+      /1 large time group was split/i
+    )
+  })
+
+  it("shows nothing when no buckets were split", () => {
+    wrap(<DuplicateGroups {...defaultProps} bucketsSplit={0} />)
+    expect(screen.queryByTestId("split-buckets-notice")).not.toBeInTheDocument()
+  })
+
+  // Results saved before this field existed load without it.
+  it("shows nothing when bucketsSplit is absent", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    expect(screen.queryByTestId("split-buckets-notice")).not.toBeInTheDocument()
+  })
+})

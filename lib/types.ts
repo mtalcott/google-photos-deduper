@@ -186,6 +186,10 @@ export interface StoredState {
     scanDate: number;
     totalItems: number;
     newestCreationTimestamp?: number; // for incremental fetch on next scan
+    // Timestamp buckets split to bound comparison cost; > 0 means the scan
+    // may have missed duplicates spanning a split. Absent on results saved
+    // before this was recorded.
+    bucketsSplit?: number;
     accountEmail?: string;
   };
   selections?: {
