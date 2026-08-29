@@ -451,3 +451,74 @@ describe("getAllMediaItems — page timeout", () => {
     restore()
   })
 })
+
+// ============================================================
+// getAllMediaItems — fetch position reporting
+//
+// Progress messages carry the oldest item seen so far so the UI can show how
+// far back through the library the fetch has walked.
+// ============================================================
+
+describe("getAllMediaItems — fetch position", () => {
+  function setupGptkApi(items: unknown[], nextPageId: string | null = null) {
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi.fn().mockResolvedValue({ items, nextPageId }),
+    }
+  }
+
+  afterEach(() => {
+    delete (window as any).gptkApi
+    window.history.pushState({}, "", "/")
+  })
+
+  const item = (mediaKey: string, timestamp: number, creationTimestamp: number) => ({
+    mediaKey,
+    dedupKey: `dk-${mediaKey}`,
+    thumb: `https://thumb/${mediaKey}`,
+    timestamp,
+    creationTimestamp,
+  })
+
+  async function progressFor(items: unknown[]) {
+    setupGptkApi(items)
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", `req-pos-${Math.random()}`, {})
+    await flush()
+    const progress = messages.filter((m: any) => m.action === "gptkProgress")
+    restore()
+    return progress[progress.length - 1] as any
+  }
+
+  it("reports the oldest item's upload and taken dates", async () => {
+    const p = await progressFor([
+      item("mk1", 1000, 5000),
+      item("mk2", 900, 4000), // last item = oldest, since pages are newest-first
+    ])
+    expect(p.oldestUploadedAt).toBe(4000)
+    expect(p.oldestTakenAt).toBe(900)
+  })
+
+  // Real libraries contain items with no usable date; these must not be sent,
+  // or the UI would render them as 1 Jan 1970.
+  it("omits a zero upload date", async () => {
+    const p = await progressFor([item("mk1", 1000, 5000), item("mk2", 900, 0)])
+    expect(p.oldestUploadedAt).toBeUndefined()
+    expect(p.oldestTakenAt).toBe(900)
+  })
+
+  it("omits a missing taken date", async () => {
+    const p = await progressFor([
+      item("mk1", 1000, 5000),
+      { ...item("mk2", 0, 4000), timestamp: undefined },
+    ])
+    expect(p.oldestUploadedAt).toBe(4000)
+    expect(p.oldestTakenAt).toBeUndefined()
+  })
+
+  it("still reports the item count when no dates are usable", async () => {
+    const p = await progressFor([item("mk1", 0, 0)])
+    expect(p.itemsProcessed).toBe(1)
+    expect(p.oldestUploadedAt).toBeUndefined()
+    expect(p.oldestTakenAt).toBeUndefined()
+  })
+})

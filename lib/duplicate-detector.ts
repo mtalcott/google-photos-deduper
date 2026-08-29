@@ -354,6 +354,12 @@ export function groupByTimestamp(
 ): GpdMediaItem[][] {
   const buckets = new Map<number, GpdMediaItem[]>();
   for (const item of items) {
+    // Guard degenerate timestamps. `undefined` floors to NaN and Map treats
+    // every NaN as the same key; `null` floors to 0 and silently joins the
+    // epoch bucket. Either way every affected item collapses into one bucket,
+    // whose pairwise comparison is quadratic in the size of that collapse.
+    // Such items can't be time-matched anyway, so drop them from bucketing.
+    if (!Number.isFinite(item.timestamp)) continue;
     const key =
       windowMs > 0
         ? Math.floor(item.timestamp / windowMs) * windowMs
@@ -362,6 +368,54 @@ export function groupByTimestamp(
     buckets.get(key)!.push(item);
   }
   return [...buckets.values()].filter((g) => g.length >= 2);
+}
+
+/**
+ * Largest timestamp bucket we will compare pairwise in one piece.
+ *
+ * Comparison cost is quadratic in bucket size, so a single dense bucket can
+ * dominate an entire scan: at the measured worker throughput a 5,000-item
+ * bucket takes roughly 20 seconds, while a 50,000-item one takes over half an
+ * hour. Wide time windows make this easy to hit — one busy hour or a bulk
+ * import can drop thousands of photos into the same bucket.
+ */
+export const MAX_BUCKET_SIZE = 5000;
+
+/**
+ * Split buckets larger than `cap` into smaller, time-contiguous chunks so no
+ * single pairwise comparison runs unbounded.
+ *
+ * Chunks are near-equal rather than cap-sized — splitting 5,001 items at a cap
+ * of 5,000 yields 2,501 + 2,500, not 5,000 + 1. Items are sorted by timestamp
+ * first so each chunk covers a contiguous slice of time, which is where real
+ * duplicates cluster.
+ *
+ * This trades recall for a bounded runtime: duplicates that straddle a chunk
+ * boundary are not detected. `bucketsSplit` counts how many source buckets
+ * were affected so the UI can say so.
+ */
+export function splitOversizedBuckets(
+  buckets: GpdMediaItem[][],
+  cap = MAX_BUCKET_SIZE,
+): { buckets: GpdMediaItem[][]; bucketsSplit: number } {
+  const out: GpdMediaItem[][] = [];
+  let bucketsSplit = 0;
+
+  for (const bucket of buckets) {
+    if (bucket.length <= cap) {
+      out.push(bucket);
+      continue;
+    }
+    bucketsSplit++;
+
+    const sorted = [...bucket].sort((a, b) => a.timestamp - b.timestamp);
+    const chunkCount = Math.ceil(sorted.length / cap);
+    const chunkSize = Math.ceil(sorted.length / chunkCount);
+    for (let i = 0; i < sorted.length; i += chunkSize)
+      out.push(sorted.slice(i, i + chunkSize));
+  }
+
+  return { buckets: out, bucketsSplit };
 }
 
 /**
@@ -489,7 +543,7 @@ export async function smartDetectDuplicates(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
   logger?: ScanLogger,
-): Promise<DuplicateGroup[]> {
+): Promise<{ groups: DuplicateGroup[]; bucketsSplit: number }> {
   const scanStart = performance.now();
 
   const dedupedItems = dedupeByDedupKey(mediaItems);
@@ -500,11 +554,16 @@ export async function smartDetectDuplicates(
   const candidates = dedupedItems.filter((item) => item.thumb);
 
   // Step 1: Bucket by timestamp — no I/O, instant
-  const buckets = groupByTimestamp(candidates, windowMs);
+  const rawBuckets = groupByTimestamp(candidates, windowMs);
+
+  // Step 1b: Cap bucket size. Pairwise cost is quadratic within a bucket, so
+  // one dense hour can otherwise stall the whole scan.
+  const { buckets, bucketsSplit } = splitOversizedBuckets(rawBuckets);
+  const largest = buckets.reduce((max, b) => Math.max(max, b.length), 0);
   console.log(
-    `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${buckets.length} timestamp buckets`,
+    `[GPD] smartDetectDuplicates: ${mediaItems.length} items → ${candidates.length} candidates → ${buckets.length} timestamp buckets (largest ${largest}${bucketsSplit > 0 ? `, ${bucketsSplit} split at cap ${MAX_BUCKET_SIZE}` : ""})`,
   );
-  if (buckets.length === 0) return [];
+  if (buckets.length === 0) return { groups: [], bucketsSplit };
 
   // Flatten to deduplicated subset
   const seen = new Set<string>();
@@ -570,7 +629,7 @@ export async function smartDetectDuplicates(
   );
   await logger?.phaseComplete("computeEmbeddingsMs", computeEmbeddingsMs);
 
-  if (embeddings.length < 2) return [];
+  if (embeddings.length < 2) return { groups: [], bucketsSplit };
 
   // Build bucket index arrays (indices into embeddings[])
   const mediaKeyToEmbIdx = new Map<string, number>();
@@ -585,7 +644,7 @@ export async function smartDetectDuplicates(
     )
     .filter((b) => b.length >= 2);
 
-  if (workerBuckets.length === 0) return [];
+  if (workerBuckets.length === 0) return { groups: [], bucketsSplit };
 
   // Offload pairwise comparison to worker
   trackedProgress({ phase: "detecting_duplicates", current: 0, total: 0 });
@@ -621,7 +680,10 @@ export async function smartDetectDuplicates(
     };
   });
 
-  return groups.sort((a, b) => b.mediaKeys.length - a.mediaKeys.length);
+  return {
+    groups: groups.sort((a, b) => b.mediaKeys.length - a.mediaKeys.length),
+    bucketsSplit,
+  };
 }
 
 // ============================================================
