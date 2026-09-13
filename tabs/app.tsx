@@ -58,6 +58,13 @@ import type {
 // spinning up from idle. Backoff: 400ms, 800ms, 1600ms, 3200ms (5 attempts).
 const HEALTH_CHECK_MAX_ATTEMPTS = 5
 
+// How long the fetch phase may go without any sign of life before the app
+// gives up. The page script times each pagination request out after 60s, so
+// silence well past that means the result was lost in transit rather than
+// merely slow — most often a message that never arrived (#147). Without this
+// the app waits forever and the scan looks frozen mid-count.
+const FETCH_WATCHDOG_MS = 150_000
+
 function generateRequestId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -133,6 +140,37 @@ export default function App() {
     Record<string, { chunks: GpdMediaItem[][]; received: number; total: number }>
   >({})
 
+  // Watchdog for the fetch phase — see FETCH_WATCHDOG_MS.
+  const fetchWatchdogRef = useRef<number | null>(null)
+
+  const clearFetchWatchdog = useCallback(() => {
+    if (fetchWatchdogRef.current !== null) {
+      window.clearTimeout(fetchWatchdogRef.current)
+      fetchWatchdogRef.current = null
+    }
+  }, [])
+
+  // (Re)starts the watchdog. Called on every sign of progress, so the timer
+  // measures silence rather than total fetch duration — a slow scan of a huge
+  // library keeps running as long as it keeps reporting.
+  const armFetchWatchdog = useCallback(() => {
+    clearFetchWatchdog()
+    fetchWatchdogRef.current = window.setTimeout(() => {
+      fetchWatchdogRef.current = null
+      if (currentScanRequestIdRef.current === null) return
+      console.error("[GPD] fetch watchdog fired — no progress from the Google Photos tab")
+      currentScanRequestIdRef.current = null
+      resultChunksRef.current = {}
+      scanAbortRef.current?.abort()
+      dispatch({
+        type: "SCAN_ERROR",
+        error:
+          "Stopped hearing from the Google Photos tab while fetching your library. " +
+          "Reload the Google Photos tab and try scanning again."
+      })
+    }, FETCH_WATCHDOG_MS)
+  }, [clearFetchWatchdog])
+
   // Counts failed healthCheck attempts during initial connect so we can retry
   // silently before showing a disconnected error.
   const healthCheckAttemptsRef = useRef(0)
@@ -191,6 +229,8 @@ export default function App() {
     // Shared tail of a completed getAllMediaItems fetch, however it arrived
     // (chunked, or as a single legacy gptkResult).
     const completeMediaFetch = (fetched: GpdMediaItem[]) => {
+      // Fetching is done; detection reports progress through its own path.
+      clearFetchWatchdog()
       let items = fetched
       const cached = cachedMediaItemsRef.current
       if (cached && Object.keys(cached).length > 0) {
@@ -272,6 +312,7 @@ export default function App() {
             }
             buffers[chunk.requestId] = buf
           }
+          armFetchWatchdog()
           // Ignore a duplicate delivery of the same index
           if (buf.chunks[chunk.chunkIndex] !== undefined) break
           buf.chunks[chunk.chunkIndex] = chunk.data as GpdMediaItem[]
@@ -300,6 +341,7 @@ export default function App() {
             if (result.success) {
               completeMediaFetch(result.data as GpdMediaItem[])
             } else {
+              clearFetchWatchdog()
               dispatch({
                 type: "SCAN_ERROR",
                 error: result.error || "Scan failed"
@@ -341,6 +383,14 @@ export default function App() {
           break
         case "gptkProgress": {
           const progress = message as GptkProgressMessage
+          // Any fetch progress means the GP tab is still alive — reset the
+          // silence timer.
+          if (
+            progress.command === undefined &&
+            currentScanRequestIdRef.current !== null
+          ) {
+            armFetchWatchdog()
+          }
           if (progress.command === "trashItems") {
             console.log(`[GPD] trash progress: ${progress.itemsProcessed}`)
             dispatch({ type: "TRASH_PROGRESS", trashedSoFar: progress.itemsProcessed })
@@ -356,7 +406,7 @@ export default function App() {
 
     chrome.runtime.onMessage.addListener(listener)
     return () => chrome.runtime.onMessage.removeListener(listener)
-  }, [])
+  }, [armFetchWatchdog, clearFetchWatchdog])
 
   // Keep refs so async callbacks always see latest values
   const settingsRef = useRef(settings)
@@ -438,6 +488,9 @@ export default function App() {
     },
     []
   )
+
+  // Stop the fetch watchdog if the app tab goes away mid-scan
+  useEffect(() => clearFetchWatchdog, [clearFetchWatchdog])
 
   // Health check on mount + recover any scan log entry orphaned by a page reload
   useEffect(() => {
@@ -627,6 +680,7 @@ export default function App() {
       // Cache unavailable — do full fetch
     }
 
+    armFetchWatchdog()
     sendToServiceWorker({
       app: APP_ID,
       action: "gptkCommand",
@@ -637,7 +691,7 @@ export default function App() {
         sinceTimestamp
       }
     })
-  }, [settings])
+  }, [settings, armFetchWatchdog])
 
   const handleTrash = useCallback(() => {
     if (state.status !== "results") return
@@ -695,16 +749,20 @@ export default function App() {
 
   const handleCancelScan = useCallback(() => {
     scanAbortRef.current?.abort()
+    clearFetchWatchdog()
     currentScanRequestIdRef.current = null
     resultChunksRef.current = {}
     dispatch({ type: "SCAN_CANCELLED" })
-  }, [])
+  }, [clearFetchWatchdog])
 
   const handleReset = useCallback(() => {
+    clearFetchWatchdog()
+    currentScanRequestIdRef.current = null
+    resultChunksRef.current = {}
     dispatch({ type: "RESET" })
     healthCheckAttemptsRef.current = 0
     sendToServiceWorker({ app: APP_ID, action: "healthCheck" })
-  }, [])
+  }, [clearFetchWatchdog])
 
   const handleUndo = useCallback(() => {
     if (!undoData) return
