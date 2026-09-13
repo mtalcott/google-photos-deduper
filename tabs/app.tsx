@@ -41,6 +41,7 @@ import type {
   DuplicateGroup,
   GpdMediaItem,
   GptkProgressMessage,
+  GptkResultChunkMessage,
   GptkResultMessage,
   HealthCheckResultMessage,
   ScanSettings,
@@ -125,6 +126,13 @@ export default function App() {
   // scans killed by reload can be dropped (they arrive late from the GP tab)
   const currentScanRequestIdRef = useRef<string | null>(null)
 
+  // Reassembly buffer for chunked getAllMediaItems results, keyed by requestId.
+  // Chunks are stored by index because relaying through the service worker does
+  // not guarantee arrival order.
+  const resultChunksRef = useRef<
+    Record<string, { chunks: GpdMediaItem[][]; received: number; total: number }>
+  >({})
+
   // Counts failed healthCheck attempts during initial connect so we can retry
   // silently before showing a disconnected error.
   const healthCheckAttemptsRef = useRef(0)
@@ -180,6 +188,33 @@ export default function App() {
 
   // Listen for messages from service worker
   useEffect(() => {
+    // Shared tail of a completed getAllMediaItems fetch, however it arrived
+    // (chunked, or as a single legacy gptkResult).
+    const completeMediaFetch = (fetched: GpdMediaItem[]) => {
+      let items = fetched
+      const cached = cachedMediaItemsRef.current
+      if (cached && Object.keys(cached).length > 0) {
+        // Merge: new items take precedence over cached (handles field updates)
+        const newItemKeys = new Set(items.map((i) => i.mediaKey))
+        const cachedOnly = Object.values(cached).filter(
+          (i) => !newItemKeys.has(i.mediaKey)
+        )
+        items = [...items, ...cachedOnly]
+        console.log(
+          `[GPD] media items: ${fetched.length} new + ${cachedOnly.length} cached = ${items.length} total`
+        )
+        cachedMediaItemsRef.current = null
+      }
+      dispatch({
+        type: "SCAN_MEDIA_FETCHED",
+        mediaItems: items
+      })
+      runDuplicateDetection(
+        items,
+        scanAbortRef.current?.signal ?? new AbortController().signal
+      )
+    }
+
     const listener = (message: AppMessage, sender: chrome.runtime.MessageSender) => {
       if (message?.app !== APP_ID) return
       // The bridge content script sends GPTK results via chrome.runtime.sendMessage,
@@ -217,6 +252,40 @@ export default function App() {
           })
           break
         }
+        case "gptkResultChunk": {
+          const chunk = message as GptkResultChunkMessage
+          if (chunk.command !== "getAllMediaItems") break
+          // Drop stale chunks from scans that were killed/cancelled
+          if (chunk.requestId !== currentScanRequestIdRef.current) {
+            console.warn(
+              `[GPD] Dropping stale result chunk for requestId ${chunk.requestId} (active: ${currentScanRequestIdRef.current})`
+            )
+            break
+          }
+          const buffers = resultChunksRef.current
+          let buf = buffers[chunk.requestId]
+          if (!buf) {
+            buf = {
+              chunks: new Array(chunk.totalChunks),
+              received: 0,
+              total: chunk.totalChunks
+            }
+            buffers[chunk.requestId] = buf
+          }
+          // Ignore a duplicate delivery of the same index
+          if (buf.chunks[chunk.chunkIndex] !== undefined) break
+          buf.chunks[chunk.chunkIndex] = chunk.data as GpdMediaItem[]
+          buf.received++
+          if (buf.received < buf.total) break
+
+          delete buffers[chunk.requestId]
+          const items = buf.chunks.flat()
+          console.log(
+            `[GPD] reassembled ${items.length} media items from ${buf.total} chunk(s)`
+          )
+          completeMediaFetch(items)
+          break
+        }
         case "gptkResult": {
           const result = message as GptkResultMessage
           if (result.command === "getAllMediaItems") {
@@ -229,28 +298,7 @@ export default function App() {
               break
             }
             if (result.success) {
-              let items = result.data as GpdMediaItem[]
-              const cached = cachedMediaItemsRef.current
-              if (cached && Object.keys(cached).length > 0) {
-                // Merge: new items take precedence over cached (handles field updates)
-                const newItemKeys = new Set(items.map((i) => i.mediaKey))
-                const cachedOnly = Object.values(cached).filter(
-                  (i) => !newItemKeys.has(i.mediaKey)
-                )
-                items = [...items, ...cachedOnly]
-                console.log(
-                  `[GPD] media items: ${(result.data as GpdMediaItem[]).length} new + ${cachedOnly.length} cached = ${items.length} total`
-                )
-                cachedMediaItemsRef.current = null
-              }
-              dispatch({
-                type: "SCAN_MEDIA_FETCHED",
-                mediaItems: items
-              })
-              runDuplicateDetection(
-                items,
-                scanAbortRef.current?.signal ?? new AbortController().signal
-              )
+              completeMediaFetch(result.data as GpdMediaItem[])
             } else {
               dispatch({
                 type: "SCAN_ERROR",
@@ -535,6 +583,8 @@ export default function App() {
 
     const requestId = generateRequestId()
     currentScanRequestIdRef.current = requestId
+    // Drop any partially reassembled result from a previous scan
+    resultChunksRef.current = {}
     const currentState = stateRef.current
     const hasGptk = currentState.status === "connected" ? currentState.hasGptk : true
     const accountEmail =
@@ -646,6 +696,7 @@ export default function App() {
   const handleCancelScan = useCallback(() => {
     scanAbortRef.current?.abort()
     currentScanRequestIdRef.current = null
+    resultChunksRef.current = {}
     dispatch({ type: "SCAN_CANCELLED" })
   }, [])
 

@@ -241,6 +241,94 @@ test.describe("gptkCommand routing", () => {
 })
 
 // ============================================================
+// Chunked results (issue #147)
+// ============================================================
+
+test.describe("chunked result relay", () => {
+  test("relays a multi-chunk library to the app tab without loss", async () => {
+    await clearStorage(context)
+    const stub = await openGptkStubPage(context)
+    const page = await openAppTab(context, extensionId)
+    await expect(
+      page.getByRole("button", { name: /Scan Library/i })
+    ).toBeVisible({ timeout: 10_000 })
+
+    // The override lives on the stub page, so set it there.
+    const ITEMS = 25_000
+    await stub.evaluate((n) => {
+      ;(window as any).__gptkOverrides = { getAllMediaItems: { itemCount: n } }
+    }, ITEMS)
+
+    const result = await page.evaluate((requestIdSeed) => {
+      return new Promise<{
+        indexes: number[]
+        total: number
+        itemsReceived: number
+        firstKey: string
+        lastKey: string
+        uniqueKeys: number
+      }>((resolve, reject) => {
+        const APP_ID = "GPD"
+        const requestId = `test-chunks-${requestIdSeed}`
+        const byIndex: Record<number, any[]> = {}
+        const indexes: number[] = []
+        let total = 0
+
+        const timer = setTimeout(
+          () => reject(new Error(`Only received ${indexes.length} chunk(s)`)),
+          20_000
+        )
+
+        const listener = (msg: Record<string, unknown>) => {
+          if (msg?.app !== APP_ID || msg?.requestId !== requestId) return
+          if (msg.action !== "gptkResultChunk") return
+
+          const idx = msg.chunkIndex as number
+          total = msg.totalChunks as number
+          indexes.push(idx)
+          byIndex[idx] = msg.data as any[]
+
+          if (Object.keys(byIndex).length !== total) return
+
+          clearTimeout(timer)
+          chrome.runtime.onMessage.removeListener(listener)
+          const items = Array.from({ length: total }, (_, i) => byIndex[i]).flat()
+          resolve({
+            indexes,
+            total,
+            itemsReceived: items.length,
+            firstKey: items[0].mediaKey,
+            lastKey: items[items.length - 1].mediaKey,
+            uniqueKeys: new Set(items.map((i: any) => i.mediaKey)).size,
+          })
+        }
+        chrome.runtime.onMessage.addListener(listener)
+
+        chrome.runtime.sendMessage({
+          app: APP_ID,
+          action: "gptkCommand",
+          command: "getAllMediaItems",
+          requestId,
+        })
+      })
+    }, Date.now())
+
+    // 25k items at 10k per chunk => 3 chunks, none of which approach 64MiB
+    expect(result.total).toBe(3)
+    expect(new Set(result.indexes)).toEqual(new Set([0, 1, 2]))
+    // Nothing dropped or duplicated across the three-hop relay
+    expect(result.itemsReceived).toBe(ITEMS)
+    expect(result.uniqueKeys).toBe(ITEMS)
+    // Order preserved after reassembly by index
+    expect(result.firstKey).toBe("mk0")
+    expect(result.lastKey).toBe(`mk${ITEMS - 1}`)
+
+    await stub.close()
+    await page.close()
+  })
+})
+
+// ============================================================
 // Progress streaming
 // ============================================================
 

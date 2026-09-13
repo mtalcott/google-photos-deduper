@@ -113,6 +113,25 @@ export interface GptkResultMessage extends BaseMessage {
   error?: string;
 }
 
+/**
+ * One slice of a large command result.
+ *
+ * Chrome caps a single extension message at 64MiB. A full media-item array for
+ * a large library blows past that (~190k items serializes to ~84MB), and the
+ * oversize `chrome.runtime.sendMessage` throws synchronously, so the result is
+ * dropped and the scan appears to hang forever. Large results are therefore
+ * split into chunks and reassembled by the receiver, keyed on `requestId`.
+ */
+export interface GptkResultChunkMessage extends BaseMessage {
+  action: "gptkResultChunk";
+  command: string;
+  requestId: string;
+  /** 0-based index of this chunk; receivers assemble by index, not arrival order. */
+  chunkIndex: number;
+  totalChunks: number;
+  data: unknown[];
+}
+
 export interface GptkProgressMessage extends BaseMessage {
   action: "gptkProgress";
   requestId: string;
@@ -144,6 +163,7 @@ export type AppMessage =
   | TrashItemsResultMessage
   | GptkCommandMessage
   | GptkResultMessage
+  | GptkResultChunkMessage
   | GptkProgressMessage
   | GptkLogMessage;
 

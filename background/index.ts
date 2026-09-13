@@ -3,6 +3,7 @@ import type {
   AppMessage,
   GptkCommandMessage,
   GptkResultMessage,
+  GptkResultChunkMessage,
   GptkProgressMessage,
 } from "../lib/types"
 
@@ -142,6 +143,9 @@ chrome.runtime.onMessage.addListener(
         break
       case "gptkResult":
         handleGptkResult(message as GptkResultMessage, sender)
+        break
+      case "gptkResultChunk":
+        handleGptkResultChunk(message as GptkResultChunkMessage, sender)
         break
       case "gptkProgress":
         handleGptkProgress(message as GptkProgressMessage, sender)
@@ -283,6 +287,29 @@ function handleGptkResult(
   }
 
   delete pendingCommands[message.requestId]
+}
+
+/**
+ * Relays one chunk of a chunked result to the app tab.
+ *
+ * The pending command stays registered until the final chunk arrives, so a
+ * multi-chunk result is not torn down halfway through.
+ */
+function handleGptkResultChunk(
+  message: GptkResultChunkMessage,
+  _sender: chrome.runtime.MessageSender
+): void {
+  const pending = pendingCommands[message.requestId]
+  if (!pending) return
+
+  if (pending.appTabId) {
+    chrome.tabs.sendMessage(pending.appTabId, message)
+  }
+
+  if (message.chunkIndex >= message.totalChunks - 1) {
+    pending.resolve(undefined)
+    delete pendingCommands[message.requestId]
+  }
 }
 
 function handleGptkProgress(

@@ -33,6 +33,35 @@ function postError(command, requestId, error) {
   })
 }
 
+// Number of media items per result chunk.
+//
+// Chrome caps a single extension message at 64MiB. Real-world media items
+// serialize to ~460 bytes each, so a 190k-item library produces ~84MB — the
+// oversize chrome.runtime.sendMessage in the bridge throws synchronously, the
+// result never reaches the app, and the scan hangs on "Fetching media items"
+// forever. 10k items is ~4.6MB, leaving room for items far larger than average.
+const RESULT_CHUNK_SIZE = 10000
+
+// Sends an array result as a sequence of gptkResultChunk messages.
+// Always sends at least one chunk so an empty result still completes.
+function postResultChunked(command, requestId, items) {
+  const totalChunks = Math.max(1, Math.ceil(items.length / RESULT_CHUNK_SIZE))
+  for (let i = 0; i < totalChunks; i++) {
+    window.postMessage({
+      app: GPD_APP_ID,
+      action: "gptkResultChunk",
+      command,
+      requestId,
+      chunkIndex: i,
+      totalChunks,
+      data: items.slice(i * RESULT_CHUNK_SIZE, (i + 1) * RESULT_CHUNK_SIZE)
+    })
+  }
+  console.log(
+    `[GPD] sent ${items.length} items for ${command} in ${totalChunks} chunk(s)`
+  )
+}
+
 // command is optional; when provided, the app can route progress to the right handler.
 function postProgress(requestId, itemsProcessed, message, command) {
   window.postMessage({
@@ -151,7 +180,7 @@ async function getAllMediaItems(requestId, args) {
       if (reachedCache) break
     } while (nextPageId)
 
-    postResult("getAllMediaItems", requestId, mediaItems)
+    postResultChunked("getAllMediaItems", requestId, mediaItems)
   } catch (error) {
     postError("getAllMediaItems", requestId, error)
   }

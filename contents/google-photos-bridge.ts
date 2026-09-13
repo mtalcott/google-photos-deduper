@@ -22,6 +22,7 @@ window.addEventListener("message", (event) => {
   // Only forward GPTK result/progress/log messages to the service worker
   if (
     msg.action === "gptkResult" ||
+    msg.action === "gptkResultChunk" ||
     msg.action === "gptkProgress" ||
     msg.action === "gptkLog"
   ) {
