@@ -276,7 +276,11 @@ function handleGptkResult(
 
   // Relay result to the app tab
   if (pending.appTabId) {
-    chrome.tabs.sendMessage(pending.appTabId, message)
+    chrome.tabs.sendMessage(pending.appTabId, message).catch((error) => {
+      // Nothing to relay an error to — the app tab *is* the destination — so
+      // log it and let the app's own watchdog surface the stall.
+      console.error("[GPD] Failed to relay result to the app tab:", error)
+    })
   }
 
   // Resolve/reject the promise if anyone is awaiting
@@ -303,7 +307,12 @@ function handleGptkResultChunk(
   if (!pending) return
 
   if (pending.appTabId) {
-    chrome.tabs.sendMessage(pending.appTabId, message)
+    chrome.tabs.sendMessage(pending.appTabId, message).catch((error) => {
+      console.error(
+        `[GPD] Failed to relay result chunk ${message.chunkIndex + 1}/${message.totalChunks} to the app tab:`,
+        error
+      )
+    })
   }
 
   if (message.chunkIndex >= message.totalChunks - 1) {
@@ -319,8 +328,9 @@ function handleGptkProgress(
   const pending = pendingCommands[message.requestId]
   if (!pending?.appTabId) return
 
-  // Relay progress to the app tab
-  chrome.tabs.sendMessage(pending.appTabId, message)
+  // Relay progress to the app tab. Progress is advisory — a dropped update
+  // must not produce an unhandled rejection.
+  chrome.tabs.sendMessage(pending.appTabId, message).catch(() => {})
 }
 
 // ============================================================
