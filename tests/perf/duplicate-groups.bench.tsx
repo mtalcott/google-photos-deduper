@@ -54,6 +54,7 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+        onTrashWholeGroup: () => {},
       })
       unmount()
     },
@@ -70,6 +71,7 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+        onTrashWholeGroup: () => {},
       })
       rerender(
         <ThemeProvider theme={theme}>
@@ -80,6 +82,7 @@ describe("DuplicateGroups perf", () => {
             onToggleGroup={() => {}}
             keptByGroupId={keptByGroupId}
             onToggleKept={() => {}}
+            onTrashWholeGroup={() => {}}
           />
         </ThemeProvider>
       )
@@ -98,6 +101,7 @@ describe("DuplicateGroups perf", () => {
         onToggleGroup: () => {},
         keptByGroupId,
         onToggleKept: () => {},
+        onTrashWholeGroup: () => {},
       })
       rerender(
         <ThemeProvider theme={theme}>
@@ -108,6 +112,7 @@ describe("DuplicateGroups perf", () => {
             onToggleGroup={() => {}}
             keptByGroupId={keptBigGroupToggled}
             onToggleKept={() => {}}
+            onTrashWholeGroup={() => {}}
           />
         </ThemeProvider>
       )

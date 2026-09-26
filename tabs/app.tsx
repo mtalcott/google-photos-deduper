@@ -36,6 +36,10 @@ import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
 import { areScanResultsValid } from "../lib/scan-results"
+import {
+  countFullyTrashedGroups,
+  toggleWholeGroupTrashed
+} from "../lib/kept-overrides"
 import type {
   AppMessage,
   DuplicateGroup,
@@ -99,6 +103,7 @@ export default function App() {
   const [trashConfirm, setTrashConfirm] = useState<{
     dedupKeys: string[]
     mediaKeysToTrash: string[]
+    fullyTrashedGroups: number
   } | null>(null)
 
   // Undo trash state: stored after a successful trash operation
@@ -435,7 +440,9 @@ export default function App() {
           })
         }
 
-        const groups =
+        // Smart mode reports how many timestamp buckets it had to split to
+        // keep pairwise comparison bounded; full mode never splits.
+        const { groups, bucketsSplit } =
           settingsRef.current.scanMode === "smart"
             ? await smartDetectDuplicates(
                 items,
@@ -453,7 +460,7 @@ export default function App() {
                   signal,
                   logger
                 )
-                return result.groups
+                return { groups: result.groups, bucketsSplit: 0 }
               })()
 
         await logger.finalize("complete", { groupsFound: groups.length })
@@ -467,7 +474,8 @@ export default function App() {
         dispatch({
           type: "SCAN_COMPLETE",
           mediaItems: mediaItemMap,
-          groups
+          groups,
+          bucketsSplit
         })
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
@@ -522,6 +530,7 @@ export default function App() {
             mediaItems: result.scanResults.mediaItems,
             groups: result.scanResults.groups,
             totalItems: result.scanResults.totalItems,
+            bucketsSplit: result.scanResults.bucketsSplit,
             accountEmail: result.scanResults.accountEmail
           })
         }
@@ -582,8 +591,20 @@ export default function App() {
     },
     [defaultKeptSets]
   )
+
+  // Trash an entire group. This is the only path that leaves a group with no
+  // survivor — the per-photo toggle above still refuses to remove the last
+  // kept item, so a group can only be emptied deliberately.
+  const handleTrashWholeGroup = useCallback((group: DuplicateGroup) => {
+    setKeptOverrides((prev) => toggleWholeGroupTrashed(prev, group.id))
+  }, [])
+
   const totalItems = state.status === "results" ? state.totalItems : 0
   const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
+  const bucketsSplit =
+    state.status === "results" || state.status === "trashing"
+      ? state.bucketsSplit
+      : 0
   useEffect(() => {
     if (!mediaItems) return
     if (groups.length > 0) {
@@ -598,6 +619,7 @@ export default function App() {
           scanDate: Date.now(),
           totalItems,
           newestCreationTimestamp,
+          bucketsSplit,
           accountEmail: accountEmailForStorage
         }
       })
@@ -605,7 +627,7 @@ export default function App() {
       // All duplicates removed — clear saved results so next open starts fresh
       chrome.storage.local.remove("scanResults")
     }
-  }, [groups, mediaItems, totalItems, accountEmailForStorage])
+  }, [groups, mediaItems, totalItems, bucketsSplit, accountEmailForStorage])
 
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
@@ -712,7 +734,12 @@ export default function App() {
     }
 
     if (dedupKeys.length === 0) return
-    setTrashConfirm({ dedupKeys, mediaKeysToTrash })
+    const fullyTrashedGroups = countFullyTrashedGroups(
+      state.groups,
+      selectedGroupIds,
+      getKept
+    )
+    setTrashConfirm({ dedupKeys, mediaKeysToTrash, fullyTrashedGroups })
   }, [state, selectedGroupIds, getKept])
 
   const handleTrashConfirmed = useCallback(() => {
@@ -882,6 +909,8 @@ export default function App() {
             totalEstimate={state.totalEstimate}
             message={state.message}
             onCancel={handleCancelScan}
+            oldestUploadedAt={state.oldestUploadedAt}
+            oldestTakenAt={state.oldestTakenAt}
           />
         )}
 
@@ -921,6 +950,8 @@ export default function App() {
               onToggleGroup={handleToggleGroup}
               keptByGroupId={keptByGroupId}
               onToggleKept={handleToggleKept}
+              onTrashWholeGroup={handleTrashWholeGroup}
+              bucketsSplit={state.bucketsSplit}
             />
           </>
         )}
@@ -955,6 +986,13 @@ export default function App() {
             {trashConfirm?.dedupKeys.length !== 1 ? "s" : ""} to trash? You can
             restore them from the Google Photos trash.
           </DialogContentText>
+          {!!trashConfirm?.fullyTrashedGroups && (
+            <DialogContentText sx={{ mt: 2 }} color="error">
+              {trashConfirm.fullyTrashedGroups} group
+              {trashConfirm.fullyTrashedGroups !== 1 ? "s" : ""} will be removed
+              entirely — no copy will be kept.
+            </DialogContentText>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTrashConfirm(null)}>Cancel</Button>

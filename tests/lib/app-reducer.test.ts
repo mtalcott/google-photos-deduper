@@ -295,3 +295,134 @@ describe("RESET", () => {
     expect(next).toEqual({ status: "connecting" })
   })
 })
+
+// ============================================================
+// bucketsSplit — the "some duplicates may be missed" caveat
+// ============================================================
+
+const scanningState: AppState = {
+  status: "scanning",
+  phase: "fetching",
+  itemsProcessed: 0,
+  totalEstimate: 0,
+  message: "",
+  requestId: "r",
+  hasGptk: true,
+}
+
+describe("bucketsSplit", () => {
+  it("carries bucketsSplit from SCAN_COMPLETE into results", () => {
+    const next = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+      bucketsSplit: 3,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 3 })
+  })
+
+  it("defaults bucketsSplit to 0 when SCAN_COMPLETE omits it", () => {
+    const next = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 0 })
+  })
+
+  it("restores bucketsSplit from saved results", () => {
+    const next = appReducer(resultsState, {
+      type: "LOAD_SAVED_RESULTS",
+      mediaItems,
+      groups,
+      totalItems: 4,
+      bucketsSplit: 2,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 2 })
+  })
+
+  // The caveat is about scan completeness, so it must survive a trash round
+  // trip — the group list is still on screen throughout.
+  it("preserves bucketsSplit through TRASH_STARTED and TRASH_COMPLETE", () => {
+    const withSplit = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+      bucketsSplit: 5,
+    })
+    const trashing = appReducer(withSplit, {
+      type: "TRASH_STARTED",
+      totalToTrash: 2,
+      mediaItems,
+      groups,
+      totalItems: 4,
+    })
+    expect(trashing).toMatchObject({ status: "trashing", bucketsSplit: 5 })
+
+    const done = appReducer(trashing, {
+      type: "TRASH_COMPLETE",
+      trashedKeys: ["img2"],
+    })
+    expect(done).toMatchObject({ status: "results", bucketsSplit: 5 })
+  })
+})
+
+// ============================================================
+// Fetch position — how far back the fetch has walked
+// ============================================================
+
+describe("SCAN_PROGRESS fetch position", () => {
+  const MAR_2023 = Date.parse("2023-03-12T10:00:00Z")
+  const JUL_2019 = Date.parse("2019-07-04T10:00:00Z")
+  const FEB_2023 = Date.parse("2023-02-01T10:00:00Z")
+
+  const progress = (extra: Record<string, unknown> = {}) => ({
+    type: "SCAN_PROGRESS" as const,
+    payload: {
+      app: APP_ID,
+      action: "gptkProgress" as const,
+      requestId: "r",
+      itemsProcessed: 100,
+      ...extra,
+    },
+  })
+
+  it("carries upload and taken dates onto the scanning state", () => {
+    const next = appReducer(
+      scanningState,
+      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+    )
+    expect(next).toMatchObject({
+      status: "scanning",
+      oldestUploadedAt: MAR_2023,
+      oldestTakenAt: JUL_2019,
+    })
+  })
+
+  // Progress messages arrive continuously; one without dates must not blank
+  // out a position already on screen.
+  it("preserves a known position when a later message omits the dates", () => {
+    const withPos = appReducer(
+      scanningState,
+      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+    )
+    const next = appReducer(withPos, progress({ itemsProcessed: 200 }))
+    expect(next).toMatchObject({
+      itemsProcessed: 200,
+      oldestUploadedAt: MAR_2023,
+      oldestTakenAt: JUL_2019,
+    })
+  })
+
+  it("advances the position as the fetch walks backwards", () => {
+    const first = appReducer(scanningState, progress({ oldestUploadedAt: MAR_2023 }))
+    const second = appReducer(first, progress({ oldestUploadedAt: FEB_2023 }))
+    expect(second).toMatchObject({ oldestUploadedAt: FEB_2023 })
+  })
+
+  it("leaves the position undefined before any dates arrive", () => {
+    const next = appReducer(scanningState, progress())
+    expect(next).toMatchObject({ status: "scanning" })
+    expect((next as { oldestUploadedAt?: number }).oldestUploadedAt).toBeUndefined()
+  })
+})

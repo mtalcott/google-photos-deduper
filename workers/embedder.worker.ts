@@ -159,8 +159,11 @@ self.addEventListener("message", async (event: MessageEvent) => {
       for (const [, members] of components)
         if (members.length >= 2) allGroups.push(members);
 
-      if (bi % 100 === 0)
-        self.postMessage({ type: "detectionProgress", current: bi + 1, total: buckets.length });
+      // Report every bucket, not every 100th. Buckets are capped upstream
+      // (see MAX_BUCKET_SIZE), but comparison cost is quadratic in bucket
+      // size, so a batch of 100 large buckets could otherwise leave the
+      // progress bar frozen for minutes with the scan looking hung.
+      self.postMessage({ type: "detectionProgress", current: bi + 1, total: buckets.length });
     }
 
     self.postMessage({ type: "detectionResults", groups: allGroups });

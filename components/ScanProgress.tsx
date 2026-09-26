@@ -12,6 +12,10 @@ interface ScanProgressProps {
   totalEstimate: number
   message: string
   onCancel?: () => void
+  /** Upload date of the oldest item fetched so far; walks backwards monotonically. */
+  oldestUploadedAt?: number
+  /** Taken date of that same item. Often diverges from the upload date. */
+  oldestTakenAt?: number
 }
 
 const PHASE_LABELS: Record<ScanPhase, string> = {
@@ -44,12 +48,28 @@ function formatEtr(seconds: number): string {
   return mins > 0 ? `${hrs}h ${mins}m remaining` : `${hrs}h remaining`
 }
 
+/**
+ * Format a timestamp for the fetch-position readout, or null when the value is
+ * unusable. Some items carry no date at all; rendering those as 1 Jan 1970
+ * would be worse than showing nothing.
+ */
+function formatPositionDate(ts: number | undefined): string | null {
+  if (ts === undefined || !Number.isFinite(ts) || ts <= 0) return null
+  return new Date(ts).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })
+}
+
 export function ScanProgress({
   phase,
   itemsProcessed,
   totalEstimate,
   message,
   onCancel,
+  oldestUploadedAt,
+  oldestTakenAt,
 }: ScanProgressProps) {
   const progress =
     totalEstimate > 0 ? Math.round((itemsProcessed / totalEstimate) * 100) : 0
@@ -81,6 +101,10 @@ export function ScanProgress({
 
   const etaText = cachedEtrRef.current?.text ?? null
   const stepNum = PHASE_STEP[phase]
+
+  // Only meaningful while paginating; later phases work on a fixed set.
+  const uploadedText = phase === "fetching" ? formatPositionDate(oldestUploadedAt) : null
+  const takenText = phase === "fetching" ? formatPositionDate(oldestTakenAt) : null
 
   return (
     <Box sx={{ maxWidth: 480, mx: "auto", p: 4 }}>
@@ -117,6 +141,17 @@ export function ScanProgress({
           </Typography>
         )}
       </Box>
+
+      {uploadedText && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          data-testid="fetch-position"
+          sx={{ display: "block", mb: 2 }}>
+          Reached uploads from {uploadedText}
+          {takenText && ` (taken ${takenText})`}
+        </Typography>
+      )}
 
       {onCancel && (
         <Box sx={{ mt: 3 }}>
