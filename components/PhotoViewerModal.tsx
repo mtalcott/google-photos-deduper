@@ -221,16 +221,10 @@ export function PhotoViewerModal({
           navigate(Math.max(0, index - 1))
         } else if (e.key === "ArrowRight") {
           navigate(Math.min(items.length - 1, index + 1))
-        } else if (e.key === "ArrowUp") {
+        } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault()
           const item = items[Math.min(index, items.length - 1)]
-          if (item && !keptSet.has(item.mediaKey)) {
-            onToggleKept?.(item.mediaKey)
-          }
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault()
-          const item = items[Math.min(index, items.length - 1)]
-          if (item && keptSet.has(item.mediaKey)) {
+          if (item) {
             onToggleKept?.(item.mediaKey)
           }
         }
@@ -491,12 +485,8 @@ export function PhotoViewerModal({
               <Typography variant="body2" sx={{ fontFamily: "monospace" }}>← / →</Typography>
             </Box>
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Keep photo</Typography>
-              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>↑</Typography>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Trash photo</Typography>
-              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>↓</Typography>
+              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Toggle Keep / Trash</Typography>
+              <Typography variant="body2" sx={{ fontFamily: "monospace" }}>↑ / ↓</Typography>
             </Box>
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)" }}>Previous / Next group</Typography>

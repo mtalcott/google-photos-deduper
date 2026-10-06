@@ -265,7 +265,7 @@ describe("PhotoViewerModal — close", () => {
 // ============================================================
 
 describe("PhotoViewerModal — keyboard keep toggling", () => {
-  it("calls onToggleKept when pressing ArrowUp on a non-kept image", () => {
+  it("calls onToggleKept when pressing ArrowUp on a non-kept image (toggle on)", () => {
     const onToggleKept = vi.fn()
     wrap(
       <PhotoViewerModal
@@ -278,7 +278,7 @@ describe("PhotoViewerModal — keyboard keep toggling", () => {
     expect(onToggleKept).toHaveBeenCalledWith("img2")
   })
 
-  it("does NOT call onToggleKept when pressing ArrowUp on an already kept image", () => {
+  it("calls onToggleKept when pressing ArrowUp on an already kept image (toggle off)", () => {
     const onToggleKept = vi.fn()
     wrap(
       <PhotoViewerModal
@@ -288,10 +288,10 @@ describe("PhotoViewerModal — keyboard keep toggling", () => {
       />
     )
     fireEvent.keyDown(window, { key: "ArrowUp" })
-    expect(onToggleKept).not.toHaveBeenCalled()
+    expect(onToggleKept).toHaveBeenCalledWith("img1")
   })
 
-  it("calls onToggleKept when pressing ArrowDown on a kept image", () => {
+  it("calls onToggleKept when pressing ArrowDown on a kept image (toggle off)", () => {
     const onToggleKept = vi.fn()
     wrap(
       <PhotoViewerModal
@@ -304,7 +304,7 @@ describe("PhotoViewerModal — keyboard keep toggling", () => {
     expect(onToggleKept).toHaveBeenCalledWith("img1")
   })
 
-  it("does NOT call onToggleKept when pressing ArrowDown on a non-kept image", () => {
+  it("calls onToggleKept when pressing ArrowDown on a non-kept image (toggle on)", () => {
     const onToggleKept = vi.fn()
     wrap(
       <PhotoViewerModal
@@ -314,7 +314,7 @@ describe("PhotoViewerModal — keyboard keep toggling", () => {
       />
     )
     fireEvent.keyDown(window, { key: "ArrowDown" })
-    expect(onToggleKept).not.toHaveBeenCalled()
+    expect(onToggleKept).toHaveBeenCalledWith("img2")
   })
 })
 
