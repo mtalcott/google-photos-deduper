@@ -17,7 +17,8 @@
 
   Supported commands:
     healthCheck     → { hasGptk, hasWizData, accountEmail }
-    getAllMediaItems → []   (empty; scan tests use injected storage)
+    getAllMediaItems → [] as gptkResultChunk messages (empty by default;
+                       override { itemCount: N } for a synthetic library)
     trashItems      → emits per-chunk gptkProgress + final gptkResult
     restoreItems    → immediate gptkResult success
 
@@ -89,6 +90,49 @@
       })
     }
 
+    /**
+     * Mirrors scripts/google-photos-commands.js: large media-item results are
+     * split into gptkResultChunk messages so they stay under Chrome's 64MiB
+     * per-message cap. Keep this in sync with RESULT_CHUNK_SIZE there.
+     */
+    const RESULT_CHUNK_SIZE = 10000
+
+    function replyChunked(command, requestId, items) {
+      const totalChunks = Math.max(1, Math.ceil(items.length / RESULT_CHUNK_SIZE))
+      for (let i = 0; i < totalChunks; i++) {
+        window.postMessage({
+          app: APP_ID,
+          action: "gptkResultChunk",
+          command,
+          requestId,
+          chunkIndex: i,
+          totalChunks,
+          data: items.slice(i * RESULT_CHUNK_SIZE, (i + 1) * RESULT_CHUNK_SIZE),
+        })
+      }
+    }
+
+    async function handleGetAllMediaItems(command, requestId) {
+      const override = window.__gptkOverrides[command]
+      if (override && override.success === false) {
+        replyError(command, requestId, override.error || "Stub: getAllMediaItems failed")
+        return
+      }
+      // Tests can request a synthetic library: { getAllMediaItems: { itemCount: 25000 } }
+      const items =
+        override && typeof override.itemCount === "number"
+          ? Array.from({ length: override.itemCount }, (_, i) => ({
+              mediaKey: "mk" + i,
+              dedupKey: "dk" + i,
+              thumb: "https://example.invalid/t" + i,
+              timestamp: 1000,
+              creationTimestamp: 2000,
+              productUrl: "https://photos.google.com/photo/mk" + i,
+            }))
+          : (override && override.data) || DEFAULT_RESPONSES[command]
+      replyChunked(command, requestId, items)
+    }
+
     async function handleTrashItems(command, requestId, args) {
       const override = window.__gptkOverrides[command]
       if (override && override.success === false) {
@@ -131,6 +175,10 @@
       const { command, requestId, args } = msg
 
       switch (command) {
+        case "getAllMediaItems":
+          await handleGetAllMediaItems(command, requestId)
+          break
+
         case "trashItems":
           await handleTrashItems(command, requestId, args)
           break

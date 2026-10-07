@@ -66,6 +66,27 @@ function collectMessages(): { messages: unknown[]; restore: () => void } {
   return { messages, restore: () => spy.mockRestore() }
 }
 
+/**
+ * Reassemble a chunked getAllMediaItems result.
+ *
+ * getAllMediaItems streams its items as gptkResultChunk messages so large
+ * libraries stay under Chrome's 64MiB per-message limit. Returns a
+ * gptkResult-shaped object so assertions read the same as before, or
+ * undefined when no chunks were emitted.
+ */
+function findMediaItemsResult(
+  messages: unknown[]
+): { success: boolean; data: any[] } | undefined {
+  const chunks = messages.filter(
+    (m: any) =>
+      m.action === "gptkResultChunk" && m.command === "getAllMediaItems"
+  ) as any[]
+  if (chunks.length === 0) return undefined
+  const ordered = new Array(chunks[0].totalChunks)
+  for (const c of chunks) ordered[c.chunkIndex] = c.data
+  return { success: true, data: ordered.flat() }
+}
+
 /** Wait for all queued microtasks / promise continuations to settle. */
 async function flush() {
   await new Promise((r) => setTimeout(r, 0))
@@ -118,9 +139,7 @@ describe("getAllMediaItems — field mapping", () => {
     sendCommand("getAllMediaItems", "req-oq-1", {})
     await flush()
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.success).toBe(true)
     expect(result?.data[0].isOriginalQuality).toBe(true)
     restore()
@@ -142,9 +161,7 @@ describe("getAllMediaItems — field mapping", () => {
     sendCommand("getAllMediaItems", "req-oq-2", {})
     await flush()
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.data[0].isOriginalQuality).toBe(false)
     restore()
   })
@@ -165,9 +182,7 @@ describe("getAllMediaItems — field mapping", () => {
     sendCommand("getAllMediaItems", "req-oq-3", {})
     await flush()
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.data[0].isOriginalQuality).toBeNull()
     restore()
   })
@@ -188,9 +203,7 @@ describe("getAllMediaItems — field mapping", () => {
     sendCommand("getAllMediaItems", "req-url-1", {})
     await flush()
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.data[0].productUrl).toBe("https://photos.google.com/photo/mk-single")
     restore()
   })
@@ -211,10 +224,111 @@ describe("getAllMediaItems — field mapping", () => {
     sendCommand("getAllMediaItems", "req-url-2", {})
     await flush()
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.data[0].productUrl).toBe("https://photos.google.com/u/2/photo/mk-multi")
+    restore()
+  })
+})
+
+// ============================================================
+// Unit tests: getAllMediaItems result chunking
+// ============================================================
+
+describe("getAllMediaItems — result chunking", () => {
+  const CHUNK_SIZE = 10000
+
+  /** Serve `total` synthetic items across pages of `pageSize`. */
+  function setupLibrary(total: number, pageSize = 5000) {
+    let served = 0
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi.fn().mockImplementation(async () => {
+        const n = Math.min(pageSize, total - served)
+        const items = Array.from({ length: n }, (_, i) => ({
+          mediaKey: `mk${served + i}`,
+          dedupKey: `dk${served + i}`,
+          thumb: "https://thumb",
+          timestamp: 1000,
+          creationTimestamp: 2000,
+        }))
+        served += n
+        return { items, nextPageId: served < total ? `page-${served}` : null }
+      }),
+    }
+  }
+
+  afterEach(() => {
+    delete (window as any).gptkApi
+  })
+
+  function chunksFrom(messages: unknown[]) {
+    return messages.filter(
+      (m: any) =>
+        m.action === "gptkResultChunk" && m.command === "getAllMediaItems"
+    ) as any[]
+  }
+
+  it("sends a single chunk for a library under the chunk size", async () => {
+    setupLibrary(3, 3)
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-chunk-small", {})
+    await flush()
+
+    const chunks = chunksFrom(messages)
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0].totalChunks).toBe(1)
+    expect(chunks[0].chunkIndex).toBe(0)
+    expect(chunks[0].data).toHaveLength(3)
+    restore()
+  })
+
+  it("still sends one chunk for an empty library so the scan completes", async () => {
+    setupLibrary(0, 0)
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-chunk-empty", {})
+    await flush()
+
+    const chunks = chunksFrom(messages)
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0].totalChunks).toBe(1)
+    expect(chunks[0].data).toEqual([])
+    restore()
+  })
+
+  it("splits a large library into chunks that reassemble losslessly", async () => {
+    const TOTAL = CHUNK_SIZE * 2 + 137
+    setupLibrary(TOTAL)
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-chunk-large", {})
+    await flush()
+
+    const chunks = chunksFrom(messages)
+    expect(chunks).toHaveLength(3)
+    expect(chunks.map((c) => c.chunkIndex)).toEqual([0, 1, 2])
+    expect(chunks.every((c) => c.totalChunks === 3)).toBe(true)
+
+    // No chunk may approach Chrome's 64MiB per-message ceiling.
+    for (const c of chunks) {
+      expect(c.data.length).toBeLessThanOrEqual(CHUNK_SIZE)
+    }
+
+    const reassembled = findMediaItemsResult(messages)!
+    expect(reassembled.data).toHaveLength(TOTAL)
+    // Order is preserved end to end
+    expect(reassembled.data[0].mediaKey).toBe("mk0")
+    expect(reassembled.data[TOTAL - 1].mediaKey).toBe(`mk${TOTAL - 1}`)
+    expect(new Set(reassembled.data.map((i: any) => i.mediaKey)).size).toBe(TOTAL)
+    restore()
+  })
+
+  it("tags every chunk with the originating requestId", async () => {
+    setupLibrary(CHUNK_SIZE + 1)
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-chunk-id", {})
+    await flush()
+
+    const chunks = chunksFrom(messages)
+    expect(chunks).toHaveLength(2)
+    expect(chunks.every((c) => c.requestId === "req-chunk-id")).toBe(true)
     restore()
   })
 })
@@ -444,9 +558,7 @@ describe("getAllMediaItems — page timeout", () => {
     // Flush microtasks (no real delay needed — the page resolves immediately).
     await vi.advanceTimersByTimeAsync(0)
 
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     expect(result?.success).toBe(true)
     restore()
   })
