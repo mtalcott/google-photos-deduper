@@ -139,6 +139,18 @@ export interface GptkProgressMessage extends BaseMessage {
   message?: string;
   /** Set by batch operations (e.g. "trashItems") so the app can route progress correctly. */
   command?: string;
+  /**
+   * Upload date of the oldest item fetched so far. Pagination runs newest-first
+   * by upload date, so this walks backwards monotonically and is the honest
+   * indicator of how far through the library the fetch has reached.
+   */
+  oldestUploadedAt?: number;
+  /**
+   * Taken date of that same item. Shown alongside the upload date because the
+   * two frequently diverge — a photo uploaded yesterday may have been taken
+   * decades ago — and this does NOT decrease monotonically.
+   */
+  oldestTakenAt?: number;
 }
 
 export interface GptkLogMessage extends BaseMessage {

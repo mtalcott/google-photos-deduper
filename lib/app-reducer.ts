@@ -26,6 +26,10 @@ export type AppState =
       message: string
       requestId: string
       hasGptk: boolean
+      // How far back the fetch has reached. Upload date walks backwards
+      // monotonically; taken date does not. Undefined until the first page.
+      oldestUploadedAt?: number
+      oldestTakenAt?: number
       accountEmail?: string
     }
   | {
@@ -144,6 +148,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         itemsProcessed: action.payload.itemsProcessed,
         ...(action.totalItems !== undefined ? { totalEstimate: action.totalItems } : {}),
         message: action.payload.message || state.message,
+        // Spread only when present so a later message without dates does not
+        // blank out a position already on screen.
+        ...(action.payload.oldestUploadedAt !== undefined
+          ? { oldestUploadedAt: action.payload.oldestUploadedAt }
+          : {}),
+        ...(action.payload.oldestTakenAt !== undefined
+          ? { oldestTakenAt: action.payload.oldestTakenAt }
+          : {}),
       }
 
     case "SCAN_MEDIA_FETCHED":

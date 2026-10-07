@@ -366,3 +366,63 @@ describe("bucketsSplit", () => {
     expect(done).toMatchObject({ status: "results", bucketsSplit: 5 })
   })
 })
+
+// ============================================================
+// Fetch position — how far back the fetch has walked
+// ============================================================
+
+describe("SCAN_PROGRESS fetch position", () => {
+  const MAR_2023 = Date.parse("2023-03-12T10:00:00Z")
+  const JUL_2019 = Date.parse("2019-07-04T10:00:00Z")
+  const FEB_2023 = Date.parse("2023-02-01T10:00:00Z")
+
+  const progress = (extra: Record<string, unknown> = {}) => ({
+    type: "SCAN_PROGRESS" as const,
+    payload: {
+      app: APP_ID,
+      action: "gptkProgress" as const,
+      requestId: "r",
+      itemsProcessed: 100,
+      ...extra,
+    },
+  })
+
+  it("carries upload and taken dates onto the scanning state", () => {
+    const next = appReducer(
+      scanningState,
+      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+    )
+    expect(next).toMatchObject({
+      status: "scanning",
+      oldestUploadedAt: MAR_2023,
+      oldestTakenAt: JUL_2019,
+    })
+  })
+
+  // Progress messages arrive continuously; one without dates must not blank
+  // out a position already on screen.
+  it("preserves a known position when a later message omits the dates", () => {
+    const withPos = appReducer(
+      scanningState,
+      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+    )
+    const next = appReducer(withPos, progress({ itemsProcessed: 200 }))
+    expect(next).toMatchObject({
+      itemsProcessed: 200,
+      oldestUploadedAt: MAR_2023,
+      oldestTakenAt: JUL_2019,
+    })
+  })
+
+  it("advances the position as the fetch walks backwards", () => {
+    const first = appReducer(scanningState, progress({ oldestUploadedAt: MAR_2023 }))
+    const second = appReducer(first, progress({ oldestUploadedAt: FEB_2023 }))
+    expect(second).toMatchObject({ oldestUploadedAt: FEB_2023 })
+  })
+
+  it("leaves the position undefined before any dates arrive", () => {
+    const next = appReducer(scanningState, progress())
+    expect(next).toMatchObject({ status: "scanning" })
+    expect((next as { oldestUploadedAt?: number }).oldestUploadedAt).toBeUndefined()
+  })
+})
