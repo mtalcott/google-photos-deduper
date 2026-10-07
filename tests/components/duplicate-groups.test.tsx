@@ -75,6 +75,7 @@ const defaultProps = {
   onToggleGroup: vi.fn(),
   keptByGroupId: new Map([["g1", new Set(["img1"])]]),
   onToggleKept: vi.fn(),
+  onTrashWholeGroup: vi.fn(),
 }
 
 // ============================================================
@@ -379,6 +380,83 @@ describe("favorite badge", () => {
     expect(screen.getByTestId("favorite-badge-a")).toHaveAttribute(
       "title",
       expect.stringMatching(/favorite/i)
+    )
+  })
+})
+
+// Trash whole group
+//
+// The one action that leaves a group with no survivor, so it has to be
+// deliberate and clearly signposted.
+// ============================================================
+
+describe("trash whole group", () => {
+  it("renders a trash-all control for each group", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    expect(screen.getByTestId("trash-whole-group-g1")).toBeInTheDocument()
+  })
+
+  it("calls onTrashWholeGroup with the group when clicked", () => {
+    const onTrashWholeGroup = vi.fn()
+    wrap(<DuplicateGroups {...defaultProps} onTrashWholeGroup={onTrashWholeGroup} />)
+    fireEvent.click(screen.getByTestId("trash-whole-group-g1"))
+    expect(onTrashWholeGroup).toHaveBeenCalledTimes(1)
+    expect(onTrashWholeGroup.mock.calls[0][0].id).toBe("g1")
+  })
+
+  // The group header itself toggles selection, so the control must not
+  // bubble — otherwise trashing a group would also deselect it.
+  it("does not toggle group selection when clicked", () => {
+    const onToggleGroup = vi.fn()
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        onToggleGroup={onToggleGroup}
+        onTrashWholeGroup={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByTestId("trash-whole-group-g1"))
+    expect(onToggleGroup).not.toHaveBeenCalled()
+  })
+
+  it("shows no Keep chip when the group keeps nothing", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        keptByGroupId={new Map([["g1", new Set<string>()]])}
+      />
+    )
+    expect(screen.queryByText("Keep")).not.toBeInTheDocument()
+  })
+
+  it("marks every item for trash when the group keeps nothing", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        keptByGroupId={new Map([["g1", new Set<string>()]])}
+      />
+    )
+    expect(screen.getAllByText("Trash")).toHaveLength(group.mediaKeys.length)
+  })
+
+  it("labels the control as active while the group is fully trashed", () => {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        keptByGroupId={new Map([["g1", new Set<string>()]])}
+      />
+    )
+    expect(screen.getByTestId("trash-whole-group-g1")).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+  })
+
+  it("is not active while the group still keeps an item", () => {
+    wrap(<DuplicateGroups {...defaultProps} />)
+    expect(screen.getByTestId("trash-whole-group-g1")).toHaveAttribute(
+      "aria-pressed",
+      "false"
     )
   })
 })

@@ -36,6 +36,10 @@ import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
 import { areScanResultsValid } from "../lib/scan-results"
+import {
+  countFullyTrashedGroups,
+  toggleWholeGroupTrashed
+} from "../lib/kept-overrides"
 import type {
   AppMessage,
   DuplicateGroup,
@@ -99,6 +103,7 @@ export default function App() {
   const [trashConfirm, setTrashConfirm] = useState<{
     dedupKeys: string[]
     mediaKeysToTrash: string[]
+    fullyTrashedGroups: number
   } | null>(null)
 
   // Undo trash state: stored after a successful trash operation
@@ -586,6 +591,14 @@ export default function App() {
     },
     [defaultKeptSets]
   )
+
+  // Trash an entire group. This is the only path that leaves a group with no
+  // survivor — the per-photo toggle above still refuses to remove the last
+  // kept item, so a group can only be emptied deliberately.
+  const handleTrashWholeGroup = useCallback((group: DuplicateGroup) => {
+    setKeptOverrides((prev) => toggleWholeGroupTrashed(prev, group.id))
+  }, [])
+
   const totalItems = state.status === "results" ? state.totalItems : 0
   const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
   const bucketsSplit =
@@ -721,7 +734,12 @@ export default function App() {
     }
 
     if (dedupKeys.length === 0) return
-    setTrashConfirm({ dedupKeys, mediaKeysToTrash })
+    const fullyTrashedGroups = countFullyTrashedGroups(
+      state.groups,
+      selectedGroupIds,
+      getKept
+    )
+    setTrashConfirm({ dedupKeys, mediaKeysToTrash, fullyTrashedGroups })
   }, [state, selectedGroupIds, getKept])
 
   const handleTrashConfirmed = useCallback(() => {
@@ -932,6 +950,7 @@ export default function App() {
               onToggleGroup={handleToggleGroup}
               keptByGroupId={keptByGroupId}
               onToggleKept={handleToggleKept}
+              onTrashWholeGroup={handleTrashWholeGroup}
               bucketsSplit={state.bucketsSplit}
             />
           </>
@@ -967,6 +986,13 @@ export default function App() {
             {trashConfirm?.dedupKeys.length !== 1 ? "s" : ""} to trash? You can
             restore them from the Google Photos trash.
           </DialogContentText>
+          {!!trashConfirm?.fullyTrashedGroups && (
+            <DialogContentText sx={{ mt: 2 }} color="error">
+              {trashConfirm.fullyTrashedGroups} group
+              {trashConfirm.fullyTrashedGroups !== 1 ? "s" : ""} will be removed
+              entirely — no copy will be kept.
+            </DialogContentText>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTrashConfirm(null)}>Cancel</Button>

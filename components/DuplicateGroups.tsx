@@ -13,10 +13,13 @@ import Skeleton from "@mui/material/Skeleton"
 import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
 import StarIcon from "@mui/icons-material/Star"
+import DeleteSweepIcon from "@mui/icons-material/DeleteSweep"
+import Tooltip from "@mui/material/Tooltip"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import { buildThumbUrl } from "../lib/photo-url"
 import type { GpdMediaItem, DuplicateGroup } from "../lib/types"
+import { isWholeGroupTrashed } from "../lib/kept-overrides"
 
 const PAGE_SIZE = 30
 
@@ -145,6 +148,7 @@ interface DuplicateGroupRowProps {
   keptSet: Set<string>
   onToggleGroup: (groupId: string) => void
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
+  onTrashWholeGroup: (group: DuplicateGroup) => void
   onOpenViewer: (group: DuplicateGroup, index: number) => void
   onMouseEnterPhoto: (group: DuplicateGroup, index: number) => void
   onMouseLeavePhoto: () => void
@@ -157,10 +161,12 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
   keptSet,
   onToggleGroup,
   onToggleKept,
+  onTrashWholeGroup,
   onOpenViewer,
   onMouseEnterPhoto,
   onMouseLeavePhoto,
 }: DuplicateGroupRowProps) {
+  const allTrashed = isWholeGroupTrashed(keptSet)
   return (
     <Paper
       variant="outlined"
@@ -185,6 +191,30 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
           variant="outlined"
           sx={sxChipSimilarity}
         />
+        <Tooltip
+          title={
+            allTrashed
+              ? "Keep the best photo again"
+              : "Trash every photo in this group"
+          }>
+          {/* stopPropagation: the header itself toggles group selection */}
+          <IconButton
+            size="small"
+            data-testid={`trash-whole-group-${group.id}`}
+            aria-label={
+              allTrashed
+                ? "Keep the best photo in this group"
+                : "Trash every photo in this group"
+            }
+            aria-pressed={allTrashed}
+            color={allTrashed ? "error" : "default"}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTrashWholeGroup(group)
+            }}>
+            <DeleteSweepIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Thumbnails */}
@@ -312,6 +342,7 @@ interface DuplicateGroupsProps {
   onToggleGroup: (groupId: string) => void
   keptByGroupId: Map<string, Set<string>>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
+  onTrashWholeGroup: (group: DuplicateGroup) => void
   /**
    * Timestamp buckets split during the scan to keep pairwise comparison
    * bounded. Above zero, results are incomplete and we say so.
@@ -326,6 +357,7 @@ export function DuplicateGroups({
   onToggleGroup,
   keptByGroupId,
   onToggleKept,
+  onTrashWholeGroup,
   bucketsSplit = 0,
 }: DuplicateGroupsProps) {
   // Measure time from first non-empty groups render to commit
@@ -469,6 +501,7 @@ export function DuplicateGroups({
           keptSet={keptByGroupId.get(group.id)!}
           onToggleGroup={onToggleGroup}
           onToggleKept={onToggleKept}
+          onTrashWholeGroup={onTrashWholeGroup}
           onOpenViewer={onOpenViewer}
           onMouseEnterPhoto={onMouseEnterPhoto}
           onMouseLeavePhoto={onMouseLeavePhoto}
