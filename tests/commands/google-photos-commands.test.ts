@@ -669,9 +669,7 @@ describe("getAllMediaItems — favorite flag", () => {
     const { messages, restore } = collectMessages()
     sendCommand("getAllMediaItems", `req-fav-${Math.random()}`, {})
     await flush()
-    const result = messages.find(
-      (m: any) => m.action === "gptkResult" && m.command === "getAllMediaItems"
-    ) as any
+    const result = findMediaItemsResult(messages)
     restore()
     return result?.data?.[0]
   }
