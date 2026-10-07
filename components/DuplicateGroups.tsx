@@ -12,6 +12,7 @@ import Paper from "@mui/material/Paper"
 import Skeleton from "@mui/material/Skeleton"
 import Typography from "@mui/material/Typography"
 import OpenInFullIcon from "@mui/icons-material/OpenInFull"
+import StarIcon from "@mui/icons-material/Star"
 import { useBlobUrl } from "./useBlobUrl"
 import { PhotoViewerModal } from "./PhotoViewerModal"
 import { buildThumbUrl } from "../lib/photo-url"
@@ -79,6 +80,23 @@ const sxViewerBtn = {
   "&:hover": { bgcolor: "rgba(0,0,0,0.65)" },
 }
 const sxOpenInFullIcon = { fontSize: 14 }
+// Mirrors sxViewerBtn's translucent pill so the two overlays read as one
+// language, but sits top-left since the zoom button owns top-right.
+const sxFavoriteBadge = {
+  position: "absolute",
+  top: 4,
+  left: 4,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 24,
+  height: 24,
+  borderRadius: "50%",
+  bgcolor: "rgba(0,0,0,0.45)",
+  color: "#FFC107",
+  pointerEvents: "none",
+}
+const sxFavoriteIcon = { fontSize: 15 }
 const sxStatusChip = { width: "fit-content", height: 20, fontSize: 11 }
 // ──────────────────────────────────────────────────────────────────────
 
@@ -251,6 +269,21 @@ const DuplicateGroupRow = memo(function DuplicateGroupRow({
                   </CardContent>
                 </CardActionArea>
               </Card>
+
+              {/*
+                Favorite marker. Purely informational — it reports Google
+                Photos state we cannot change from here, so it is not a
+                control and does not swallow the card's keep/trash click.
+              */}
+              {item.isFavorite === true && (
+                <Box
+                  sx={sxFavoriteBadge}
+                  data-testid={`favorite-badge-${key}`}
+                  title="Favorite in Google Photos — kept by default"
+                  aria-label="Favorite in Google Photos">
+                  <StarIcon sx={sxFavoriteIcon} />
+                </Box>
+              )}
 
               {/* Zoom overlay — secondary action, does not trigger Keep toggle */}
               <IconButton

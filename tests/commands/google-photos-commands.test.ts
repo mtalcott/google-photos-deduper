@@ -634,3 +634,55 @@ describe("getAllMediaItems — fetch position", () => {
     expect(p.oldestTakenAt).toBeUndefined()
   })
 })
+
+// ============================================================
+// getAllMediaItems — favorite flag
+//
+// GPTK's libraryItemParse reads isFavorite from the protobuf extras map, where
+// it is absent rather than false for non-favorites. The projection normalises
+// it so keep-selection can test a plain boolean.
+// ============================================================
+
+describe("getAllMediaItems — favorite flag", () => {
+  function setupGptkApi(items: unknown[], nextPageId: string | null = null) {
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: vi.fn().mockResolvedValue({ items, nextPageId }),
+    }
+  }
+
+  afterEach(() => {
+    delete (window as any).gptkApi
+    window.history.pushState({}, "", "/")
+  })
+
+  async function firstItem(raw: Record<string, unknown>) {
+    setupGptkApi([
+      {
+        mediaKey: "mk1",
+        dedupKey: "dk1",
+        thumb: "https://thumb/1",
+        timestamp: 1,
+        creationTimestamp: 2,
+        ...raw,
+      },
+    ])
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", `req-fav-${Math.random()}`, {})
+    await flush()
+    const result = findMediaItemsResult(messages)
+    restore()
+    return result?.data?.[0]
+  }
+
+  it("passes isFavorite=true through to the output item", async () => {
+    expect((await firstItem({ isFavorite: true })).isFavorite).toBe(true)
+  })
+
+  it("normalises an absent isFavorite to false", async () => {
+    expect((await firstItem({})).isFavorite).toBe(false)
+  })
+
+  it("normalises an explicit false to false", async () => {
+    expect((await firstItem({ isFavorite: false })).isFavorite).toBe(false)
+  })
+})

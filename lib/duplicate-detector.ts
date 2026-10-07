@@ -13,12 +13,20 @@ import type { ScanLogger } from "./scan-log";
 
 /**
  * Select the best item to keep from a duplicate group.
- * Priority: original quality > higher resolution > oldest upload date.
+ * Priority: favorited > original quality > higher resolution > oldest upload date.
+ *
+ * Favorites outrank every quality heuristic. Starring a photo is an explicit
+ * signal from the user, which beats anything we can infer, and silently
+ * trashing a favorite is the worst outcome this tool can produce. When a group
+ * has several favorites — or none — the remaining criteria decide as before.
  */
 export function selectDefaultKeep(items: GpdMediaItem[]): string {
   const qualityScore = (x: GpdMediaItem) =>
     x.isOriginalQuality === true ? 2 : x.isOriginalQuality === false ? 0 : 1;
+  const favoriteScore = (x: GpdMediaItem) => (x.isFavorite === true ? 1 : 0);
   const best = [...items].sort((a, b) => {
+    const favDiff = favoriteScore(b) - favoriteScore(a);
+    if (favDiff !== 0) return favDiff;
     const qDiff = qualityScore(b) - qualityScore(a);
     if (qDiff !== 0) return qDiff;
     const pxDiff =

@@ -313,3 +313,72 @@ describe("split bucket notice", () => {
     expect(screen.queryByTestId("split-buckets-notice")).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Favorite badge
+//
+// Favorites win the default keep, so the star is what explains why a
+// particular photo was chosen.
+// ============================================================
+
+describe("favorite badge", () => {
+  const favorite = (k: string): GpdMediaItem => ({ ...makeItem(k), isFavorite: true })
+
+  function renderWith(items: Record<string, GpdMediaItem>, keys: string[]) {
+    wrap(
+      <DuplicateGroups
+        {...defaultProps}
+        groups={[makeGroup("gf", ...keys)]}
+        mediaItems={items}
+        selectedGroupIds={new Set(["gf"])}
+        keptByGroupId={new Map([["gf", new Set([keys[0]])]])}
+      />
+    )
+  }
+
+  it("marks a favorited photo with a star", () => {
+    renderWith({ a: favorite("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.getByTestId("favorite-badge-a")).toBeInTheDocument()
+  })
+
+  it("does not mark a non-favorited photo", () => {
+    renderWith({ a: favorite("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.queryByTestId("favorite-badge-b")).not.toBeInTheDocument()
+  })
+
+  // Google omits the field rather than sending false.
+  it("does not mark a photo whose isFavorite is absent", () => {
+    renderWith({ a: makeItem("a"), b: makeItem("b") }, ["a", "b"])
+    expect(screen.queryByTestId("favorite-badge-a")).not.toBeInTheDocument()
+  })
+
+  it("marks every favorited photo in a group", () => {
+    renderWith(
+      { a: favorite("a"), b: makeItem("b"), c: favorite("c") },
+      ["a", "b", "c"]
+    )
+    expect(screen.getByTestId("favorite-badge-a")).toBeInTheDocument()
+    expect(screen.getByTestId("favorite-badge-c")).toBeInTheDocument()
+    expect(screen.queryByTestId("favorite-badge-b")).not.toBeInTheDocument()
+  })
+
+  it("marks a favorite regardless of whether it is the kept photo", () => {
+    renderWith({ a: makeItem("a"), b: favorite("b") }, ["a", "b"])
+    expect(screen.getByTestId("favorite-badge-b")).toBeInTheDocument()
+  })
+
+  // It reports Google Photos state we cannot change from here, so it must not
+  // be a control — and must not steal the card's keep/trash click.
+  it("is not a button", () => {
+    renderWith({ a: favorite("a") }, ["a"])
+    expect(screen.getByTestId("favorite-badge-a").tagName).not.toBe("BUTTON")
+  })
+
+  it("explains itself on hover", () => {
+    renderWith({ a: favorite("a") }, ["a"])
+    expect(screen.getByTestId("favorite-badge-a")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/favorite/i)
+    )
+  })
+})

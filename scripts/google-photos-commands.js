@@ -166,6 +166,9 @@ async function getAllMediaItems(requestId, args) {
             duration: item.duration,
             isOwned: item.isOwned,
             isOriginalQuality: item.isOriginalQuality ?? null,
+            // GPTK omits this rather than sending false; normalise to a boolean
+            // so downstream keep-selection can test it plainly.
+            isFavorite: item.isFavorite === true,
             fileName: item.descriptionShort || null,
             productUrl: "https://photos.google.com" + accountUrlPrefix + "photo/" + item.mediaKey
           })

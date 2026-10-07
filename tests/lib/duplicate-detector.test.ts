@@ -601,6 +601,7 @@ describe("selectDefaultKeep", () => {
       resWidth?: number
       resHeight?: number
       creationTimestamp?: number
+      isFavorite?: boolean
     } = {},
   ): GpdMediaItem {
     return {
@@ -612,6 +613,7 @@ describe("selectDefaultKeep", () => {
       resWidth: opts.resWidth,
       resHeight: opts.resHeight,
       isOriginalQuality: opts.isOriginalQuality,
+      isFavorite: opts.isFavorite,
     }
   }
 
@@ -667,6 +669,57 @@ describe("selectDefaultKeep", () => {
     const b = item("b", { isOriginalQuality: true, resWidth: 1920, resHeight: 1080, creationTimestamp: 0 })
     const result = selectDefaultKeep([a, b])
     expect(["a", "b"]).toContain(result)
+  })
+
+  // Favorites outrank every quality heuristic: the user marked that photo
+  // deliberately, and trashing a favorite is the worst outcome available.
+  describe("favorites", () => {
+    it("prefers a favorite over a higher-quality non-favorite", () => {
+      const better = item("better", { isOriginalQuality: true, resWidth: 4000, resHeight: 3000 })
+      const fav = item("fav", { isOriginalQuality: false, resWidth: 100, resHeight: 100, isFavorite: true })
+      expect(selectDefaultKeep([better, fav])).toBe("fav")
+    })
+
+    it("prefers a favorite over a higher-resolution non-favorite", () => {
+      const large = item("large", { resWidth: 4000, resHeight: 3000 })
+      const fav = item("fav", { resWidth: 100, resHeight: 100, isFavorite: true })
+      expect(selectDefaultKeep([large, fav])).toBe("fav")
+    })
+
+    it("falls through to quality when both are favorites", () => {
+      const saver = item("saver", { isOriginalQuality: false, isFavorite: true })
+      const original = item("original", { isOriginalQuality: true, isFavorite: true })
+      expect(selectDefaultKeep([saver, original])).toBe("original")
+    })
+
+    it("falls through to resolution when both are favorites of equal quality", () => {
+      const small = item("small", { isOriginalQuality: true, resWidth: 800, resHeight: 600, isFavorite: true })
+      const large = item("large", { isOriginalQuality: true, resWidth: 3000, resHeight: 2000, isFavorite: true })
+      expect(selectDefaultKeep([small, large])).toBe("large")
+    })
+
+    // Google omits the field rather than sending false, so absent must not be
+    // confused with favorited.
+    it("treats an undefined isFavorite as not favorited", () => {
+      const better = item("better", { isOriginalQuality: true, resWidth: 4000, resHeight: 3000 })
+      const other = item("other", { isOriginalQuality: false, resWidth: 100, resHeight: 100 })
+      expect(selectDefaultKeep([better, other])).toBe("better")
+    })
+
+    it("treats an explicit false the same as absent", () => {
+      const better = item("better", { isOriginalQuality: true, resWidth: 4000, resHeight: 3000, isFavorite: false })
+      const worse = item("worse", { isOriginalQuality: false, resWidth: 100, resHeight: 100, isFavorite: false })
+      expect(selectDefaultKeep([better, worse])).toBe("better")
+    })
+
+    it("keeps the single favorite among several non-favorites", () => {
+      const items = [
+        item("a", { isOriginalQuality: true, resWidth: 4000, resHeight: 3000 }),
+        item("fav", { isOriginalQuality: false, resWidth: 200, resHeight: 200, isFavorite: true }),
+        item("c", { isOriginalQuality: true, resWidth: 5000, resHeight: 4000 }),
+      ]
+      expect(selectDefaultKeep(items)).toBe("fav")
+    })
   })
 })
 

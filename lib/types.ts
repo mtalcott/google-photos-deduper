@@ -197,6 +197,12 @@ export interface GpdMediaItem {
   size?: number;
   isOwned?: boolean;
   isOriginalQuality?: boolean | null;
+  /**
+   * Whether the user starred this item in Google Photos. Google omits the
+   * underlying field rather than sending false, so absent means "not
+   * favorited" — always test for `=== true`.
+   */
+  isFavorite?: boolean;
   duration?: number; // video duration (undefined for photos)
 }
 
