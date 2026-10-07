@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, dedupeByDedupKey } from "../../lib/duplicate-detector"
+import { communityDetection, matMul, topK, groupByTimestamp, withinGroupDuplicates, selectDefaultKeep, fullDetectDuplicates, dedupeByDedupKey, splitOversizedBuckets, MAX_BUCKET_SIZE } from "../../lib/duplicate-detector"
 import type { GpdMediaItem } from "../../lib/types"
 
 // ============================================================
@@ -327,6 +327,140 @@ describe("groupByTimestamp", () => {
     // a floors to 0, b floors to 1000
     const result = groupByTimestamp([a, b], 1000)
     expect(result).toHaveLength(0)
+  })
+
+  // Degenerate timestamps must not collapse into a single giant bucket.
+  // Math.floor(undefined / w) is NaN, and Map treats every NaN as the same
+  // key — so without a guard every such item lands in one bucket and the
+  // pairwise comparison there is quadratic in the whole library.
+  it("excludes items with an undefined timestamp instead of bucketing them together", () => {
+    const items = [
+      makeItem("a", undefined as unknown as number),
+      makeItem("b", undefined as unknown as number),
+      makeItem("c", undefined as unknown as number),
+    ]
+    expect(groupByTimestamp(items, 1000)).toHaveLength(0)
+  })
+
+  it("excludes items with a NaN timestamp", () => {
+    const items = [makeItem("a", NaN), makeItem("b", NaN)]
+    expect(groupByTimestamp(items, 1000)).toHaveLength(0)
+  })
+
+  // null / 1000 === 0, so these would silently join the epoch bucket.
+  it("excludes items with a null timestamp instead of putting them in the epoch bucket", () => {
+    const items = [
+      makeItem("a", null as unknown as number),
+      makeItem("b", null as unknown as number),
+      makeItem("real", 0),
+    ]
+    expect(groupByTimestamp(items, 1000)).toHaveLength(0)
+  })
+
+  it("still buckets valid timestamps when degenerate ones are present", () => {
+    const items = [
+      makeItem("a", 1000),
+      makeItem("b", 1000),
+      makeItem("bad", undefined as unknown as number),
+    ]
+    const result = groupByTimestamp(items, 1000)
+    expect(result).toHaveLength(1)
+    expect(result[0].map((i) => i.mediaKey).sort()).toEqual(["a", "b"])
+  })
+})
+
+// ============================================================
+// splitOversizedBuckets
+// ============================================================
+
+describe("splitOversizedBuckets", () => {
+  /** A bucket of `n` items with strictly increasing timestamps. */
+  const bucketOf = (n: number, prefix = "i", startTs = 0) =>
+    Array.from({ length: n }, (_, k) => makeItem(`${prefix}${k}`, startTs + k))
+
+  it("leaves a bucket at the cap untouched", () => {
+    const bucket = bucketOf(10)
+    const result = splitOversizedBuckets([bucket], 10)
+    expect(result.buckets).toHaveLength(1)
+    expect(result.buckets[0]).toEqual(bucket)
+    expect(result.bucketsSplit).toBe(0)
+  })
+
+  it("leaves a bucket under the cap untouched", () => {
+    const result = splitOversizedBuckets([bucketOf(3)], 10)
+    expect(result.buckets).toHaveLength(1)
+    expect(result.bucketsSplit).toBe(0)
+  })
+
+  it("splits an oversized bucket into ceil(length / cap) chunks", () => {
+    const result = splitOversizedBuckets([bucketOf(25)], 10)
+    expect(result.buckets).toHaveLength(3) // ceil(25/10)
+    expect(result.bucketsSplit).toBe(1)
+  })
+
+  // A fixed-size split would make 5000 + 1; near-equal makes 2500 + 2501.
+  it("splits into near-equal chunks rather than cap-sized ones", () => {
+    const result = splitOversizedBuckets([bucketOf(11)], 10)
+    expect(result.buckets).toHaveLength(2)
+    const sizes = result.buckets.map((b) => b.length).sort((a, b) => a - b)
+    expect(sizes[1] - sizes[0]).toBeLessThanOrEqual(1)
+  })
+
+  it("never produces a chunk larger than the cap", () => {
+    const result = splitOversizedBuckets([bucketOf(97)], 10)
+    for (const b of result.buckets) expect(b.length).toBeLessThanOrEqual(10)
+  })
+
+  it("loses no items when splitting", () => {
+    const bucket = bucketOf(25)
+    const result = splitOversizedBuckets([bucket], 10)
+    const keys = result.buckets.flat().map((i) => i.mediaKey).sort()
+    expect(keys).toEqual(bucket.map((i) => i.mediaKey).sort())
+  })
+
+  it("produces time-contiguous chunks even when input is unordered", () => {
+    // Shuffled timestamps — chunks must still be contiguous in time so that
+    // near-in-time duplicates stay in the same chunk.
+    const bucket = [
+      makeItem("e", 50),
+      makeItem("a", 10),
+      makeItem("d", 40),
+      makeItem("b", 20),
+      makeItem("c", 30),
+      makeItem("f", 60),
+    ]
+    const result = splitOversizedBuckets([bucket], 3)
+    expect(result.buckets).toHaveLength(2)
+    expect(result.buckets[0].map((i) => i.mediaKey)).toEqual(["a", "b", "c"])
+    expect(result.buckets[1].map((i) => i.mediaKey)).toEqual(["d", "e", "f"])
+  })
+
+  it("counts split source buckets, not resulting chunks", () => {
+    const result = splitOversizedBuckets([bucketOf(25, "x"), bucketOf(30, "y")], 10)
+    // 3 chunks + 3 chunks = 6 buckets out, but only 2 were split
+    expect(result.buckets).toHaveLength(6)
+    expect(result.bucketsSplit).toBe(2)
+  })
+
+  it("splits only the oversized buckets in a mixed set", () => {
+    const small = bucketOf(2, "s")
+    const big = bucketOf(25, "b")
+    const result = splitOversizedBuckets([small, big], 10)
+    expect(result.bucketsSplit).toBe(1)
+    expect(result.buckets).toContainEqual(small)
+    expect(result.buckets).toHaveLength(4) // 1 small + 3 chunks
+  })
+
+  it("handles an empty bucket list", () => {
+    const result = splitOversizedBuckets([], 10)
+    expect(result.buckets).toEqual([])
+    expect(result.bucketsSplit).toBe(0)
+  })
+
+  it("defaults to MAX_BUCKET_SIZE when no cap is given", () => {
+    const result = splitOversizedBuckets([bucketOf(MAX_BUCKET_SIZE + 1)])
+    expect(result.bucketsSplit).toBe(1)
+    expect(result.buckets).toHaveLength(2)
   })
 })
 

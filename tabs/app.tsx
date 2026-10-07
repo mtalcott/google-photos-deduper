@@ -435,7 +435,9 @@ export default function App() {
           })
         }
 
-        const groups =
+        // Smart mode reports how many timestamp buckets it had to split to
+        // keep pairwise comparison bounded; full mode never splits.
+        const { groups, bucketsSplit } =
           settingsRef.current.scanMode === "smart"
             ? await smartDetectDuplicates(
                 items,
@@ -453,7 +455,7 @@ export default function App() {
                   signal,
                   logger
                 )
-                return result.groups
+                return { groups: result.groups, bucketsSplit: 0 }
               })()
 
         await logger.finalize("complete", { groupsFound: groups.length })
@@ -467,7 +469,8 @@ export default function App() {
         dispatch({
           type: "SCAN_COMPLETE",
           mediaItems: mediaItemMap,
-          groups
+          groups,
+          bucketsSplit
         })
         // Refresh account email after scan — the email in state may be stale
         // if the user switched accounts since the last health check.
@@ -522,6 +525,7 @@ export default function App() {
             mediaItems: result.scanResults.mediaItems,
             groups: result.scanResults.groups,
             totalItems: result.scanResults.totalItems,
+            bucketsSplit: result.scanResults.bucketsSplit,
             accountEmail: result.scanResults.accountEmail
           })
         }
@@ -584,6 +588,10 @@ export default function App() {
   )
   const totalItems = state.status === "results" ? state.totalItems : 0
   const accountEmailForStorage = state.status === "results" ? state.accountEmail : undefined
+  const bucketsSplit =
+    state.status === "results" || state.status === "trashing"
+      ? state.bucketsSplit
+      : 0
   useEffect(() => {
     if (!mediaItems) return
     if (groups.length > 0) {
@@ -598,6 +606,7 @@ export default function App() {
           scanDate: Date.now(),
           totalItems,
           newestCreationTimestamp,
+          bucketsSplit,
           accountEmail: accountEmailForStorage
         }
       })
@@ -605,7 +614,7 @@ export default function App() {
       // All duplicates removed — clear saved results so next open starts fresh
       chrome.storage.local.remove("scanResults")
     }
-  }, [groups, mediaItems, totalItems, accountEmailForStorage])
+  }, [groups, mediaItems, totalItems, bucketsSplit, accountEmailForStorage])
 
   // Persist selections when they change (only while results are showing)
   useEffect(() => {
@@ -921,6 +930,7 @@ export default function App() {
               onToggleGroup={handleToggleGroup}
               keptByGroupId={keptByGroupId}
               onToggleKept={handleToggleKept}
+              bucketsSplit={state.bucketsSplit}
             />
           </>
         )}

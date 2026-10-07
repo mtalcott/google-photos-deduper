@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Alert from "@mui/material/Alert"
 import Box from "@mui/material/Box"
 import Card from "@mui/material/Card"
 import CardActionArea from "@mui/material/CardActionArea"
@@ -278,6 +279,11 @@ interface DuplicateGroupsProps {
   onToggleGroup: (groupId: string) => void
   keptByGroupId: Map<string, Set<string>>
   onToggleKept: (group: DuplicateGroup, mediaKey: string) => void
+  /**
+   * Timestamp buckets split during the scan to keep pairwise comparison
+   * bounded. Above zero, results are incomplete and we say so.
+   */
+  bucketsSplit?: number
 }
 
 export function DuplicateGroups({
@@ -287,6 +293,7 @@ export function DuplicateGroups({
   onToggleGroup,
   keptByGroupId,
   onToggleKept,
+  bucketsSplit = 0,
 }: DuplicateGroupsProps) {
   // Measure time from first non-empty groups render to commit
   const renderLoggedRef = useRef(false)
@@ -411,6 +418,14 @@ export function DuplicateGroups({
       <Typography variant="h6" fontWeight={600} sx={{ px: 0, py: 2 }}>
         {groups.length} Duplicate Group{groups.length !== 1 ? "s" : ""} Found
       </Typography>
+
+      {bucketsSplit > 0 && (
+        <Alert severity="info" data-testid="split-buckets-notice" sx={{ mb: 2 }}>
+          {bucketsSplit} large time {bucketsSplit === 1 ? "group was" : "groups were"} split
+          to keep the scan fast — duplicates spanning a split may be missed. Narrow the
+          time window to compare fewer photos at once.
+        </Alert>
+      )}
 
       {groups.slice(0, visibleCount).map((group) => (
         <DuplicateGroupRow

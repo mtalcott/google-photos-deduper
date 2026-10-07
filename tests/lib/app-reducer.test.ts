@@ -295,3 +295,74 @@ describe("RESET", () => {
     expect(next).toEqual({ status: "connecting" })
   })
 })
+
+// ============================================================
+// bucketsSplit — the "some duplicates may be missed" caveat
+// ============================================================
+
+const scanningState: AppState = {
+  status: "scanning",
+  phase: "fetching",
+  itemsProcessed: 0,
+  totalEstimate: 0,
+  message: "",
+  requestId: "r",
+  hasGptk: true,
+}
+
+describe("bucketsSplit", () => {
+  it("carries bucketsSplit from SCAN_COMPLETE into results", () => {
+    const next = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+      bucketsSplit: 3,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 3 })
+  })
+
+  it("defaults bucketsSplit to 0 when SCAN_COMPLETE omits it", () => {
+    const next = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 0 })
+  })
+
+  it("restores bucketsSplit from saved results", () => {
+    const next = appReducer(resultsState, {
+      type: "LOAD_SAVED_RESULTS",
+      mediaItems,
+      groups,
+      totalItems: 4,
+      bucketsSplit: 2,
+    })
+    expect(next).toMatchObject({ status: "results", bucketsSplit: 2 })
+  })
+
+  // The caveat is about scan completeness, so it must survive a trash round
+  // trip — the group list is still on screen throughout.
+  it("preserves bucketsSplit through TRASH_STARTED and TRASH_COMPLETE", () => {
+    const withSplit = appReducer(scanningState, {
+      type: "SCAN_COMPLETE",
+      mediaItems,
+      groups,
+      bucketsSplit: 5,
+    })
+    const trashing = appReducer(withSplit, {
+      type: "TRASH_STARTED",
+      totalToTrash: 2,
+      mediaItems,
+      groups,
+      totalItems: 4,
+    })
+    expect(trashing).toMatchObject({ status: "trashing", bucketsSplit: 5 })
+
+    const done = appReducer(trashing, {
+      type: "TRASH_COMPLETE",
+      trashedKeys: ["img2"],
+    })
+    expect(done).toMatchObject({ status: "results", bucketsSplit: 5 })
+  })
+})
