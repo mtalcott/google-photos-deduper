@@ -96,3 +96,43 @@ describe("ScanConfig — time window toggle", () => {
     expect(screen.queryByText(/Time window:/)).not.toBeInTheDocument()
   })
 })
+
+// ============================================================
+// Similarity threshold range
+//
+// The slider used to stop at 0.90, which put looser matching out of reach
+// entirely. Lowering the floor to 0.75 makes it reachable; the default is
+// unchanged, so nobody gets looser matching without asking for it.
+// ============================================================
+
+describe("ScanConfig — similarity threshold range", () => {
+  const slider = () => document.querySelector('input[type="range"]')!
+
+  it("allows the threshold to go down to 0.75", () => {
+    renderConfig()
+    expect(slider()).toHaveAttribute("min", "0.75")
+  })
+
+  it("still tops out at exact matching", () => {
+    renderConfig()
+    expect(slider()).toHaveAttribute("max", "1")
+  })
+
+  it("keeps the 0.01 step", () => {
+    renderConfig()
+    expect(slider()).toHaveAttribute("step", "0.01")
+  })
+
+  it("renders a threshold below the old 0.90 floor", () => {
+    renderConfig({ similarityThreshold: 0.8 })
+    expect(slider()).toHaveValue("0.8")
+    // Scoped to the threshold heading — the raw value also appears in the
+    // slider's value label, and other settings have <strong> labels of their own.
+    expect(screen.getByText(/Similarity Threshold:/)).toHaveTextContent("0.8")
+  })
+
+  it("leaves the default threshold untouched", () => {
+    renderConfig()
+    expect(slider()).toHaveValue("0.99")
+  })
+})
