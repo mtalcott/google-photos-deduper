@@ -686,3 +686,66 @@ describe("getAllMediaItems — favorite flag", () => {
     expect((await firstItem({ isFavorite: false })).isFavorite).toBe(false)
   })
 })
+
+// ============================================================
+// getAllMediaItems — taken-date listing
+//
+// Google began rejecting the upload-date listing (EzkLib). The scan uses the
+// taken-date timeline when available and falls back to upload-date if that
+// fails on its first page.
+// ============================================================
+
+describe("getAllMediaItems — taken-date listing", () => {
+  afterEach(() => {
+    delete (window as any).gptkApi
+  })
+
+  it("pages through getItemsByTakenDate and ignores the cache watermark", async () => {
+    const takenDate = vi
+      .fn()
+      .mockResolvedValueOnce({
+        items: [{ mediaKey: "a", dedupKey: "da", timestamp: 2000, creationTimestamp: 10 }],
+        nextPageId: "p2",
+      })
+      .mockResolvedValueOnce({
+        items: [{ mediaKey: "b", dedupKey: "db", timestamp: 1000, creationTimestamp: 5 }],
+        nextPageId: null,
+      })
+    const uploaded = vi.fn().mockRejectedValue(new Error("Missing payload"))
+    ;(window as any).gptkApi = {
+      getItemsByUploadedDate: uploaded,
+      getItemsByTakenDate: takenDate,
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-taken-1", { sinceTimestamp: 999 })
+    await flush()
+
+    const result = findMediaItemsResult(messages)
+    expect(result?.success).toBe(true)
+    expect(result?.data.map((i: any) => i.mediaKey)).toEqual(["a", "b"])
+    expect(takenDate).toHaveBeenNthCalledWith(1, null, null, null)
+    expect(takenDate).toHaveBeenNthCalledWith(2, null, null, "p2")
+    expect(uploaded).not.toHaveBeenCalled()
+    restore()
+  })
+
+  it("falls back to getItemsByUploadedDate when the first taken-date page fails", async () => {
+    ;(window as any).gptkApi = {
+      getItemsByTakenDate: vi.fn().mockRejectedValue(new Error("boom")),
+      getItemsByUploadedDate: vi.fn().mockResolvedValue({
+        items: [{ mediaKey: "u", dedupKey: "du", timestamp: 1, creationTimestamp: 1 }],
+        nextPageId: null,
+      }),
+    }
+
+    const { messages, restore } = collectMessages()
+    sendCommand("getAllMediaItems", "req-taken-2", {})
+    await flush()
+
+    const result = findMediaItemsResult(messages)
+    expect(result?.success).toBe(true)
+    expect(result?.data.map((i: any) => i.mediaKey)).toEqual(["u"])
+    restore()
+  })
+})
