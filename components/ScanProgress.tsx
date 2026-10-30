@@ -12,9 +12,7 @@ interface ScanProgressProps {
   totalEstimate: number
   message: string
   onCancel?: () => void
-  /** Upload date of the oldest item fetched so far; walks backwards monotonically. */
-  oldestUploadedAt?: number
-  /** Taken date of that same item. Often diverges from the upload date. */
+  /** Taken date of the oldest item fetched so far; walks backwards monotonically. */
   oldestTakenAt?: number
 }
 
@@ -68,7 +66,6 @@ export function ScanProgress({
   totalEstimate,
   message,
   onCancel,
-  oldestUploadedAt,
   oldestTakenAt,
 }: ScanProgressProps) {
   const progress =
@@ -103,7 +100,6 @@ export function ScanProgress({
   const stepNum = PHASE_STEP[phase]
 
   // Only meaningful while paginating; later phases work on a fixed set.
-  const uploadedText = phase === "fetching" ? formatPositionDate(oldestUploadedAt) : null
   const takenText = phase === "fetching" ? formatPositionDate(oldestTakenAt) : null
 
   return (
@@ -142,14 +138,13 @@ export function ScanProgress({
         )}
       </Box>
 
-      {uploadedText && (
+      {takenText && (
         <Typography
           variant="caption"
           color="text.secondary"
           data-testid="fetch-position"
           sx={{ display: "block", mb: 2 }}>
-          Reached uploads from {uploadedText}
-          {takenText && ` (taken ${takenText})`}
+          Reached photos taken {takenText}
         </Typography>
       )}
 
