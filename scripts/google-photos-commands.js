@@ -101,7 +101,7 @@ async function getAllMediaItems(requestId, args) {
   }
 
   // sinceTimestamp: stop paginating once we reach items already in the cache
-  const sinceTimestamp =
+  let sinceTimestamp =
     args && args.sinceTimestamp ? args.sinceTimestamp : null
 
   // Per-page timeout. Google's pagination endpoint occasionally hangs without
@@ -135,12 +135,47 @@ async function getAllMediaItems(requestId, args) {
     const accountUrlPrefix =
       window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/"
 
+    // Google started rejecting the upload-date listing (EzkLib) with an error
+    // envelope ("Missing payload in parsed response"), which aborted every scan
+    // on page one. The taken-date timeline (lcxiM) still works and returns the
+    // same item shape, so fall back to it for the whole scan. It is not ordered
+    // by upload date, so the incremental watermark cannot be used there — the
+    // app merges a full fetch with its cache, so correctness is unaffected.
+    // Use the taken-date timeline from the start: the upload-date request
+    // now fails after 3 retries (~minutes of dead time) before any fallback.
+    let useTakenDate = typeof gptkApi.getItemsByTakenDate === "function"
+    if (useTakenDate) sinceTimestamp = null
+    const fetchPage = (pageId) =>
+      useTakenDate
+        ? gptkApi.getItemsByTakenDate(null, null, pageId)
+        : gptkApi.getItemsByUploadedDate(pageId)
+
     do {
-      const page = await withTimeout(
-        gptkApi.getItemsByUploadedDate(nextPageId),
-        PAGE_TIMEOUT_MS,
-        "Fetching page from Google Photos"
-      )
+      let page
+      try {
+        page = await withTimeout(
+          fetchPage(nextPageId),
+          PAGE_TIMEOUT_MS,
+          "Fetching page from Google Photos"
+        )
+      } catch (err) {
+        if (
+          !useTakenDate ||
+          nextPageId !== null ||
+          typeof gptkApi.getItemsByUploadedDate !== "function"
+        )
+          throw err
+        console.warn(
+          "[GPD] taken-date listing failed, falling back to upload-date:",
+          err
+        )
+        useTakenDate = false
+        page = await withTimeout(
+          fetchPage(null),
+          PAGE_TIMEOUT_MS,
+          "Fetching page from Google Photos"
+        )
+      }
       if (!page) {
         console.warn("GPD: Empty page response, stopping pagination")
         break
@@ -183,7 +218,7 @@ async function getAllMediaItems(requestId, args) {
       const oldest = mediaItems[mediaItems.length - 1]
       const position = {}
       if (oldest) {
-        if (Number.isFinite(oldest.creationTimestamp) && oldest.creationTimestamp > 0)
+        if (!useTakenDate && Number.isFinite(oldest.creationTimestamp) && oldest.creationTimestamp > 0)
           position.oldestUploadedAt = oldest.creationTimestamp
         if (Number.isFinite(oldest.timestamp) && oldest.timestamp > 0)
           position.oldestTakenAt = oldest.timestamp
