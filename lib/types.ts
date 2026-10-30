@@ -140,15 +140,9 @@ export interface GptkProgressMessage extends BaseMessage {
   /** Set by batch operations (e.g. "trashItems") so the app can route progress correctly. */
   command?: string;
   /**
-   * Upload date of the oldest item fetched so far. Pagination runs newest-first
-   * by upload date, so this walks backwards monotonically and is the honest
-   * indicator of how far through the library the fetch has reached.
-   */
-  oldestUploadedAt?: number;
-  /**
-   * Taken date of that same item. Shown alongside the upload date because the
-   * two frequently diverge — a photo uploaded yesterday may have been taken
-   * decades ago — and this does NOT decrease monotonically.
+   * Taken date of the oldest item fetched so far. Pagination runs newest-first
+   * by taken date, so this walks backwards monotonically and shows how far
+   * through the library the fetch has reached.
    */
   oldestTakenAt?: number;
 }
@@ -223,7 +217,6 @@ export interface StoredState {
     groups: DuplicateGroup[];
     scanDate: number;
     totalItems: number;
-    newestCreationTimestamp?: number; // for incremental fetch on next scan
     // Timestamp buckets split to bound comparison cost; > 0 means the scan
     // may have missed duplicates spanning a split. Absent on results saved
     // before this was recorded.

@@ -387,14 +387,13 @@ describe("SCAN_PROGRESS fetch position", () => {
     },
   })
 
-  it("carries upload and taken dates onto the scanning state", () => {
+  it("carries the taken date onto the scanning state", () => {
     const next = appReducer(
       scanningState,
-      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+      progress({ oldestTakenAt: JUL_2019 })
     )
     expect(next).toMatchObject({
       status: "scanning",
-      oldestUploadedAt: MAR_2023,
       oldestTakenAt: JUL_2019,
     })
   })
@@ -404,25 +403,24 @@ describe("SCAN_PROGRESS fetch position", () => {
   it("preserves a known position when a later message omits the dates", () => {
     const withPos = appReducer(
       scanningState,
-      progress({ oldestUploadedAt: MAR_2023, oldestTakenAt: JUL_2019 })
+      progress({ oldestTakenAt: JUL_2019 })
     )
     const next = appReducer(withPos, progress({ itemsProcessed: 200 }))
     expect(next).toMatchObject({
       itemsProcessed: 200,
-      oldestUploadedAt: MAR_2023,
       oldestTakenAt: JUL_2019,
     })
   })
 
   it("advances the position as the fetch walks backwards", () => {
-    const first = appReducer(scanningState, progress({ oldestUploadedAt: MAR_2023 }))
-    const second = appReducer(first, progress({ oldestUploadedAt: FEB_2023 }))
-    expect(second).toMatchObject({ oldestUploadedAt: FEB_2023 })
+    const first = appReducer(scanningState, progress({ oldestTakenAt: MAR_2023 }))
+    const second = appReducer(first, progress({ oldestTakenAt: FEB_2023 }))
+    expect(second).toMatchObject({ oldestTakenAt: FEB_2023 })
   })
 
   it("leaves the position undefined before any dates arrive", () => {
     const next = appReducer(scanningState, progress())
     expect(next).toMatchObject({ status: "scanning" })
-    expect((next as { oldestUploadedAt?: number }).oldestUploadedAt).toBeUndefined()
+    expect((next as { oldestTakenAt?: number }).oldestTakenAt).toBeUndefined()
   })
 })

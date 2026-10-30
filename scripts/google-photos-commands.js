@@ -100,10 +100,6 @@ async function getAllMediaItems(requestId, args) {
     return
   }
 
-  // sinceTimestamp: stop paginating once we reach items already in the cache
-  const sinceTimestamp =
-    args && args.sinceTimestamp ? args.sinceTimestamp : null
-
   // Per-page timeout. Google's pagination endpoint occasionally hangs without
   // ever rejecting fetch(), which used to lock the UI on "Fetching media
   // items" indefinitely. A timeout lets us surface a real error to the user.
@@ -128,16 +124,19 @@ async function getAllMediaItems(requestId, args) {
   try {
     let nextPageId = null
     const mediaItems = []
-    let reachedCache = false
 
     // Accounts after the first are addressed via a /u/{index}/ path prefix;
     // computed once since it's invariant for the whole scan.
     const accountUrlPrefix =
       window.location.pathname.match(/^\/u\/\d+\//)?.[0] || "/"
 
+    // Page through the taken-date timeline (lcxiM). The upload-date listing
+    // (EzkLib) is rejected by Google for some accounts with an empty error
+    // envelope (#152). Detection always runs on the whole library, so the
+    // listing order only affects fetch speed.
     do {
       const page = await withTimeout(
-        gptkApi.getItemsByUploadedDate(nextPageId),
+        gptkApi.getItemsByTakenDate(null, null, nextPageId),
         PAGE_TIMEOUT_MS,
         "Fetching page from Google Photos"
       )
@@ -147,14 +146,6 @@ async function getAllMediaItems(requestId, args) {
       }
       if (page.items && page.items.length > 0) {
         for (const item of page.items) {
-          // Items are sorted newest-first — stop when we hit the cached watermark
-          if (
-            sinceTimestamp !== null &&
-            item.creationTimestamp <= sinceTimestamp
-          ) {
-            reachedCache = true
-            break
-          }
           mediaItems.push({
             mediaKey: item.mediaKey,
             dedupKey: item.dedupKey,
@@ -177,17 +168,13 @@ async function getAllMediaItems(requestId, args) {
       nextPageId = page.nextPageId || null
 
       // Report how far back the fetch has reached. Items arrive newest-first by
-      // upload date, so the last item of the page is the oldest seen so far.
+      // taken date, so the last item of the page is the oldest seen so far.
       // Only finite, non-zero values are sent — some items carry no usable date
       // and would otherwise render as 1 Jan 1970.
       const oldest = mediaItems[mediaItems.length - 1]
       const position = {}
-      if (oldest) {
-        if (Number.isFinite(oldest.creationTimestamp) && oldest.creationTimestamp > 0)
-          position.oldestUploadedAt = oldest.creationTimestamp
-        if (Number.isFinite(oldest.timestamp) && oldest.timestamp > 0)
-          position.oldestTakenAt = oldest.timestamp
-      }
+      if (oldest && Number.isFinite(oldest.timestamp) && oldest.timestamp > 0)
+        position.oldestTakenAt = oldest.timestamp
 
       postProgress(
         requestId,
@@ -196,8 +183,6 @@ async function getAllMediaItems(requestId, args) {
         undefined,
         position
       )
-
-      if (reachedCache) break
     } while (nextPageId)
 
     postResultChunked("getAllMediaItems", requestId, mediaItems)

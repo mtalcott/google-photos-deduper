@@ -22,7 +22,6 @@ interface Props {
   totalEstimate?: number
   message?: string
   onCancel?: (() => void) | undefined
-  oldestUploadedAt?: number | undefined
   oldestTakenAt?: number | undefined
 }
 
@@ -33,7 +32,6 @@ function renderScanProgress(props: Props = {}) {
     totalEstimate: 0,
     message: "",
     onCancel: undefined,
-    oldestUploadedAt: undefined,
     oldestTakenAt: undefined,
   }
   const merged = { ...defaults, ...props }
@@ -129,34 +127,16 @@ describe("ScanProgress", () => {
   // ============================================================
 
   describe("fetch position", () => {
-    const MAR_2023 = Date.parse("2023-03-12T10:00:00Z")
     const JUL_2019 = Date.parse("2019-07-04T10:00:00Z")
 
-    it("shows the upload position during the fetching phase", () => {
-      renderScanProgress({ phase: "fetching", oldestUploadedAt: MAR_2023 })
+    it("shows the taken-date position during the fetching phase", () => {
+      renderScanProgress({ phase: "fetching", oldestTakenAt: JUL_2019 })
       const el = screen.getByTestId("fetch-position")
-      expect(el).toHaveTextContent(/uploads from/i)
-      expect(el).toHaveTextContent(/2023/)
-    })
-
-    it("shows the taken date alongside the upload date", () => {
-      renderScanProgress({
-        phase: "fetching",
-        oldestUploadedAt: MAR_2023,
-        oldestTakenAt: JUL_2019,
-      })
-      const el = screen.getByTestId("fetch-position")
-      expect(el).toHaveTextContent(/2023/)
       expect(el).toHaveTextContent(/taken/i)
       expect(el).toHaveTextContent(/2019/)
     })
 
-    it("omits the taken date when it is absent", () => {
-      renderScanProgress({ phase: "fetching", oldestUploadedAt: MAR_2023 })
-      expect(screen.getByTestId("fetch-position")).not.toHaveTextContent(/taken/i)
-    })
-
-    it("renders nothing when no upload date has arrived yet", () => {
+    it("renders nothing when no taken date has arrived yet", () => {
       renderScanProgress({ phase: "fetching" })
       expect(screen.queryByTestId("fetch-position")).not.toBeInTheDocument()
     })
@@ -164,12 +144,12 @@ describe("ScanProgress", () => {
     // Items with a 0 or non-finite timestamp exist in real libraries; they must
     // not render as 1 Jan 1970.
     it("renders nothing for a zero timestamp", () => {
-      renderScanProgress({ phase: "fetching", oldestUploadedAt: 0 })
+      renderScanProgress({ phase: "fetching", oldestTakenAt: 0 })
       expect(screen.queryByTestId("fetch-position")).not.toBeInTheDocument()
     })
 
     it("renders nothing for a non-finite timestamp", () => {
-      renderScanProgress({ phase: "fetching", oldestUploadedAt: NaN })
+      renderScanProgress({ phase: "fetching", oldestTakenAt: NaN })
       expect(screen.queryByTestId("fetch-position")).not.toBeInTheDocument()
     })
 
@@ -179,7 +159,7 @@ describe("ScanProgress", () => {
         "computing_embeddings",
         "detecting_duplicates",
       ] as ScanPhase[]) {
-        const { unmount } = renderScanProgress({ phase, oldestUploadedAt: MAR_2023 })
+        const { unmount } = renderScanProgress({ phase, oldestTakenAt: JUL_2019 })
         expect(screen.queryByTestId("fetch-position")).not.toBeInTheDocument()
         unmount()
       }
