@@ -28,6 +28,13 @@ export interface HealthCheckResultMessage extends BaseMessage {
   success: boolean;
   hasGptk: boolean;
   accountEmail?: string;
+  /**
+   * Why a failed check failed. "no_tab" means no photos.google.com tab is open
+   * at all, so retrying cannot help and the app should show the error at once.
+   * Absent when a tab exists but its bridge did not answer, which is often a
+   * tab that is still loading and worth retrying.
+   */
+  reason?: "no_tab";
 }
 
 // ============================================================

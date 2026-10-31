@@ -261,9 +261,11 @@ export default function App() {
           // up from MV3 idle, the first probe often misses. Without this the
           // user sees a spurious "disconnected" flash and has to manually hit
           // Retry. We give up after a few attempts and let the reducer show
-          // the error.
+          // the error. When no Google Photos tab is open at all, retrying
+          // cannot help, so the error shows at once instead of after ~6s.
           if (
             !msg.success &&
+            msg.reason !== "no_tab" &&
             healthCheckAttemptsRef.current < HEALTH_CHECK_MAX_ATTEMPTS - 1
           ) {
             healthCheckAttemptsRef.current++
