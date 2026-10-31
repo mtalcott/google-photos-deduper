@@ -35,7 +35,6 @@ import { selectDefaultKeep } from "../lib/duplicate-detector"
 import { ScanLogger } from "../lib/scan-log"
 import theme from "../lib/theme"
 import { APP_ID, DEFAULT_SETTINGS } from "../lib/types"
-import { areScanResultsValid } from "../lib/scan-results"
 import {
   countFullyTrashedGroups,
   toggleWholeGroupTrashed
@@ -130,9 +129,6 @@ export default function App() {
 
   // Persisted scan performance logger — survives page reloads via chrome.storage.local
   const scanLoggerRef = useRef(new ScanLogger())
-
-  // Cached media items from previous scan, used to merge with incremental fetch
-  const cachedMediaItemsRef = useRef<Record<string, GpdMediaItem> | null>(null)
 
   // Tracks the requestId of the active scan so stale results from previous
   // scans killed by reload can be dropped (they arrive late from the GP tab)
@@ -236,20 +232,7 @@ export default function App() {
     const completeMediaFetch = (fetched: GpdMediaItem[]) => {
       // Fetching is done; detection reports progress through its own path.
       clearFetchWatchdog()
-      let items = fetched
-      const cached = cachedMediaItemsRef.current
-      if (cached && Object.keys(cached).length > 0) {
-        // Merge: new items take precedence over cached (handles field updates)
-        const newItemKeys = new Set(items.map((i) => i.mediaKey))
-        const cachedOnly = Object.values(cached).filter(
-          (i) => !newItemKeys.has(i.mediaKey)
-        )
-        items = [...items, ...cachedOnly]
-        console.log(
-          `[GPD] media items: ${fetched.length} new + ${cachedOnly.length} cached = ${items.length} total`
-        )
-        cachedMediaItemsRef.current = null
-      }
+      const items = fetched
       dispatch({
         type: "SCAN_MEDIA_FETCHED",
         mediaItems: items
@@ -608,17 +591,12 @@ export default function App() {
   useEffect(() => {
     if (!mediaItems) return
     if (groups.length > 0) {
-      const newestCreationTimestamp = Object.values(mediaItems).reduce(
-        (max, item) => Math.max(max, item.creationTimestamp ?? 0),
-        0
-      )
       chrome.storage.local.set({
         scanResults: {
           mediaItems,
           groups,
           scanDate: Date.now(),
           totalItems,
-          newestCreationTimestamp,
           bucketsSplit,
           accountEmail: accountEmailForStorage
         }
@@ -672,36 +650,6 @@ export default function App() {
       `[GPD] starting scan: mode=${settings.scanMode}, threshold=${settings.similarityThreshold}`
     )
 
-    // Load cached media items for incremental fetch. On a repeat scan we only
-    // fetch items newer than the most-recently-seen upload timestamp.
-    cachedMediaItemsRef.current = null
-    let sinceTimestamp: number | undefined
-    try {
-      const stored = (await chrome.storage.local.get(
-        "scanResults"
-      )) as Partial<StoredState>
-      const prev = stored.scanResults
-      if (
-        prev?.mediaItems &&
-        Object.keys(prev.mediaItems).length > 0 &&
-        areScanResultsValid(prev, { accountEmail })
-      ) {
-        cachedMediaItemsRef.current = prev.mediaItems
-        // Compute watermark if not stored (migration: first run after this deploy)
-        sinceTimestamp =
-          prev.newestCreationTimestamp ??
-          Object.values(prev.mediaItems).reduce(
-            (max, item) => Math.max(max, item.creationTimestamp ?? 0),
-            0
-          )
-        console.log(
-          `[GPD] media items cache: ${Object.keys(prev.mediaItems).length} items, fetching since ${new Date(sinceTimestamp).toISOString()}`
-        )
-      }
-    } catch {
-      // Cache unavailable — do full fetch
-    }
-
     armFetchWatchdog()
     sendToServiceWorker({
       app: APP_ID,
@@ -709,8 +657,7 @@ export default function App() {
       command: "getAllMediaItems",
       requestId,
       args: {
-        dateRange: settings.dateRange,
-        sinceTimestamp
+        dateRange: settings.dateRange
       }
     })
   }, [settings, armFetchWatchdog])
@@ -909,7 +856,6 @@ export default function App() {
             totalEstimate={state.totalEstimate}
             message={state.message}
             onCancel={handleCancelScan}
-            oldestUploadedAt={state.oldestUploadedAt}
             oldestTakenAt={state.oldestTakenAt}
           />
         )}
