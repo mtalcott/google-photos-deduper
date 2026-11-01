@@ -105,7 +105,11 @@ describe("healthCheck", () => {
 
     expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
       appTabId,
-      expect.objectContaining({ action: "healthCheck.result", success: false })
+      expect.objectContaining({
+        action: "healthCheck.result",
+        success: false,
+        reason: "no_tab",
+      })
     )
   })
 
@@ -292,6 +296,14 @@ describe("findGooglePhotosTab — multi-tab selection", () => {
       appTabId,
       expect.objectContaining({ action: "healthCheck.result", success: false })
     )
+    // A tab exists but is not answering (it may still be loading), so the
+    // result must not say "no_tab" or the app would skip its retries.
+    const result = mockChrome.tabs.sendMessage.mock.calls.find(
+      (c: unknown[]) =>
+        c[0] === appTabId &&
+        (c[1] as { action?: string })?.action === "healthCheck.result"
+    )
+    expect(result?.[1]).not.toHaveProperty("reason")
   })
 })
 

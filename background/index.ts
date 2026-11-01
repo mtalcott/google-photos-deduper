@@ -42,8 +42,14 @@ const pendingCommands: Record<
  * unrecognized actions, so a no-op ping resolves with undefined when reachable
  * and rejects when no content script is present.
  */
-async function findGooglePhotosTab(): Promise<chrome.tabs.Tab | null> {
-  const tabs = await chrome.tabs.query({ url: "https://photos.google.com/*" })
+function queryGooglePhotosTabs(): Promise<chrome.tabs.Tab[]> {
+  return chrome.tabs.query({ url: "https://photos.google.com/*" })
+}
+
+async function findGooglePhotosTab(
+  tabs?: chrome.tabs.Tab[]
+): Promise<chrome.tabs.Tab | null> {
+  tabs ??= await queryGooglePhotosTabs()
   if (tabs.length === 0) return null
 
   // `lastAccessed` is available in Chrome 121+ but missing from this version
@@ -175,7 +181,8 @@ async function handleHealthCheck(
 ): Promise<void> {
   const senderTabId = await getSenderTabId(sender)
 
-  const gpTab = await findGooglePhotosTab()
+  const gpTabs = await queryGooglePhotosTabs()
+  const gpTab = await findGooglePhotosTab(gpTabs)
   if (!gpTab?.id) {
     if (senderTabId) {
       chrome.tabs.sendMessage(senderTabId, {
@@ -183,6 +190,9 @@ async function handleHealthCheck(
         action: "healthCheck.result",
         success: false,
         hasGptk: false,
+        // With no tab at all the app skips its retries and shows the error
+        // at once. Tabs that exist but did not answer may still be loading.
+        ...(gpTabs.length === 0 ? { reason: "no_tab" } : {}),
       })
     }
     return
