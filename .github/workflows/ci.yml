@@ -46,16 +46,21 @@ jobs:
       # Integration tests require a headed browser; use Xvfb on Linux.
       # Cache the browser binaries so we only hit the CDN when the Playwright
       # version changes — keyed on the resolved @playwright/test version.
+      # The key also includes the runner image (ImageOS, e.g. ubuntu24). runner.os
+      # is only "Linux", so without it a move of ubuntu-latest to a new Ubuntu
+      # would restore browsers downloaded on the old image.
       - name: Resolve Playwright version
         id: pw-version
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.image }}-${{ steps.pw-version.outputs.version }}
 
       # System deps (apt) must be installed on every run; they aren't cached.
       - name: Install Playwright system deps
